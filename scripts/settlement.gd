@@ -82,6 +82,8 @@ var hearth_light: OmniLight3D
 var hearth_flame: MeshInstance3D
 var sunlight: DirectionalLight3D
 var water_material: ShaderMaterial
+var riverbank_material: StandardMaterial3D
+var rivershore_material: StandardMaterial3D
 var frame_count := 0
 const ForestTree = preload("res://scripts/forest_tree.gd")
 var land_mesh: MeshInstance3D
@@ -283,15 +285,39 @@ func make_river() -> void:
     var water := ShaderMaterial.new()
     water.shader = load("res://scripts/water.gdshader")
     water_material = water
+    if riverbank_material == null:
+        riverbank_material = StandardMaterial3D.new()
+        riverbank_material.albedo_color = Color("82795a")
+        riverbank_material.roughness = 0.98
+    if rivershore_material == null:
+        rivershore_material = StandardMaterial3D.new()
+        rivershore_material.albedo_color = Color("9b9877")
+        rivershore_material.roughness = 0.88
+    var bank_vertices := PackedVector3Array()
+    var shore_vertices := PackedVector3Array()
     var vertices := PackedVector3Array()
     for z in range(-96, 96):
         var x1 := 10.0 + sin((z + region_origin.y) * 0.095) * 3.0 - region_origin.x
         var x2 := 10.0 + sin((z + 1 + region_origin.y) * 0.095) * 3.0 - region_origin.x
+        # Broad, softly sloped banks frame the water and blend it into the meadow.
+        for side in [-1.0, 1.0]:
+            var inner_a := Vector3(x1 + side * 2.35, -0.115, z)
+            var outer_a := Vector3(x1 + side * 4.25, -0.025, z)
+            var inner_b := Vector3(x2 + side * 2.35, -0.115, z + 1)
+            var outer_b := Vector3(x2 + side * 4.25, -0.025, z + 1)
+            bank_vertices.append_array([inner_a, outer_a, inner_b, outer_a, outer_b, inner_b])
+            var shore_a := Vector3(x1 + side * 4.2, -0.023, z)
+            var meadow_a := Vector3(x1 + side * 5.1, 0.005, z)
+            var shore_b := Vector3(x2 + side * 4.2, -0.023, z + 1)
+            var meadow_b := Vector3(x2 + side * 5.1, 0.005, z + 1)
+            shore_vertices.append_array([shore_a, meadow_a, shore_b, meadow_a, meadow_b, shore_b])
         var a := Vector3(x1 - 2.45, -0.18, z)
         var b := Vector3(x1 + 2.45, -0.18, z)
         var c := Vector3(x2 - 2.45, -0.18, z + 1)
         var d := Vector3(x2 + 2.45, -0.18, z + 1)
         vertices.append_array([a, b, c, b, d, c])
+    mesh_from_triangles(bank_vertices, riverbank_material, land_mesh.get_parent() if is_instance_valid(land_mesh) else self)
+    mesh_from_triangles(shore_vertices, rivershore_material, land_mesh.get_parent() if is_instance_valid(land_mesh) else self)
     mesh_from_triangles(vertices, water)
 
 func box(parent: Node3D, location: Vector3, size_value: Vector3, material: Material) -> MeshInstance3D:
@@ -1095,6 +1121,10 @@ func make_ui() -> void:
     var build_tabs := TabContainer.new()
     build_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     build_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    # The inner category tabs sit inside the Build page's vertical ScrollContainer.
+    # Give them a real minimum height so their tab bodies don't collapse to zero
+    # when the outer VBox computes its content size.
+    build_tabs.custom_minimum_size = Vector2(0, 220)
     build_page.add_child(build_tabs)
     var groups := {
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},

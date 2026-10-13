@@ -1,3 +1,12 @@
+Build options visibility
+Fixed a nested tab layout issue that hid building options in the Build panel, even when construction was unlocked. Existing saves need no migration.
+
+River and tree visuals
+Improved procedural tree crowns and added more visible river banks, shoreline shallows, and animated highlights.
+
+Startup crash fix
+Fixed three GDScript type-inference errors that prevented the settlement scene from loading in the 0.2.11 content pack. Existing 0.2.11 users receive the fix through the automatic content update on relaunch.
+
 Build availability guidance
 The Build tab explains the initial research needed to unlock construction and how to place buildings once available.
 

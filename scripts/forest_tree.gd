@@ -34,8 +34,8 @@ static func prepare_models() -> void:
     var leaf_mesh := SphereMesh.new()
     leaf_mesh.radius = 1
     leaf_mesh.height = 2
-    leaf_mesh.radial_segments = 10
-    leaf_mesh.rings = 5
+    leaf_mesh.radial_segments = 16
+    leaf_mesh.rings = 9
     for variant in range(8):
         var random := RandomNumberGenerator.new()
         random.seed = 9017 + variant * 137
@@ -49,20 +49,22 @@ static func prepare_models() -> void:
         for i in range(5):
             var angle := i * TAU / 5.0
             branch(timber, Vector3(cos(angle) * 0.55, 0.01, sin(angle) * 0.55), Vector3(0, 0.65, 0), 0.055, 0.14)
-        for i in range(7):
-            var angle := i * TAU / 7.0 + random.randf_range(-0.25, 0.25)
-            var reach := random.randf_range(0.85, 1.55)
-            var elbow := fork + Vector3(cos(angle) * reach * 0.55, random.randf_range(0.35, 0.85), sin(angle) * reach * 0.55)
-            var tip := Vector3(cos(angle) * reach, random.randf_range(3.0, 3.7), sin(angle) * reach)
+        for i in range(9):
+            var angle := i * TAU / 9.0 + random.randf_range(-0.25, 0.25)
+            var reach := random.randf_range(0.9, 1.8)
+            var elbow := fork + Vector3(cos(angle) * reach * 0.52, random.randf_range(0.35, 0.95), sin(angle) * reach * 0.52)
+            var tip := Vector3(cos(angle) * reach, random.randf_range(2.85, 3.75), sin(angle) * reach)
             branch(timber, fork - Vector3(0, random.randf_range(0, 0.55), 0), elbow, 0.11, 0.065)
             branch(timber, elbow, tip, 0.065, 0.025)
             var scale_value := Vector3(random.randf_range(0.8, 1.15), random.randf_range(0.7, 1.05), random.randf_range(0.8, 1.15))
-            var basis := Basis.from_euler(Vector3(random.randf_range(-0.3, 0.3), angle, random.randf_range(-0.3, 0.3))).scaled(scale_value)
+            var basis := Basis.from_euler(Vector3(random.randf_range(-0.3, 0.3), angle, random.randf_range(-0.3, 0.3))).scaled(scale_value * Vector3(0.76, 0.72, 0.76))
+            # Three overlapping leaf clusters per branch create an irregular, layered crown.
             crown.append_from(leaf_mesh, 0, Transform3D(basis, tip))
-            # Smaller outer lobes break up the smooth canopy outline.
-            var outer := tip + Vector3(cos(angle) * 0.55, -0.25, sin(angle) * 0.55)
-            crown.append_from(leaf_mesh, 0, Transform3D(Basis.IDENTITY.scaled(scale_value * 0.65), outer))
-        crown.append_from(leaf_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(1.15, 1.0, 1.1)), Vector3(0, 3.75, 0)))
+            var outer := tip + Vector3(cos(angle) * 0.62, random.randf_range(-0.3, 0.12), sin(angle) * 0.62)
+            crown.append_from(leaf_mesh, 0, Transform3D(Basis.from_euler(Vector3(0.15, angle + 0.6, -0.12)).scaled(scale_value * 0.58), outer))
+            var inner := fork.lerp(tip, 0.62) + Vector3(cos(angle + 0.8) * 0.38, 0.15, sin(angle + 0.8) * 0.38)
+            crown.append_from(leaf_mesh, 0, Transform3D(Basis.from_euler(Vector3(-0.12, angle, 0.1)).scaled(scale_value * 0.52), inner))
+        crown.append_from(leaf_mesh, 0, Transform3D(Basis.IDENTITY.scaled(Vector3(0.92, 0.82, 0.92)), Vector3(0, 3.5, 0)))
         models.append([timber.commit(), crown.commit()])
 
 func setup(location: Vector3, size_value: float, seed_value: int) -> void:

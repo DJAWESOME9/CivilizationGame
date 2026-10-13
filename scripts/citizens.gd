@@ -195,7 +195,7 @@ func target_for(p: Dictionary) -> Vector2:
                     return Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5)) + spread + Vector2(1.5, 1.5)
             return Vector2(-5, -3) + spread
         "Scouting":
-            var mission := world.sim.scout_mission_for_unit(int(world.sim.people[index].id))
+            var mission: Dictionary = world.sim.scout_mission_for_unit(int(world.sim.people[index].id))
             return world.sim.mission_position(mission) + Vector2((index % 3 - 1) * 0.45, 0.3)
         "Fishing":
             var z := -5.0 + (index % 6) * 1.7
@@ -281,7 +281,7 @@ func update_people(_delta: float) -> void:
             working = false
         elif p.job == "Scouting":
             point = target
-            var mission := world.sim.scout_mission_for_unit(int(world.sim.people[p.index].id))
+            var mission: Dictionary = world.sim.scout_mission_for_unit(int(world.sim.people[p.index].id))
             var direction: Vector2 = world.sim.mission_direction(mission)
             walking = not direction.is_zero_approx() and (world.running or (is_instance_valid(world.session) and world.session.active))
             working = false

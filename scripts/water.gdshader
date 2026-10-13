@@ -2,16 +2,31 @@ shader_type spatial;
 render_mode cull_disabled;
 varying vec3 world_pos;
 uniform int season = 0;
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
 void vertex() {
     world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     VERTEX.y += sin(world_pos.z * 1.9 + TIME * 0.75) * (season == 3 ? 0.004 : 0.025);
 }
 void fragment() {
-    float ripple = sin(world_pos.z * 6.0 + sin(world_pos.x * 1.7) * 1.3 + TIME * 1.4);
-    float crosswave = sin(world_pos.x * 12.0 - TIME * 0.7 + sin(world_pos.z * 0.8) * 2.0);
-    ALBEDO = mix(vec3(0.08, 0.20, 0.20), vec3(0.17, 0.32, 0.30), ripple * 0.035 + crosswave * 0.018 + 0.4);
-    if (season == 3) ALBEDO = mix(ALBEDO, vec3(0.57, 0.70, 0.74), 0.72);
-    ROUGHNESS = season == 3 ? 0.7 : 0.4;
-    METALLIC = 0.15;
-    NORMAL_MAP = vec3(0.5 + ripple * 0.008, 0.5 + crosswave * 0.006, 1.0);
+    vec2 p = world_pos.xz;
+    float long_wave = sin(p.y * 1.8 + p.x * 0.6 - TIME * 1.1);
+    float cross_wave = sin(p.x * 8.0 + sin(p.y * 1.1 + TIME * 0.55) * 2.0);
+    float fine_wave = sin((p.x + p.y) * 18.0 - TIME * 1.7);
+    float wave = long_wave * 0.55 + cross_wave * 0.3 + fine_wave * 0.15;
+    float glint = smoothstep(0.82, 0.98, sin(p.x * 13.0 + p.y * 4.0 - TIME * 1.25) * sin(p.y * 9.0 - TIME * 0.8));
+    float fleck = hash21(floor(p * 5.0));
+    vec3 deep = vec3(0.025, 0.13, 0.16);
+    vec3 bright = vec3(0.10, 0.31, 0.32);
+    vec3 color = mix(deep, bright, 0.48 + wave * 0.2 + fleck * 0.1);
+    color = mix(color, vec3(0.55, 0.78, 0.73), glint * 0.32);
+    if (season == 3) color = mix(color, vec3(0.58, 0.72, 0.76), 0.68);
+    ALBEDO = color;
+    ROUGHNESS = season == 3 ? 0.48 : 0.22;
+    METALLIC = 0.08;
+    SPECULAR = 0.72;
+    NORMAL_MAP = vec3(0.5 + wave * 0.055, 0.5 + cross_wave * 0.035, 1.0);
 }

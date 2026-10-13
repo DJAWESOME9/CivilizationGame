@@ -181,7 +181,7 @@ func refresh_scouts() -> void:
     var point: Vector2 = sim.mission_position(mission)
     var age: float = float(mission.get("progress", sim.day - mission.started))
     var travel: float = mission.travel
-    var survey_days := sim.mission_survey_duration(mission)
+    var survey_days: float = sim.mission_survey_duration(mission)
     if float(mission.get("survey_days", 3.0)) < 0.0: survey_days = 3.0
     var stage := "Traveling to destination"
     var next_event := "Arrival"

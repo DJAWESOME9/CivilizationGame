@@ -95,3 +95,22 @@ The Build tab explains the Toolmaking → Shelter Building unlock path and provi
 placement guidance after construction is available. All six release artifacts
 were uploaded; feed signature, PCK hashes and ZIP checksums verified. No gameplay
 or live updater test was run.
+
+
+## Published 0.2.12 / build 14 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.12
+Corrects three GDScript inference errors confirmed in the 0.2.11 startup log,
+which prevented the main settlement scene from loading. All six release assets
+were uploaded; update signature and PCK hashes verified, and GitHub ZIP/PCK
+digests match local package values. No gameplay launch or multiplayer verification
+was performed.
+
+
+## Prepared 0.2.13 / build 15 — 2026-10-13
+
+Includes the Build panel nested-tab layout correction, which gives the inner
+building category tabs enough height to display their options, plus procedural
+tree crown and river bank/shoreline visual improvements. Also includes the
+already-published 0.2.12 startup parsing correction. Pending package and release
+verification.
