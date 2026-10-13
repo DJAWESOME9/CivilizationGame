@@ -321,12 +321,12 @@ func land_report(point: Vector2) -> String:
     elif has_live_sight(point): description = "Currently observed by your expedition"
     for contact in known_civilizations.values():
         if point.distance_to(Vector2(contact.point[0], contact.point[1])) <= 10:
-            description += "\n%s · %d people · observed day %.1f" % [contact.name, contact.population, contact.last_seen]
+            description += "\n%s · %d people · seen %.1f days ago" % [contact.name, contact.population, maxf(0.0, day - float(contact.last_seen))]
     for report in known_armies.values():
         if point.distance_to(Vector2(report.point[0], report.point[1])) <= 7:
             if report.get("intel_scouted", false):
                 description += "\n%s: %d %s · scouted day %.1f" % [report.commander, report.count, report.unit, report.last_scouted]
-            else: description += "\nEnemy army · troops unknown · observed day %.1f" % report.last_seen
+            else: description += "\nEnemy army · troops unknown · seen %.1f days ago" % maxf(0.0, day - float(report.last_seen))
     for landmark in LANDMARKS:
         var location := Vector2(landmark.point[0], landmark.point[1])
         if location.distance_to(point) < 9 and landmark.name in discoveries: description += "\n" + landmark.name

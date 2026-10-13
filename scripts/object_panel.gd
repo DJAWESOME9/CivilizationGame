@@ -235,7 +235,7 @@ func refresh_army() -> void:
         return
     var point := Vector2(report.point[0], report.point[1])
     var live: bool = sim.has_live_sight(point)
-    status.text = "Currently in sight" if live else "Last seen · day %.1f" % report.last_seen
+    status.text = "Currently in sight" if live else "Seen %.1f days ago" % maxf(0.0, sim.day - float(report.last_seen))
     details.text = "Civilization · %s\nObserved position · (%.0f, %.0f)\n%s" % [report.get("attacker", "Unknown"), point.x, point.y, "Activity · " + str(report.phase) if live else "Position and activity may have changed."]
     if report.get("intel_scouted", false):
         details.text += "\n\nScout report · day %.1f\nTroops · %d %s\nFormation · %s\nCommander · %s\nThese details describe the last scout observation." % [report.last_scouted, report.count, report.unit, report.formation, report.commander]

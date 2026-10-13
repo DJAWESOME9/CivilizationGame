@@ -65,7 +65,7 @@ func refresh_settlements() -> void:
             root.add_child(marker)
             settlements[key] = {"node": root, "label": caption(marker), "signature": signature}
         var live: bool = world.sim.has_live_sight(point)
-        settlements[key].label.text = "%s\n%d people · %s" % [info.name, info.population, "in sight" if live else "last seen day %.1f" % info.last_seen]
+        settlements[key].label.text = "%s\n%d people · %s" % [info.name, info.population, "in sight" if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen))]
         settlements[key].label.modulate = Color("dfd6ba") if live else Color("8d9a8b")
 
 func refresh_forces() -> void:
@@ -107,7 +107,7 @@ func refresh_forces() -> void:
         var live: bool = info.own or world.sim.has_live_sight(at)
         var name_text: String = "%s · %d %s" % [info.commander, info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
         if not info.own and info.get("intel_scouted", false): name_text += " · scouted day %.1f" % info.last_scouted
-        forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "last seen day %.1f" % info.last_seen)
+        forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen)))
         forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
         forces[key].info = info
         forces[key].live = live
