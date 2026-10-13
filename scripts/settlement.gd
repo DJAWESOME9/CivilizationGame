@@ -614,7 +614,7 @@ func inspectable(node: Node3D, info: Dictionary) -> void:
     node.add_to_group("inspectable")
 
 func mesh_hit_distance(node: Node3D, origin: Vector3, direction: Vector3) -> float:
-    if not node.is_visible_in_tree(): return INF
+    if not node.is_visible_in_tree() or node.get_meta("resource_depleted", false): return INF
     var nearest := INF
     if node is MeshInstance3D and node.mesh != null:
         var inverse := node.global_transform.affine_inverse()
@@ -632,7 +632,7 @@ func pick_object(screen: Vector2) -> Dictionary:
     var nearest := INF
     var result: Dictionary = {}
     for node in get_tree().get_nodes_in_group("inspectable"):
-        if not is_ancestor_of(node) or node.is_queued_for_deletion(): continue
+        if not node.is_inside_tree() or node.is_queued_for_deletion(): continue
         var distance := mesh_hit_distance(node, origin, direction)
         if distance < nearest:
             nearest = distance
@@ -700,7 +700,7 @@ func _input(event: InputEvent) -> void:
             dragging = false
             left_down = false
             drag_button = 0
-            if click and not pointer_over_panel() and not research_screen.visible and not population_screen.visible and not happiness_panel.visible and not resource_panel.visible:
+            if click and not pointer_over_panel(event.position) and not research_screen.visible and not population_screen.visible and not happiness_panel.visible and not resource_panel.visible:
                 if not build_choice.is_empty(): place_building(event.position)
                 else:
                     var object := {} if choosing_scout_destination else pick_object(event.position)
@@ -741,7 +741,7 @@ func _input(event: InputEvent) -> void:
             update_camera()
         get_viewport().set_input_as_handled()
         return
-    if pointer_over_panel() and (event is InputEventPanGesture or event is InputEventMagnifyGesture or event is InputEventMouseButton): return
+    if pointer_over_panel(get_viewport().get_mouse_position()) and (event is InputEventPanGesture or event is InputEventMagnifyGesture or event is InputEventMouseButton): return
     if event is InputEventPanGesture:
         zoom_by(event.delta.y * 0.045)
         get_viewport().set_input_as_handled()
@@ -840,8 +840,7 @@ func label(text_value: String, font_size: int, color: Color) -> Label:
     item.mouse_filter = Control.MOUSE_FILTER_IGNORE
     return item
 
-func pointer_over_panel() -> bool:
-    var point := get_viewport().get_mouse_position()
+func pointer_over_panel(point: Vector2) -> bool:
     for panel in ui_panels:
         if panel.is_visible_in_tree() and panel.get_global_rect().has_point(point): return true
     return false
@@ -1204,7 +1203,9 @@ func make_ui() -> void:
     speed.add_item("World clock")
     speed.add_item("Playtest: 1 day / second")
     speed.add_item("Playtest: 5 days / second")
-    speed.item_selected.connect(func(index): play_speed = [0.0, 1.0, 5.0][index])
+    speed.add_item("Playtest: 1 day / 10 seconds")
+    speed.add_item("Playtest: 1 day / 30 seconds")
+    speed.item_selected.connect(func(index): play_speed = [0.0, 1.0, 5.0, 1.0 / 10.0, 1.0 / 30.0][index])
     controls.add_child(speed)
     solo_time_controls.append(speed)
     var clock := OptionButton.new()

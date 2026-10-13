@@ -3,6 +3,14 @@ Food production rate
 The top bar now shows +X/day beneath Food, using gross production before
 consumption and spoilage, matching the daily rates shown for Wood and Stone.
 
+Object inspection click fix
+Fixed map clicks failing to open details for some objects, including armies and
+other inspectables outside the settlement scene branch. Depleted resource meshes
+no longer intercept clicks, and panel overlap uses the click's actual position.
+
+Playtest speeds
+Added solo playtest options for one game day per 10 seconds and per 30 seconds.
+
 People tab population counts
 The People tab now shows how many children, adults and elders are in the settlement.
 
