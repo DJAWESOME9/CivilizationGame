@@ -70,3 +70,12 @@ Adds vertical scrolling to all Command tab contents and nested building categori
 with tab headers remaining visible. Includes the Command tab selection fix and
 queued multiplayer update restart. Six assets were uploaded after RSA signature,
 pack metadata and ZIP checksum verification. No gameplay or live updater tests run.
+
+
+## Published 0.2.8 / build 10 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.8
+The People tab shows live counts for children (under 16), adults (16–64) and
+elders (65+). Includes the scrollable Command panels and prior tab selection fix.
+All six artifacts uploaded after signature, pack metadata and ZIP checksum checks.
+No gameplay or runtime UI tests run.
