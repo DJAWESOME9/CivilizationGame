@@ -1027,11 +1027,12 @@ func make_top_bar(layer: CanvasLayer) -> void:
         var amount := label("", 21, Color("eee1bf"))
         column.add_child(amount)
         resource_labels[resource] = amount
+        var rate := label("", 11, Color("b6cf9a"))
+        rate.tooltip_text = "Produced per game day during the latest simulation interval, before consumption and spoilage."
         if resource in ["wood", "stone"]:
-            var rate := label("", 11, Color("b6cf9a"))
             rate.tooltip_text = "Collected per game day during the latest simulation interval, after storage limits. Building and equipment costs are separate."
-            column.add_child(rate)
-            resource_rate_labels[resource] = rate
+        column.add_child(rate)
+        resource_rate_labels[resource] = rate
 
     row.add_child(VSeparator.new())
     var storage := resource_indicator(row, "storage", 110)
@@ -1311,7 +1312,8 @@ func refresh_game() -> void:
     happiness_button.add_theme_color_override("font_color", Color("d99580") if sim.happiness < 40 else Color("dec58f") if sim.happiness < 60 else Color("b6cf9a"))
     for resource in resource_labels: resource_labels[resource].text = "%.1f" % sim.resources[resource]
     for resource in resource_rate_labels:
-        resource_rate_labels[resource].text = "+%.2f / day" % float(sim.material_production.get(resource, 0.0))
+        var rate: float = float(sim.food_ledger.production) if resource == "food" else float(sim.material_production.get(resource, 0.0))
+        resource_rate_labels[resource].text = "+%.2f / day" % rate
     top_storage.text = "%.0f / %.0f" % [sim.resources.food + sim.resources.wood + sim.resources.stone, sim.capacity()]
     if is_instance_valid(resource_panel) and resource_panel.visible: resource_panel.refresh()
     if is_instance_valid(object_panel) and object_panel.visible: object_panel.refresh()

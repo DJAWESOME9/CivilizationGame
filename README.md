@@ -216,8 +216,9 @@ Starting tents provide shelter but not permanent beds; houses include bedding.
 At normal rations each adult consumes 1 food per 90-day season; children consume
 half. Half rations consume 50% as much, with −15 happiness; generous rations use
 125%, with +5 happiness. Food spoils too. Production can exceed consumption, so a
-rising stockpile does not mean food use has stopped. The HUD shows daily food use
-and recent production; the happiness panel separates actual production, consumption,
+rising stockpile does not mean food use has stopped. The top bar shows +food/day
+under Food for gross production before consumption and spoilage, alongside daily
+Wood and Stone rates. The happiness panel separates actual production, consumption,
 spoilage and overflow from the latest simulation interval. Harvests cause spikes.
 Pause stops live game time, while elapsed offline work follows the world clock.
 

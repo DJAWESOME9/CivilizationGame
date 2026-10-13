@@ -1,4 +1,8 @@
 
+Food production rate
+The top bar now shows +X/day beneath Food, using gross production before
+consumption and spoilage, matching the daily rates shown for Wood and Stone.
+
 People tab population counts
 The People tab now shows how many children, adults and elders are in the settlement.
 
