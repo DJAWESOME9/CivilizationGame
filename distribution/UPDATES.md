@@ -79,3 +79,11 @@ The People tab shows live counts for children (under 16), adults (16–64) and
 elders (65+). Includes the scrollable Command panels and prior tab selection fix.
 All six artifacts uploaded after signature, pack metadata and ZIP checksum checks.
 No gameplay or runtime UI tests run.
+
+
+## Published 0.2.9 / build 11 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.9
+The top bar now shows +food/day beneath Food, using gross production before
+consumption and spoilage. All six build 11 artifacts uploaded after RSA signature,
+pack metadata and ZIP checksum verification. No gameplay or UI runtime tests run.

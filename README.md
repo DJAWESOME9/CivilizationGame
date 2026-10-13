@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.8 / build 10**, including child, adult and elder counts in the People tab. Download the ZIP for your computer from
+The latest public release is **0.2.9 / build 11**, including a daily Food production rate in the top bar. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.8 / build 10** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.8).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.8/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.8/Civilization-Windows.zip).
+Version **0.2.9 / build 11** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.9).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.9/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.9/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -129,7 +129,7 @@ asks before replacing your local progress.
 
 1. Open the technology tree. Toolmaking opens paths to fishing, woodcutting,
    stoneworking, and shelter building. Other foundations include basketry and planting.
-2. Choose **Playtest: 1 day / second**, then **Resume**, or advance a season.
+2. Choose a playtest speed (from **1 day / second** down to **1 day / 30 seconds**), then **Resume**, or advance a season.
 3. Learn Shelter Building to unlock construction and houses. Learn Storage for
    storehouses. Select an unlocked building, then click a clear hex in the starting
    zone. Materials are reserved upfront; builders complete it over time.
@@ -313,7 +313,7 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.8 / build 10; see the release notes for its changes.
+fast-forward. The current published version is 0.2.9 / build 11; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -560,7 +560,7 @@ while resuming an existing save. Only human owners vote to advance time. The AI
 and save/resume flows have been checked with automated local hosting tests; remote
 multiplayer remains subject to the prototype limits above.
 
-## Release 0.2.8 / build 10
+## Release 0.2.9 / build 11
 
-Published as Latest with child, adult and elder counts in the People tab. It also
-includes scrollable Command panels, the tab selection fix and queued update restart. See [release notes](distribution/RELEASE-NOTES.txt).
+Published as Latest with a daily Food production rate beneath the Food stock in
+the top bar. The rate shows gross production before consumption and spoilage. See [release notes](distribution/RELEASE-NOTES.txt).
