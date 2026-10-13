@@ -1,0 +1,3 @@
+Built-in imagegen tool; generated October 7, 2026.
+
+Use case: stylized-concept. Asset type: seamless ground albedo texture for an ancient civilization 3D strategy-game landscape. Generate one square, seamlessly tileable texture of fine meadow grass mixed with subtle warm soil and tiny dry grass fragments, viewed orthographically straight from above. Painterly realistic strategy-game material, rich fine organic texture, muted olive/sage greens and warm earth flecks, coherent natural scale, soft even ambient lighting. No perspective, no cast shadows, no objects, no trees, no rocks, no buildings, no text, no border, no isolated color blocks. Avoid obvious repeated patterns or dramatic light patches. This is an actual surface texture, not a landscape illustration.

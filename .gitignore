@@ -1,0 +1,10 @@
+.godot/
+.tools/
+*.log
+captures/
+dist/
+
+# Local generated output and operating-system metadata
+.DS_Store
+outputs/
+__pycache__/

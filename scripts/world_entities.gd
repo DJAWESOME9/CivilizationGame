@@ -1,0 +1,153 @@
+extends Node3D
+
+const Warfare = preload("res://scripts/warfare.gd")
+var world: Node3D
+var settlements: Dictionary = {}
+var forces: Dictionary = {}
+var timer := 0.0
+var campaign_math = Warfare.new()
+var animation_clock := 0.0
+
+func setup(scene: Node3D) -> void:
+    world = scene
+
+func invalidate() -> void:
+    for child in get_children():
+        remove_child(child)
+        child.queue_free()
+    settlements.clear()
+    forces.clear()
+
+func caption(parent: Node3D) -> Label3D:
+    var label := Label3D.new()
+    label.position.y = 3.4
+    label.font_size = 28
+    label.outline_size = 6
+    label.pixel_size = 0.025
+    label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    label.no_depth_test = false
+    parent.add_child(label)
+    return label
+
+func refresh_settlements() -> void:
+    for key in settlements.keys():
+        if not world.sim.known_civilizations.has(key):
+            settlements[key].node.queue_free()
+            settlements.erase(key)
+    for key in world.sim.known_civilizations:
+        var info: Dictionary = world.sim.known_civilizations[key]
+        var point := Vector2(info.point[0], info.point[1])
+        var building_shapes: Array = []
+        for building in info.buildings: building_shapes.append([building.kind, building.q, building.r, building.progress >= 1])
+        var signature := str([info.point, building_shapes])
+        if not settlements.has(key) or settlements[key].signature != signature:
+            if settlements.has(key): settlements[key].node.queue_free()
+            var root := Node3D.new()
+            add_child(root)
+            world.tent(point.x + 2, point.y + 5, -0.3)
+            world.get_child(world.get_child_count() - 1).reparent(root)
+            world.tent(point.x - 7, point.y + 5.7, 0.2)
+            world.get_child(world.get_child_count() - 1).reparent(root)
+            for building in info.buildings:
+                var location := point + Vector2(4 + 3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
+                if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks"]:
+                    var home: Node3D = world.house(location.x, location.y, 0.15, 0.85)
+                    home.reparent(root)
+                elif building.progress >= 1 and building.kind == "Wall":
+                    var wall := Node3D.new()
+                    root.add_child(wall)
+                    wall.position = world.pos(location.x, location.y, 0.04)
+                    world.stone_wall(wall)
+                else:
+                    world.box(root, world.pos(location.x, location.y, 0.15), Vector3(2.3, 0.3 if building.progress < 1 else 0.1, 2.3), world.mats.soil)
+            var marker := Node3D.new()
+            marker.position = world.pos(point.x, point.y)
+            root.add_child(marker)
+            settlements[key] = {"node": root, "label": caption(marker), "signature": signature}
+        var live: bool = world.sim.has_live_sight(point)
+        settlements[key].label.text = "%s\n%d people · %s" % [info.name, info.population, "in sight" if live else "last seen day %.1f" % info.last_seen]
+        settlements[key].label.modulate = Color("dfd6ba") if live else Color("8d9a8b")
+
+func refresh_forces() -> void:
+    var visible: Dictionary = {}
+    var origin := Vector2(world.sim.world_origin[0], world.sim.world_origin[1])
+    for report in world.sim.known_armies.values(): visible[str(int(report.id))] = report.duplicate(true)
+    for campaign in world.session.visible_campaigns:
+        var info: Dictionary = campaign.duplicate(true)
+        var point: Vector2 = campaign_math.campaign_point(info) - origin if info.own else Vector2(info.point[0], info.point[1])
+        info.point = [point.x, point.y]
+        info.last_seen = world.sim.day
+        visible[str(int(info.id))] = info
+    for key in forces.keys():
+        if not visible.has(key):
+            forces[key].node.queue_free()
+            forces.erase(key)
+    for key in visible:
+        var info: Dictionary = visible[key]
+        var signature := str([info.unit, info.count])
+        if not forces.has(key) or forces[key].signature != signature:
+            if forces.has(key): forces[key].node.queue_free()
+            var root := Node3D.new()
+            add_child(root)
+            var figures: Array = []
+            for i in range(mini(12, int(info.count))):
+                var figure: Dictionary = world.citizens.make_person(i)
+                figure.node.reparent(root)
+                figure.job = info.unit
+                world.citizens.equip(figure)
+                figure.tool.show()
+                figure.node.position = formation_position(i, mini(12, int(info.count)), info.get("formation", "Line"))
+                figures.append(figure)
+            world.beam(root, Vector3(0, 0, 0), Vector3(0, 2.8, 0), 0.035, world.mats.wood)
+            world.box(root, Vector3(0.3, 2.5, 0), Vector3(0.6, 0.35, 0.035), world.mats.cloth)
+            world.inspectable(root, {"kind": "Army", "own": info.own, "campaign": int(info.id), "army": int(info.get("army", -1))})
+            root.position = world.pos(info.point[0], info.point[1], 0.04)
+            forces[key] = {"node": root, "figures": figures, "label": caption(root), "signature": signature, "info": info, "live": false, "heading": 0.0}
+        var at := Vector2(info.point[0], info.point[1])
+        var live: bool = info.own or world.sim.has_live_sight(at)
+        var name_text: String = "%s · %d %s" % [info.commander, info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
+        if not info.own and info.get("intel_scouted", false): name_text += " · scouted day %.1f" % info.last_scouted
+        forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "last seen day %.1f" % info.last_seen)
+        forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
+        forces[key].info = info
+        forces[key].live = live
+        if not live: forces[key].node.position = world.pos(at.x, at.y, 0.04)
+        if live and not info.own: forces[key].heading = float(info.get("heading", 0.0))
+        if live and info.own:
+            var route: Vector2 = Warfare.SITES[int(info.to_slot)] - Warfare.SITES[int(info.from_slot)]
+            if info.phase == "Returning": route = -route
+            forces[key].heading = atan2(route.x, route.y)
+
+func formation_position(index: int, count: int, formation: String) -> Vector3:
+    var columns := mini(4, count)
+    var spacing := 0.95 if formation == "Loose" else 0.6 if formation == "Shield wall" else 0.75
+    var rows := ceili(float(count) / columns)
+    var row := int(index / columns)
+    var row_count := mini(columns, count - row * columns)
+    return Vector3((index % columns - (row_count - 1) * 0.5) * spacing, 0, (row - (rows - 1) * 0.5) * spacing)
+
+func animate_forces(delta: float) -> void:
+    var blend := 1.0 - exp(-delta * 9.0)
+    for force in forces.values():
+        var info: Dictionary = force.info
+        if not force.live: continue
+        var target: Vector3 = world.pos(info.point[0], info.point[1], 0.04)
+        force.node.position = force.node.position.lerp(target, blend)
+        force.node.rotation.y = lerp_angle(force.node.rotation.y, force.heading, blend)
+        for figure in force.figures:
+            var offset := formation_position(figure.index, force.figures.size(), info.get("formation", "Line"))
+            figure.node.position = figure.node.position.lerp(offset, blend)
+            var actual: Vector3 = force.node.to_global(figure.node.position)
+            figure.node.position.y = world.surface_height(actual.x, actual.z) + 0.04 - force.node.position.y
+            var mode := "Marching" if info.phase in ["Marching", "Returning", "Moving"] else "Fighting" if info.phase == "Fighting" else "Idle"
+            world.citizens.animate_soldier(figure, mode, animation_clock, delta)
+
+func _process(delta: float) -> void:
+    if not is_instance_valid(world): return
+    if world.running: animation_clock += delta
+    timer += delta
+    if timer >= 0.25:
+        timer = 0
+        refresh_settlements()
+        refresh_forces()
+    animate_forces(delta)

@@ -1,0 +1,59 @@
+Civilization: First Settlement — version 0.2.1 / build 3
+
+You do not need to install Godot.
+
+MAC
+Unzip Civilization-Mac.zip. Move Civilization.app to Applications and open it.
+Supports Intel and Apple Silicon Macs. This private prototype is ad-hoc signed
+but not Apple-notarized. If macOS blocks it, after trying to open it, use
+System Settings > Privacy & Security > Open Anyway for this app. Only do this
+for the copy you received from your host and trust.
+
+WINDOWS
+Right-click Civilization-Windows.zip > Extract All. Open Civilization.exe
+from the extracted folder, not from inside the ZIP.
+This build targets 64-bit Intel/AMD Windows computers. It is not publisher-signed;
+Windows may display an unknown-publisher warning. Only proceed for the copy you
+received from your host and trust. Work/school policies may prevent running it.
+
+GAME UPDATES
+This version checks for and downloads game updates automatically at startup.
+When an update is ready, reopen the game to apply it, or use Settings >
+Game updates > Restart and update. Leave multiplayer before restarting.
+Settings also lets you disable automatic downloads or check manually.
+If you previously received version 0.1.0, replace the old app once with this
+version. Your local saves and player identity remain outside the app.
+Future changes must be published as a new release by the game's host/developer.
+New engine/bootstrap versions may still require downloading a new app.
+
+JOIN YOUR FRIEND
+1. Ask the host for their Civilization invitation text.
+2. Open Multiplayer in the top bar.
+3. Enter your civilization name, click Paste, then Join world.
+4. Keep using the same computer/profile to return to your civilization.
+
+HOST A WORLD
+1. Open Multiplayer. Leave AI opponents at zero to play only with people.
+2. Host world resumes your saved world. Uncheck Resume for a fresh world;
+   replacing an existing multiplayer save asks for confirmation.
+3. Once your civilization opens, reopen Multiplayer > World.
+4. Scroll to Invite friends to this world and click Copy invitation.
+5. Send the invitation text to friends along with the ZIP for their computer.
+6. Keep your game running while friends play. Up to eight civilizations can join.
+
+CONNECTIONS
+On the same network, use the host's local IP address in the invitation.
+Over the Internet, the host needs a reachable public IP or hostname and a UDP
+port forwarded to their computer (default 24567). Edit Reachable host address
+before copying the invitation. Private LAN addresses do not work across the
+Internet. Some Internet providers prevent inbound connections.
+Allow the game network access when the operating system asks. Invitations do
+not create a relay or bypass router restrictions. They are pasted into the
+game, not opened in a browser. They are not passwords or access restrictions.
+
+Use the same game build on every computer. A new world needs a new invitation.
+Player identities and saves are stored on each computer, outside this ZIP.
+Never send your multiplayer_identity.cfg to someone else.
+
+These are prototype packages. Multiplayer and Windows gameplay have not been
+tested between computers. Packaging success does not establish gameplay quality.
