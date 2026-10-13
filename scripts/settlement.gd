@@ -35,6 +35,7 @@ var project_label: Label
 var worker_label: Label
 var emergency_food_toggle: CheckBox
 var job_controls: Dictionary = {}
+var population_age_labels: Dictionary = {}
 var ui_panels: Array[Control] = []
 var feedback: Label
 var play_button: Button
@@ -1124,6 +1125,19 @@ func make_ui() -> void:
 
     game_button(people_page, "Population & workforce priorities", func(): population_screen.show())
     people_page.add_child(HSeparator.new())
+    people_page.add_child(label("Population by age", 16, Color("f0e6ce")))
+    var age_counts := HBoxContainer.new()
+    age_counts.add_theme_constant_override("separation", 8)
+    people_page.add_child(age_counts)
+    for group in ["Children", "Adults", "Elders"]:
+        var stat := VBoxContainer.new()
+        stat.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        age_counts.add_child(stat)
+        stat.add_child(label(group, 12, Color("9fae99")))
+        var count := label("0", 20, Color("e5d6b8"))
+        stat.add_child(count)
+        population_age_labels[group] = count
+    people_page.add_child(HSeparator.new())
     people_page.add_child(label("Worker assignments", 16, Color("f0e6ce")))
     for job in sim.JOBS:
         var row := HBoxContainer.new()
@@ -1310,6 +1324,9 @@ func refresh_game() -> void:
     status_label.text = "%s · Year %d · Day %d\n%s" % [season, int(sim.day / 360) + 1, int(sim.day) % 90 + 1, " · ".join(sim.conditions)]
     stock_label.text = "Food use: %.2f / day · Production: %.2f / day\nHousing %d / %d" % [sim.food_need(), sim.food_ledger.production, sim.population, sim.housing()]
     worker_label.text = "%d settlers · %d adults · %d assigned" % [sim.population, sim.adults(), sim.workers_used()]
+    population_age_labels["Children"].text = str(sim.children())
+    population_age_labels["Adults"].text = str(sim.adults())
+    population_age_labels["Elders"].text = str(sim.elders())
     emergency_food_toggle.set_pressed_no_signal(sim.emergency_food)
     var effective_work: Dictionary = sim.effective_assignments()
     var diverted: int = int(sim.assignments.Construction) - int(effective_work.Construction) + int(sim.assignments.Quarrying) - int(effective_work.Quarrying)

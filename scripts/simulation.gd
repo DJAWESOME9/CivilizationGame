@@ -369,6 +369,12 @@ func children() -> int:
         if person.age < 16: count += 1
     return count
 
+func elders() -> int:
+    var count := 0
+    for person in people:
+        if person.age >= ELDER_DEATH_AGE_MIN: count += 1
+    return count
+
 func food_need() -> float:
     var deployed := 0
     for army in armies:

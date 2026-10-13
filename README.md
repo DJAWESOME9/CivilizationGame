@@ -295,7 +295,7 @@ indicators visible. Full-screen management views retain their own headings.
 The main map's collapsible Command panel groups actions into Overview, Build,
 People, Explore, and Military tabs. Overview shows settlement status and the
 first-steps guide. Build contains Housing, Resources, Services, and Military
-building categories. People contains worker assignments and a shortcut to
+building categories. People shows child, adult and elder counts, worker assignments, and a shortcut to
 population priorities. Explore contains scouting controls. Military opens army
 management. Time and event controls remain in their own panel. Scouting is
 available from Explore from the start and appears as learned in the technology

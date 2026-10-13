@@ -1,4 +1,7 @@
 
+People tab population counts
+The People tab now shows how many children, adults and elders are in the settlement.
+
 Scrollable Command panels
 Overview, Build, People, Explore and Military contents now scroll vertically
 when they exceed the panel. Building categories and their options scroll too,
