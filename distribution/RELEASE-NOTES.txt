@@ -1,10 +1,15 @@
 
-Update queued during multiplayer
-Settings now lets players download updates while a shared world continues, then
-queue the restart for after leaving. The game saves before restarting. A host
-chooses when to leave and disconnect guests.
+Scrollable Command panels
+Overview, Build, People, Explore and Military contents now scroll vertically
+when they exceed the panel. Building categories and their options scroll too,
+while tab headers stay visible.
 
 Bug fix: Command tabs retain selection
 Fixed Command tabs briefly opening and then switching away during HUD updates.
 Overview, Build, People, Explore and Military now keep the selected page visible.
+
+Update queued during multiplayer
+Settings now lets players download updates while a shared world continues, then
+queue the restart for after leaving. The game saves before restarting. A host
+chooses when to leave and disconnect guests.
 

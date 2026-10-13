@@ -1075,26 +1075,11 @@ func make_ui() -> void:
     var command_tabs := TabContainer.new()
     command_tabs.custom_minimum_size = Vector2(330, 500)
     command.add_child(command_tabs)
-    var overview := VBoxContainer.new()
-    overview.name = "Overview"
-    overview.add_theme_constant_override("separation", 7)
-    command_tabs.add_child(overview)
-    var build_page := VBoxContainer.new()
-    build_page.name = "Build"
-    build_page.add_theme_constant_override("separation", 5)
-    command_tabs.add_child(build_page)
-    var people_page := VBoxContainer.new()
-    people_page.name = "People"
-    people_page.add_theme_constant_override("separation", 5)
-    command_tabs.add_child(people_page)
-    var explore_page := VBoxContainer.new()
-    explore_page.name = "Explore"
-    explore_page.add_theme_constant_override("separation", 7)
-    command_tabs.add_child(explore_page)
-    var military_page := VBoxContainer.new()
-    military_page.name = "Military"
-    military_page.add_theme_constant_override("separation", 7)
-    command_tabs.add_child(military_page)
+    var overview := add_scroll_tab(command_tabs, "Overview", 7)
+    var build_page := add_scroll_tab(command_tabs, "Build", 5)
+    var people_page := add_scroll_tab(command_tabs, "People", 5)
+    var explore_page := add_scroll_tab(command_tabs, "Explore", 7)
+    var military_page := add_scroll_tab(command_tabs, "Military", 7)
     overview.add_child(label("A beginning by the river", 21, Color("f0e6ce")))
     status_label = label("", 14, Color("d5d9bd"))
     overview.add_child(status_label)
@@ -1106,6 +1091,8 @@ func make_ui() -> void:
     game_button(overview, "First steps guide", func(): intro_step = 0; show_intro())
 
     var build_tabs := TabContainer.new()
+    build_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    build_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
     build_page.add_child(build_tabs)
     var groups := {
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},
@@ -1114,10 +1101,7 @@ func make_ui() -> void:
         "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and Masonry walls strengthen defense."}
     }
     for category in groups:
-        var page := VBoxContainer.new()
-        page.name = category
-        page.add_theme_constant_override("separation", 5)
-        build_tabs.add_child(page)
+        var page := add_scroll_tab(build_tabs, category, 5)
         for kind in groups[category].types:
             var cost: Dictionary = sim.BUILDINGS[kind]
             build_buttons[kind] = game_button(page, "%s · %d wood / %d stone" % [kind, cost.wood, cost.stone], func():
@@ -1285,6 +1269,19 @@ func make_ui() -> void:
     settings_panel = preload("res://scripts/settings_panel.gd").new()
     research_layer.add_child(settings_panel)
     settings_panel.setup(self)
+
+func add_scroll_tab(tabs: TabContainer, title: String, separation: int) -> VBoxContainer:
+    var scroll := ScrollContainer.new()
+    scroll.name = title
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    tabs.add_child(scroll)
+    var content := VBoxContainer.new()
+    content.add_theme_constant_override("separation", separation)
+    content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.add_child(content)
+    return content
 
 
 func refresh_game() -> void:

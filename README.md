@@ -169,6 +169,8 @@ crises; emergency food orders divert builders/quarriers into gathering.
 
 Scroll/pinch or +/- zoom; right-drag or WASD/arrows pan; Q/E or middle-drag rotate.
 H toggles hexes; R resets the camera; Tab collapses/restores all settlement panels.
+Command tab contents and building-category lists scroll vertically when their
+contents exceed the panel; the tab headers stay visible.
 Each panel header has its own collapse/restore button. Panel choices persist locally.
 Left- or right-drag moves the map; a click places a building or inspects land.
 Click a building, field, construction site, tent, supply cache, cart, campfire,
