@@ -107,10 +107,12 @@ digests match local package values. No gameplay launch or multiplayer verificati
 was performed.
 
 
-## Prepared 0.2.13 / build 15 — 2026-10-13
+## Published 0.2.13 / build 15 — 2026-10-13
 
 Includes the Build panel nested-tab layout correction, which gives the inner
 building category tabs enough height to display their options, plus procedural
 tree crown and river bank/shoreline visual improvements. Also includes the
-already-published 0.2.12 startup parsing correction. Pending package and release
-verification.
+already-published 0.2.12 startup parsing correction. All six artifacts were
+published at https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.13.
+Signed feed, PCK sizes/hashes, and ZIP checksums verified; no gameplay or live
+updater test was run.
