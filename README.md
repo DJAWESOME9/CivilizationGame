@@ -241,12 +241,16 @@ Click Happiness for its modifiers or
 Research to open the technology tree. Collapsing the side panels leaves these
 indicators visible. Full-screen management views retain their own headings.
 
-## Building categories
+## Command panel
 
-Construction is in the lower-right Buildings panel, with Housing (houses),
-Resources (storehouses and fields), Services (wells and schools), and Military tabs.
-The exploration/scouting panel is available in the upper-right from the start.
-Scouting appears as learned in the technology tree and requires no research.
+The main map's collapsible Command panel groups actions into Overview, Build,
+People, Explore, and Military tabs. Overview shows settlement status and the
+first-steps guide. Build contains Housing, Resources, Services, and Military
+building categories. People contains worker assignments and a shortcut to
+population priorities. Explore contains scouting controls. Military opens army
+management. Time and event controls remain in their own panel. Scouting is
+available from Explore from the start and appears as learned in the technology
+tree; it requires no research.
 
 ## Settings
 
