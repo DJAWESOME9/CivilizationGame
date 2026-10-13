@@ -61,3 +61,12 @@ Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/t
 Includes the Command tab selection fix and queued updater restart after leaving
 a multiplayer world. All six release assets uploaded; signature, pack metadata
 and ZIP hashes verified before publication. No gameplay or live updater test run.
+
+
+## Published 0.2.7 / build 9 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.7
+Adds vertical scrolling to all Command tab contents and nested building categories,
+with tab headers remaining visible. Includes the Command tab selection fix and
+queued multiplayer update restart. Six assets were uploaded after RSA signature,
+pack metadata and ZIP checksum verification. No gameplay or live updater tests run.
