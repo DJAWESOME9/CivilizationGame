@@ -53,3 +53,11 @@ Restoring an older app/content version may not support newer save formats.
 Updater source and release artifacts were inspected/built. No automated tests, live
 update installation, platform game launches or remote multiplayer verification have
 been performed under the project's current no-tests-without-request rule.
+
+
+## Published 0.2.6 / build 8 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.6
+Includes the Command tab selection fix and queued updater restart after leaving
+a multiplayer world. All six release assets uploaded; signature, pack metadata
+and ZIP hashes verified before publication. No gameplay or live updater test run.

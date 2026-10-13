@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.4**. Download the ZIP for your computer from
+The latest public release is **0.2.6 / build 8**, including the Command tab selection fix and queued multiplayer update restart. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.4** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.4).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.4/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.4/Civilization-Windows.zip).
+Version **0.2.6 / build 8** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.6).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.6/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.6/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -310,7 +310,7 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. These are local source additions, not yet in the published 0.2.4 download.
+fast-forward. The current published version is 0.2.6 / build 8; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -557,8 +557,7 @@ while resuming an existing save. Only human owners vote to advance time. The AI
 and save/resume flows have been checked with automated local hosting tests; remote
 multiplayer remains subject to the prototype limits above.
 
-## Prepared update 0.2.6 / build 8
+## Release 0.2.6 / build 8
 
-The local 0.2.6 / build 8 package adds a queued update restart after leaving a
-multiplayer world. It is built and signed locally, but is not published yet; the
-published 0.2.5 release remains unchanged. See [release notes](distribution/RELEASE-NOTES.txt).
+Published as Latest with the Command tab selection bug fix and queued update
+restart after leaving a multiplayer world. See [release notes](distribution/RELEASE-NOTES.txt).
