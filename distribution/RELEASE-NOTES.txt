@@ -1,3 +1,6 @@
+Build availability guidance
+The Build tab explains the initial research needed to unlock construction and how to place buildings once available.
+
 
 Food production rate
 The top bar now shows +X/day beneath Food, using gross production before

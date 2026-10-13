@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.10 / build 12**, including slower solo playtest speeds and improved map object inspection. Download the ZIP for your computer from
+The latest public release is **0.2.11 / build 13**, including slower solo playtest speeds and improved map object inspection. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.10 / build 12** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.10).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.10/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.10/Civilization-Windows.zip).
+Version **0.2.11 / build 13** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.11).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.11/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.11/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -313,7 +313,7 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.10 / build 12; see the release notes for its changes.
+fast-forward. The current published version is 0.2.11 / build 13; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -565,7 +565,16 @@ multiplayer remains subject to the prototype limits above.
 Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. The rate shows gross production before consumption and spoilage. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.10 / build 12
+## Release 0.2.11 / build 13
 
 Published as Latest with solo playtest speeds of 1 day / 10 seconds and 1 day /
 30 seconds, plus corrected map object inspection clicks. See [release notes](distribution/RELEASE-NOTES.txt).
+
+
+## Release 0.2.11 / build 13
+
+Build now explains that Toolmaking and Shelter Building unlock construction, and gives placement guidance after it unlocks. See [release notes](distribution/RELEASE-NOTES.txt).
+
+## Release 0.2.11 / build 13
+
+Published as Latest with clearer guidance for unlocking and placing buildings. See [release notes](distribution/RELEASE-NOTES.txt).

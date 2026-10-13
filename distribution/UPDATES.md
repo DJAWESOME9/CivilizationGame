@@ -87,3 +87,11 @@ Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/t
 The top bar now shows +food/day beneath Food, using gross production before
 consumption and spoilage. All six build 11 artifacts uploaded after RSA signature,
 pack metadata and ZIP checksum verification. No gameplay or UI runtime tests run.
+
+## Published 0.2.11 / build 13 — 2026-10-13
+
+Latest public release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.11
+The Build tab explains the Toolmaking → Shelter Building unlock path and provides
+placement guidance after construction is available. All six release artifacts
+were uploaded; feed signature, PCK hashes and ZIP checksums verified. No gameplay
+or live updater test was run.
