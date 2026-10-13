@@ -30,6 +30,7 @@ var research_screen: Control
 var citizens: Node3D
 var population_screen: Control
 var build_buttons: Dictionary = {}
+var build_guidance_label: Label
 var event_label: Label
 var project_label: Label
 var worker_label: Label
@@ -1101,6 +1102,11 @@ func make_ui() -> void:
         "Services": {"types": ["Well", "School"], "hint": "Improve water quality, training, and education."},
         "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and Masonry walls strengthen defense."}
     }
+    var build_guidance := label("", 13, Color("d5c394"))
+    build_guidance.custom_minimum_size.x = 300
+    build_guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    build_page.add_child(build_guidance)
+    build_guidance_label = build_guidance
     for category in groups:
         var page := add_scroll_tab(build_tabs, category, 5)
         for kind in groups[category].types:
@@ -1348,6 +1354,11 @@ func refresh_game() -> void:
         var blocked: String = sim.building_block(kind)
         build_buttons[kind].disabled = not blocked.is_empty()
         build_buttons[kind].tooltip_text = blocked
+    if is_instance_valid(build_guidance_label):
+        if not sim.job_unlocked("Construction"):
+            build_guidance_label.text = "No buildings are available yet. Research Toolmaking, then Shelter Building, to unlock construction and your first House. Click Research above to begin."
+        else:
+            build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex in the starting zone. Disabled buildings show their requirements when you hover."
     research_button.text = "RESEARCH · %.2f / season\n%s · %.0f%%" % [1.25 if sim.completed("School") > 0 else 1.0, sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
     if is_instance_valid(exploration_label):
         exploration_label.text = sim.land_report(selected_land) if has_selected_land else "Choose destination on map, then click the land you want surveyed."
