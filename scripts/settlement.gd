@@ -49,7 +49,6 @@ var has_selected_land := false
 var choosing_scout_destination := false
 var exploration_label: Label
 var scout_button: Button
-var exploration_panel: Control
 var exploration: Node3D
 var happiness_panel: Control
 var happiness_button: Button
@@ -1176,7 +1175,7 @@ func make_ui() -> void:
         refresh_game())
     people_page.add_child(emergency_food_toggle)
 
-    exploration_panel = explore_page
+    # TabContainer owns page visibility; scouting availability is handled by its controls.
     exploration_label = label("", 13, Color("c8d1bc"))
     exploration_label.custom_minimum_size = Vector2(300, 75)
     exploration_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1264,7 +1263,6 @@ func make_ui() -> void:
     event_label.max_lines_visible = 2
     bottom.add_child(event_label)
     bottom.add_child(label("Local prototype · pause and speed controls are for playtesting.\nScroll / pinch zoom · drag map · Q/E orbit · Tab collapse panels · Esc cancel", 12, Color("9fae99")))
-    exploration_panel.visible = "Scouting" in sim.technologies
     make_top_bar(layer)
     var research_layer := CanvasLayer.new()
     research_layer.layer = 10
@@ -1334,7 +1332,6 @@ func refresh_game() -> void:
         build_buttons[kind].disabled = not blocked.is_empty()
         build_buttons[kind].tooltip_text = blocked
     research_button.text = "RESEARCH · %.2f / season\n%s · %.0f%%" % [1.25 if sim.completed("School") > 0 else 1.0, sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
-    if is_instance_valid(exploration_panel): exploration_panel.visible = "Scouting" in sim.technologies
     if is_instance_valid(exploration_label):
         exploration_label.text = sim.land_report(selected_land) if has_selected_land else "Choose destination on map, then click the land you want surveyed."
         var scout_block: String = sim.scouting_block(selected_land) if has_selected_land else "Choose a destination on the map first."

@@ -8,7 +8,8 @@ The first updater-enabled release is 0.2.0 / build 2. Friends with the earlier
 ZIPs must replace their app once with an updater-enabled build. Subsequent game
 updates download automatically at startup and apply the next time the app opens.
 Settings has automatic updates, manual checks, downloads and restart controls.
-Restart is disabled until the player leaves multiplayer.
+Players can queue a restart during multiplayer; it runs automatically after
+leaving the shared world.
 
 ## Build a new release
 
@@ -35,8 +36,8 @@ The native bootstrap verifies RSA/SHA-256 signed metadata using the bundled publ
 key and verifies the downloaded pack's size and SHA-256 before mounting it. It loads
 the approved pack before loading the main game scene. Packs are stored under
 user://updates separately from saves and identity. The original app is kept intact.
-Updates activate on restart, not during a multiplayer session. Different game build
-numbers cannot join the same multiplayer world. Update failure leaves the existing
+Updates download during multiplayer and activate on restart after leaving a shared
+world. Different game build numbers cannot join the same multiplayer world. Update failure leaves the existing
 game playable; offline launches can use a previously downloaded, verified pack.
 
 The signing key is `.tools/update-signing/private.pem`, excluded by Git and exports.

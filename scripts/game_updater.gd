@@ -10,6 +10,7 @@ var status := ""
 var busy := false
 var checking := false
 var ready_to_restart := false
+var restart_when_safe := false
 var automatic := true
 var request: HTTPRequest
 var temporary_path := "user://updates/download.pck.part"
@@ -132,8 +133,12 @@ func download_update() -> void:
 func restart() -> void:
     if not ready_to_restart: return
     if world.session.active or world.session.connecting:
-        fail("Leave the shared world before restarting. Hosts should let their friends know.")
+        restart_when_safe = true
+        status = "Update ready. It will restart when you leave the shared world."
+        world.feedback.text = status
+        changed.emit()
         return
+    restart_when_safe = false
     world.sim.save_game()
     var arguments := PackedStringArray(["--"])
     arguments.append_array(OS.get_cmdline_user_args())
@@ -143,6 +148,9 @@ func restart() -> void:
     get_tree().quit()
 
 func _process(_delta: float) -> void:
+    if restart_when_safe and ready_to_restart and not world.session.active and not world.session.connecting:
+        restart()
+        return
     if busy and not checking:
         var total := request.get_body_size()
         if total > 0:

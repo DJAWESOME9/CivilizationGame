@@ -128,7 +128,7 @@ func setup(scene: Node3D) -> void:
         else: world.updater.download_update())
     restart_button = world.game_button(update_actions, "Restart and update", func(): world.updater.restart())
     world.game_button(update_actions, "Release downloads", func(): OS.shell_open("https://github.com/DJAWESOME9/CivilizationGame/releases"))
-    var update_help: Label = world.label("Downloaded changes apply when you reopen the game. Saves and player identity stay on this computer. Leave multiplayer before restarting.", 12, Color("9daf99"))
+    var update_help: Label = world.label("Updates can download while you play multiplayer. Choose Restart and update to restart now outside a shared world, or queue it during multiplayer to restart automatically after you leave. Saves and player identity stay on this computer.", 12, Color("9daf99"))
     update_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(update_help)
     visibility_changed.connect(func():
@@ -179,9 +179,12 @@ func refresh_updates() -> void:
     automatic_updates.set_pressed_no_signal(updater.automatic)
     update_button.text = "Download update" if not updater.available.is_empty() else "Check for updates"
     update_button.disabled = updater.busy or updater.ready_to_restart
-    restart_button.disabled = not updater.ready_to_restart or world.session.active or world.session.connecting
-    restart_button.tooltip_text = "Leave the shared world first; the host's restart disconnects guests."
+    restart_button.disabled = not updater.ready_to_restart
+    restart_button.text = "Restart after leaving world" if updater.restart_when_safe else "Restart and update"
+    restart_button.tooltip_text = "Queue the update restart until you leave the shared world." if world.session.active or world.session.connecting else "Save and restart to apply the downloaded update."
 
 func _process(_delta: float) -> void:
     if visible and is_instance_valid(world.updater):
-        restart_button.disabled = not world.updater.ready_to_restart or world.session.active or world.session.connecting
+        restart_button.disabled = not world.updater.ready_to_restart
+        restart_button.text = "Restart after leaving world" if world.updater.restart_when_safe else "Restart and update"
+        restart_button.tooltip_text = "Queue the update restart until you leave the shared world." if world.session.active or world.session.connecting else "Save and restart to apply the downloaded update."

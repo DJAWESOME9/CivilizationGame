@@ -1,6 +1,15 @@
 # Civilization: First Settlement
 
-A native Godot 4 desktop prototype of an ancient civilization's opening.
+Build an ancient settlement from its first tents into a growing civilization.
+Gather food, manage a changing population, research technologies, build homes
+and farms, explore the surrounding land, and keep your people healthy through
+the seasons. You can also host a shared world for up to eight civilizations,
+trade resources, and raise armies to defend your settlement or raid rivals.
+
+This is an actively developed strategy prototype. Its economy, combat and
+multiplayer systems are still being tuned, and some planned systems are not yet
+implemented. The game is a native desktop app made with Godot; recipients do
+not need to install Godot.
 
 ## Project context and Obsidian
 
@@ -10,7 +19,43 @@ and [Ideation note](</Users/djfreeman/Library/Mobile Documents/iCloud~md~obsidia
 Development describes the current build; Ideation preserves design decisions and
 conversation history. The full paths and update rules are in AGENTS.md.
 
-## Run on macOS
+## Download and open the game
+
+The latest public release is **0.2.4**. Download the ZIP for your computer from
+[Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
+
+- [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
+  — universal app for Intel and Apple Silicon Macs.
+- [Download for Windows](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Windows.zip)
+  — 64-bit Intel/AMD PCs.
+
+After the download finishes, extract the ZIP. On Mac, move `Civilization.app`
+to Applications if you like, then open it. On Windows, choose **Extract All**
+and run `Civilization.exe` from the extracted folder (not from inside the ZIP).
+The first launch may take a moment while the operating system checks the app.
+
+### If macOS says the app cannot be opened
+
+The Mac download is ad-hoc signed but not notarized by Apple, so macOS may block
+it the first time. If you downloaded the game from the official release link
+above and trust that copy:
+
+1. Try opening `Civilization.app` once, then dismiss the warning.
+2. Open **Apple menu → System Settings → Privacy & Security**.
+3. Scroll to the **Security** section. Find the message that Civilization was
+   blocked, then click **Open Anyway**.
+4. Confirm **Open Anyway** in the prompt and authenticate if macOS asks.
+5. Open the app again and choose **Open** in the final confirmation.
+
+The **Open Anyway** button is available for a limited time after you try to
+open the blocked app. If it is missing, try opening the app once more and return
+to Privacy & Security. Only bypass this warning for a copy you trust. Work or
+school device policies may prevent allowing the app.
+
+Windows may show an unknown-publisher warning because the prototype app is not
+publisher-signed. Only continue if you trust the download source.
+
+## Run from the project on macOS
 
 Close the previous game window, then double-click `Launch.command`.
 Alternatively open `project.godot` in Godot 4.7.2. The launcher uses the official
@@ -51,10 +96,12 @@ Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
 Updater-enabled apps check GitHub Releases at startup and download signed game
-content automatically. Downloaded changes apply when the game is reopened.
-Settings → Game updates lets players turn automatic downloads off, check manually,
-download an offered update, or restart when ready. Leave multiplayer before
-restarting; every player must use the same game build to join a shared world.
+content automatically, including while playing multiplayer. Downloaded changes
+apply on restart. Settings → Game updates lets players turn automatic downloads
+off, check manually, download an offered update, or queue a restart while in a
+shared world. The queued restart runs after leaving the world, so the host can
+choose when guests are disconnected. Every player must use the same game build
+to join a shared world.
 
 Friends who received the original 0.1.0 ZIPs must replace their app once with the
 updater-enabled 0.2.0 build. Future compatible game releases can then update without
@@ -509,3 +556,9 @@ shared-world save. Resume retains saved opponents; creation controls are disable
 while resuming an existing save. Only human owners vote to advance time. The AI
 and save/resume flows have been checked with automated local hosting tests; remote
 multiplayer remains subject to the prototype limits above.
+
+## Prepared update 0.2.6 / build 8
+
+The local 0.2.6 / build 8 package adds a queued update restart after leaving a
+multiplayer world. It is built and signed locally, but is not published yet; the
+published 0.2.5 release remains unchanged. See [release notes](distribution/RELEASE-NOTES.txt).
