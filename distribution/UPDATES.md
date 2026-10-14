@@ -145,3 +145,12 @@ Visible battles/casualties, raid loading/carried loot, live-sight rival inhabita
 ## Published 0.2.19 / build 21 — 2026-10-14
 
 Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.19. Includes all pending seasonal, music/combat audio, research-tree, policy-grid, AI relationship/barter, training-cost, builder-assignment and map-caption changes. Both exports completed; signed feed, pack sizes/hashes and ZIP checksums verified. All six GitHub asset sizes and SHA-256 digests match local files; latest downloaded update.json byte-matches the signed local feed. Source committed locally; public repository receives release artifacts only. No gameplay, live updater or multiplayer runtime tests performed.
+
+
+## Prepared 0.2.20 / build 22 — upload approval required — 2026-10-14
+
+User requested commit and push. Per the project publishing convention, committed all pending source changes locally as 60b917e and prepared Mac/Windows packages, both platform PCKs, signed update.json and SHA256SUMS.txt. Includes tactical warfare, mixed armies, Attack/Raid/Raze, pursuit, surrender resource handover and return home without prisoners, physical fortifications, Arrow Slits, Fight back, script type fixes and sparse starting stone scenery. Public source push was not performed.
+
+Exports completed; only the known nonfatal macOS system-certificate diagnostic appeared, with no script parse errors reported. RSA feed signature, PCK sizes/hashes and ZIP checksums verified locally. No gameplay, live updater or multiplayer tests performed.
+
+Publication is blocked: automatic approval review rejected uploading the six compiled release/update assets because “commit and push” does not explicitly authorize this exact payload to the public GitHub destination. A release draft with v0.2.20, build 22 and release notes was saved at https://github.com/DJAWESOME9/CivilizationGame/releases/edit/untagged-4dee42706ce958ceea9c. No asset upload was performed. Prepared assets remain in dist; manifest saved in /tmp/civilization-release-22-manifest.json. Latest confirmed public release remains 0.2.19/build 21. Ask for explicit approval to upload/publish these six files to DJAWESOME9/CivilizationGame: Civilization-Mac.zip, Civilization-Windows.zip, Civilization-macOS-22.pck, Civilization-Windows-22.pck, update.json, SHA256SUMS.txt. Resume this draft after approval; do not rebuild unnecessarily or overwrite published assets.
