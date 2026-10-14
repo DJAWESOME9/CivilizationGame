@@ -140,3 +140,8 @@ Published 0.2.16/build 18 as Latest: https://github.com/DJAWESOME9/CivilizationG
 ## Published 0.2.18 / build 20 — 2026-10-14
 
 Visible battles/casualties, raid loading/carried loot, live-sight rival inhabitants and home troops, settlement barter/scouting actions and dismantle-button reliability. Release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.18. Both platform exports completed; signed feed, pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer runtime tests performed.
+
+
+## Published 0.2.19 / build 21 — 2026-10-14
+
+Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.19. Includes all pending seasonal, music/combat audio, research-tree, policy-grid, AI relationship/barter, training-cost, builder-assignment and map-caption changes. Both exports completed; signed feed, pack sizes/hashes and ZIP checksums verified. All six GitHub asset sizes and SHA-256 digests match local files; latest downloaded update.json byte-matches the signed local feed. Source committed locally; public repository receives release artifacts only. No gameplay, live updater or multiplayer runtime tests performed.
