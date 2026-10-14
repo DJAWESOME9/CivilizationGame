@@ -47,7 +47,7 @@ func refresh_settlements() -> void:
         var point := Vector2(info.point[0], info.point[1])
         var building_shapes: Array = []
         for building in info.buildings: building_shapes.append([building.kind, building.q, building.r, building.progress >= 1])
-        var signature := str([info.point, building_shapes])
+        var signature := str([info.point, building_shapes, info.get("arrow_slits", false)])
         if not settlements.has(key) or settlements[key].signature != signature:
             if settlements.has(key): settlements[key].node.queue_free()
             var root := Node3D.new()
@@ -57,7 +57,7 @@ func refresh_settlements() -> void:
             world.tent(point.x - 7, point.y + 5.7, 0.2)
             world.get_child(world.get_child_count() - 1).reparent(root)
             for building in info.buildings:
-                var location := point + Vector2(4 + 3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
+                var location := point + Vector2(3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
                 if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks", "Pottery Workshop", "Archive"]:
                     var home: Node3D = world.house(location.x, location.y, 0.15, 0.85)
                     home.reparent(root)
@@ -66,11 +66,18 @@ func refresh_settlements() -> void:
                     root.add_child(facility)
                     facility.position = world.pos(location.x, location.y, 0.04)
                     world.craft_building_model(facility, building.kind)
+                elif building.progress >= 1 and building.kind == "Palisade":
+                    var fence := Node3D.new()
+                    root.add_child(fence)
+                    fence.position = world.pos(location.x, location.y, 0.04)
+                    for i in range(20):
+                        var angle := i * TAU / 20.0
+                        world.cylinder(fence, Vector3(cos(angle) * 1.35, 0.75, sin(angle) * 1.35), 0.11, 0.02, 1.5, world.mats.wood, 6)
                 elif building.progress >= 1 and building.kind == "Wall":
                     var wall := Node3D.new()
                     root.add_child(wall)
                     wall.position = world.pos(location.x, location.y, 0.04)
-                    world.stone_wall(wall)
+                    world.stone_wall(wall, info.get("arrow_slits", false))
                 else:
                     world.box(root, world.pos(location.x, location.y, 0.15), Vector3(2.3, 0.3 if building.progress < 1 else 0.1, 2.3), world.mats.soil)
             var marker := Node3D.new()
@@ -97,16 +104,21 @@ func refresh_forces() -> void:
             forces.erase(key)
     for key in visible:
         var info: Dictionary = visible[key]
-        var signature := str([info.unit, info.count])
+        var tactical: bool = not info.get("scene", {}).get("tactical", {}).is_empty()
+        var signature := str([info.unit, info.count, info.get("composition", {}), tactical])
         if not forces.has(key) or forces[key].signature != signature:
             if forces.has(key): forces[key].node.queue_free()
             var root := Node3D.new()
             add_child(root)
             var figures: Array = []
-            for i in range(mini(12, int(info.count))):
+            var types: Array = []
+            for kind in ["Militia", "Spearmen", "Archers"]:
+                for j in range(int(info.get("composition", {}).get(kind, 0))): types.append(kind)
+            for i in range(0 if tactical else mini(12, int(info.count))):
                 var figure: Dictionary = world.citizens.make_person(i)
                 figure.node.reparent(root)
-                figure.job = "Militia" if info.unit == "Unknown" else info.unit
+                var type_index := mini(types.size() - 1, int(float(i) / maxi(1, mini(12, int(info.count))) * types.size()))
+                figure.job = types[type_index] if not types.is_empty() else "Militia" if info.unit in ["Unknown", "Mixed"] else info.unit
                 world.citizens.equip(figure)
                 figure.tool.show()
                 figure.node.position = formation_position(i, mini(12, int(info.count)), info.get("formation", "Line"))
@@ -119,7 +131,7 @@ func refresh_forces() -> void:
         var at := Vector2(info.point[0], info.point[1])
         var live: bool = info.own or world.sim.has_live_sight(at)
         var identified: bool = info.own or info.get("intel_scouted", false)
-        var unit_symbol: String = {"Militia": "⚔", "Spearmen": "↑", "Archers": "➶"}.get(info.unit, "◇")
+        var unit_symbol: String = {"Mixed": "⚔↑➶", "Militia": "⚔", "Spearmen": "↑", "Archers": "➶"}.get(info.unit, "◇")
         var phase_symbol: String = {"Marching": "→", "Moving": "→", "Returning": "↩", "Holding": "Ⅱ", "Fighting": "⚔", "Raiding": "▣", "Ready": "✓", "Recovering": "♥"}.get(info.phase, "◇")
         var badge := "%s %s  ·  %s" % [unit_symbol, str(info.count) if identified else "?", phase_symbol if live else "◷ %.1f" % maxf(0.0, world.session.world_day - float(info.last_seen))]
         if not info.own and identified: badge += "  ·  ◉ %.1f" % maxf(0.0, world.session.world_day - float(info.last_scouted))

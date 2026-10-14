@@ -72,7 +72,7 @@ func redraw() -> void:
     else: sights.update(mask)
     fog.set_shader_parameter("visibility_map", sights)
     while river_covers.size() > world.river_surface_nodes.size():
-        var old_cover := river_covers.pop_back()
+        var old_cover: MeshInstance3D = river_covers.pop_back()
         if is_instance_valid(old_cover): old_cover.queue_free()
     while river_covers.size() < world.river_surface_nodes.size():
         var river_cover := MeshInstance3D.new()

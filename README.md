@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.19 / build 21**, adding gradual seasons, rotating peaceful/battle music, clearer research and army labels, policy tiles, AI trade relationships and higher training costs. Download the ZIP for your computer from
+Prepared **0.2.20 / build 22** adds mixed armies, individual combat, Attack/Raid/Raze, pursuit, surrender with resource handover, physical fortifications, Arrow Slits and Fight back. Publication is in progress. The latest confirmed public release is **0.2.19 / build 21**. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -161,7 +161,7 @@ asks before replacing your local progress.
    profession technologies exist. Adults retire at 65; old-age death varies
    individually from ages 65 to 75.
 
-The expanded tree has 26 functional technologies. Basketry/hunting improve
+The expanded tree has 27 functional technologies, including Arrow Slits for protected archery. Basketry/hunting improve
 food gathering; woodcutting and stoneworking unlock extraction; carpentry improves
 construction; masonry increases house capacity; forestry enables replanting;
 preservation reduces spoilage; crop rotation/waterworks improve farming; education
@@ -219,18 +219,16 @@ adult size at birth to full size at age 16, following their simulated age. Their
 individual trips do not control deliveries; walking routes now detour around
 visible trees and building footprints.
 
-Visible battles now show opposing fighters, civilian militia, weapon strikes,
-archer projectiles and falls driven by actual battle casualties. Successful raids
-spend one game day loading at a storehouse or supply cache, show the stolen
-resource amounts, and carry sacks on return. Standing defense orders still decide
-whether villagers rally. These animations illustrate the existing daily combat
-rounds and shared resource totals.
+Visible battles use individual movement, health, melee strikes and arrows resolved by the host.
+Casualties remove actual residents. Raid troops load at the stores and carry loot
+home; Fight back lets willing, happy civilians rally against Raid/Raze. These local
+source changes have not been launched or gameplay tested.
 
 Currently observed rival settlements show civilian work routines and home troops
 (up to 48 civilians and 24 troop representatives per settlement). Outside live
 sight their last observed figures freeze; fresh activity requires seeing them again.
 
-Always-online servers, diplomacy, territorial conquest, detailed battlefield movement, disease/disasters, detailed logistics,
+Always-online servers, diplomacy, territorial conquest, advanced battlefield pathfinding, disease/disasters, detailed logistics,
 device notifications and nested regional maps remain future work. Buildings still
 share prototype models. Trees use original generated cutouts; terrain/buildings,
 citizens and technology icons are project-authored. No reference-game assets were
@@ -457,10 +455,13 @@ exercised; this is an initial multiplayer implementation, not a verified online 
 
 **Buildings → Military** contains Training Grounds, Barracks, Palisade and Wall.
 Research **Masonry** to unlock stone wall sections. Each costs **8 wood / 24 stone**
-and **40 construction work**, occupies a clear building hex, and adds **20% defense
-power** once completed (up to 60% from walls). Palisades provide up to 40%; their
-combined fortification bonus is capped at 80%. Walls strengthen defenders in the
-current aggregate combat system; they do not block movement or replace soldiers.
+and **40 construction work**, and occupies a clear building hex. Completed walls
+and palisades now physically block battlefield movement and ordinary arrows.
+Wall sections have 420 health; timber palisades have 180. Troops can breach them
+or move around their footprints. Placement matters: one section does not surround
+the town. **Arrow Slits** costs 180 research points after **Masonry + Archery**;
+nearby defending archers can then fire through their own fortifications. This
+replaces the former settlement-wide fortification strength bonus in combat.
 Training grounds train every soldier type; barracks provide military housing and
 cap standing army size at **12 soldiers per completed barracks**. Barracks do not
 accelerate training. Each completed training ground supports **six trainees at
@@ -473,8 +474,9 @@ same Training page. Train actual adults into unassigned reserves, then create a
 named army using only fully trained soldiers. Training reserves still occupy
 barracks and leave civilian work. Keep at least three available civilians.
 The Create & edit page lets you rename the selected home army, change its size
-using trained reserves of the same type, or return it to reserves to reorganize.
-Armies currently contain one unit type.
+using individual Militia/Spearmen/Archer counts, or return it to reserves to reorganize.
+Armies can combine all three unit types, up to 30 soldiers total. Archers form
+the rear and shoot from up to nine map units away; melee range is 1.15 units.
 
 | Unit | Required technology | Equipment per soldier | Base training | Attack / defense |
 | --- | --- | --- | --- | --- |
@@ -493,9 +495,44 @@ its settlement panel. **Trade · Barter** opens resource offers with that settle
 selected. **Send 3 settlers** scouts its location again, showing the food cost and
 any workforce or transport restrictions. **Choose army · Attack / Raid** opens
 army selection with that destination selected. Choose a ready home army and
-**Attack** or **Raid**. Attack uses the existing aggregate battle system without
-plunder; successful raids take stores. Both require a shared world and carried
-food, and neither conquers territory.
+**Attack**, **Raid**, or **Raze**. All require a shared world and carried food.
+
+- **Attack:** targets assigned military defenders, leaves civilians alone, and
+  continues until defeat, surrender or escape. There is no eight-day cutoff.
+- **Raid:** prioritizes the stores, fights obstructing troops or rallying civilians,
+  and can harm unarmed civilians only while they physically obstruct the stores.
+  It loads whatever fits; the former 15%/5% stock limits are removed.
+- **Raze:** pursues residents physically present, including noncombatants, and plunders within carrying limits. Absent expeditions and
+  troops that escape remain alive. Check **Destroy buildings during Raze** to
+  demolish remaining buildings and starting camp structures. Breaching a defensive
+  fortification during combat can destroy it even with that checkbox unchecked.
+
+Every soldier carries up to **two resource units**, including expedition food.
+Speed declines linearly with load to **25% slower at full capacity**. Casualties
+reduce capacity; excess cargo is dropped, preserving provisions first. Looting
+starts with the most abundant resource and never exceeds remaining carrying space.
+Returning cargo is stored only where home storage permits. Raze does not bypass
+carrying limits or automatically make extra trips. Neither mission conquers territory.
+
+Combat uses individual positions, 100 starting health, melee strikes, ranged
+arrows with flight time, and **±5% attack-damage variation**. Existing unit stats,
+morale, experience, commander and tactic/formation modifiers still affect fights.
+Armies heal 10 health per game day at home. The basic movement and obstacle
+steering remain provisional; this is not a full siege/pathfinding system.
+
+**Battle plan** includes the existing 15–70% morale retreat threshold and a
+**0–100% casualty threshold** (default 50%; zero disables it), with **Retreat** or
+**Surrender** as the casualty response. Losses are measured against strength when
+that army entered the battle. Either threshold can trigger its response. Retreat
+requires reaching the battlefield edge; enemies can pursue and continue shooting.
+A Return messenger during battle requests this withdrawal rather than instant
+escape. New destinations wait for disengagement. Hold is available outside combat.
+Surrender stops resistance and strips all carried food/provisions, wood and stone.
+The winner receives only what fits: the victorious expedition's remaining carrying
+space, or the defending town's shared storage. Excess is abandoned. Surviving
+attackers travel home normally; surrendered home defenders return to recovery at
+their own town. Surrendered troops are no longer combat targets, including during
+Raze. There is no prisoner system. Battle reports record the seized resources.
 
 Click a marching army's soldiers, banner or caption for its popup. Send a
 messenger to **hold position**, **return home**, or use **Army orders** to send a
@@ -513,27 +550,29 @@ An army leaves that assignment when dispatched.
 
 Standing defense orders apply while the owner is offline:
 
-- **Hold settlement:** assigned ready armies defend; without a ready army, up to eight
-  available civilians temporarily rally as weak, untrained emergency militia.
-  This is self-defense, not training or a recruitable standing army.
-- **Counterattack:** the same mobilization, with +10% defensive strength.
-- **Preserve people:** no emergency civilian levy, earlier defensive withdrawals,
-  and less of the settlement's stores exposed to plunder.
+- **Hold settlement:** assigned ready armies defend their position.
+- **Counterattack:** +10% defensive fighting strength.
+- **Preserve people:** defenders attempt withdrawal at at least 55 morale.
 
-Assigned ready reinforcements can join a battle. Low-morale defenders withdraw and recover;
-palisades improve defense. An army away on expedition cannot defend its home.
-Offline defenders have exactly the same resolution rules as online players. The
-host must be running, or resume its save, for time to advance. Agreed fast-forward
-stops at battle arrival, a fighting round, or return, as well as other major events.
+Enact **Fight back** in the Town Hall for 2 influence to let eligible civilian
+adults rally alongside armies against Raid/Raze. Each person's happiness threshold
+is 55 with ±5 variation, followed by a happiness-percent chance to participate.
+This replaces the automatic emergency levy, and Attack leaves civilians alone.
 
-Zoom out and pan the main map for civilization regions and expedition positions.
-Scouts and armies reveal nearby activity; unseen enemy movements are not live
-updates. Soldiers at home carry their equipment and drill near training grounds;
-deployed groups appear along their routes. Combat is presently aggregate,
-not individual soldiers maneuvering on a detailed battlefield. Battle reports,
-armies, standing orders and campaigns persist through saves and reconnecting.
-Territorial conquest, sieges, detailed tactical terrain, commander death/injury,
-caravans, full army skill trees and device notifications are future work.
+Assigned ready reinforcements can join a battle. An army away on expedition
+cannot defend home. Offline and online civilizations use the same host rules.
+Zoom out and pan for regional armies, or zoom in to see individual combat.
+Battle health, positions, pending arrows, orders and random state persist with
+campaigns through host saves/reconnects. Old homogeneous armies and active battles
+are migrated in memory; no save files are replaced by editing this source.
+Territorial conquest, advanced siege movement, commander
+injury, supply caravans and full military skill trees remain future work.
+
+The warfare scripts and main scene script passed Godot **--check-only** parsing.
+Three existing type-inference blockers in exploration/army-popup declarations were
+corrected. No tests, gameplay launch, rendering or multiplayer runtime verification
+was performed, per AGENTS.md. These local changes are not packaged or published.
+Numerical tuning is provisional.
 
 Successful hosting/joining now opens your civilization's main view automatically.
 The multiplayer menu also has **Enter civilization** and **Back to civilization**.

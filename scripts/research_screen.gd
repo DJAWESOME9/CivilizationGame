@@ -2,6 +2,7 @@ extends Control
 
 # Columns are prerequisite depth; rows keep related subjects together.
 const POSITIONS = {
+    "Arrow Slits": Vector2(4, 7),
     "Basketry": Vector2(0, 0), "Hunting": Vector2(1, 0), "Archery": Vector2(3, 0),
     "Planting": Vector2(0, 1), "Preservation": Vector2(1, 1), "Crop Rotation": Vector2(2, 1),
     "Toolmaking": Vector2(0, 2), "Woodcutting": Vector2(1, 2), "Forestry": Vector2(2, 2),
@@ -13,7 +14,7 @@ const POSITIONS = {
     "Education": Vector2(3, 8), "Writing": Vector2(4, 8)
 }
 const SUBJECTS = ["FOOD & HUNTING", "CROPS & PRESERVATION", "TOOLS & WOODLAND", "CRAFTS & WORKSHOPS", "HOUSING & STORAGE", "WATER & HEALTH", "EXPLORATION & RIVERS", "GOVERNMENT & MILITARY", "EDUCATION & WRITING"]
-const TITLES = {"Joinery": "TIMBER WORKSHOPS", "Pottery": "CERAMIC STORAGE", "Boatbuilding": "RIVER CROSSINGS", "River Navigation": "LONG EXPEDITIONS", "Archery": "RANGED WARFARE", "Military Organization": "MILITARY TRAINING", "Writing": "RECORDED KNOWLEDGE","Community Organization": "LOCAL GOVERNMENT","Scouting": "EXPLORATION","Basketry": "WOVEN CARRIERS", "Planting": "CULTIVATION", "Toolmaking": "EARLY TOOLS", "Hunting": "TRACKING", "Fishing": "RIVER FOOD", "Shelter Building": "SETTLEMENT", "Stoneworking": "EXTRACTION", "Woodcutting": "TIMBER", "Preservation": "FOOD STORAGE", "Storage": "SUPPLY NETWORK", "Sanitation": "PUBLIC HEALTH", "Forestry": "REPLANTING", "Crop Rotation": "FERTILITY", "Carpentry": "CRAFTSMANSHIP", "Waterworks": "IRRIGATION", "Masonry": "STONE BUILDING", "Education": "THE NEXT GENERATION"}
+const TITLES = {"Arrow Slits": "FORTIFIED ARCHERY", "Joinery": "TIMBER WORKSHOPS", "Pottery": "CERAMIC STORAGE", "Boatbuilding": "RIVER CROSSINGS", "River Navigation": "LONG EXPEDITIONS", "Archery": "RANGED WARFARE", "Military Organization": "MILITARY TRAINING", "Writing": "RECORDED KNOWLEDGE","Community Organization": "LOCAL GOVERNMENT","Scouting": "EXPLORATION","Basketry": "WOVEN CARRIERS", "Planting": "CULTIVATION", "Toolmaking": "EARLY TOOLS", "Hunting": "TRACKING", "Fishing": "RIVER FOOD", "Shelter Building": "SETTLEMENT", "Stoneworking": "EXTRACTION", "Woodcutting": "TIMBER", "Preservation": "FOOD STORAGE", "Storage": "SUPPLY NETWORK", "Sanitation": "PUBLIC HEALTH", "Forestry": "REPLANTING", "Crop Rotation": "FERTILITY", "Carpentry": "CRAFTSMANSHIP", "Waterworks": "IRRIGATION", "Masonry": "STONE BUILDING", "Education": "THE NEXT GENERATION"}
 
 var world: Node3D
 var selected := "Planting"

@@ -138,7 +138,7 @@ func sync_people() -> void:
     for job in world.sim.JOBS:
         for person in world.sim.job_roster[job]: roles[int(person.id)] = job
     for army in world.sim.armies:
-        for id in army.soldiers: roles[int(id)] = army.unit
+        for id in army.soldiers: roles[int(id)] = preload("res://scripts/warfare.gd").soldier_unit(army, int(id))
     for id in world.sim.emergency_defenders: roles[int(id)] = "Militia"
     sync_construction_targets()
     for i in range(people.size()):
@@ -280,7 +280,7 @@ func update_people(_delta: float) -> void:
         var deployed := false
         var person_id: int = world.sim.people[p.index].id
         for army in world.sim.armies:
-            if person_id in army.soldiers and army.status in ["Marching", "Fighting", "Returning", "Holding", "Raiding", "Defending"]: deployed = true
+            if person_id in army.soldiers and army.status in ["Marching", "Fighting", "Returning", "Holding", "Raiding", "Defending", "Surrendered"]: deployed = true
         if person_id in world.sim.emergency_defenders: deployed = true
         var scout_party: Dictionary = world.sim.scout_mission_for_unit(person_id)
         if not scout_party.is_empty() and scout_party.get("boat", false) and world.sim.point_on_river(world.sim.mission_position(scout_party)): deployed = true

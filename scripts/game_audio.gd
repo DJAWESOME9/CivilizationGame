@@ -115,6 +115,8 @@ func update_music(delta: float) -> void:
             if not campaign.get("own", false) and not scene.get("at_home", false): continue
             fighting = true
             if campaign.get("unit", "") == "Archers": archers = true
+            for fighter in scene.get("tactical", {}).get("fighters", []):
+                if fighter.get("unit", "") == "Archers" and fighter.get("armed", false): archers = true
             for defender in scene.get("defenders", []):
                 if defender.get("unit", "") == "Archers": archers = true
     var changed := fighting != battle_active

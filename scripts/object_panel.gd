@@ -87,8 +87,8 @@ func setup(scene: Node3D) -> void:
     trade_action.hide()
     field_actions = HBoxContainer.new()
     column.add_child(field_actions)
-    var hold_action := world.game_button(field_actions, "Ⅱ", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
-    var return_action := world.game_button(field_actions, "↩", func(): field_response.text = world.order("recall", [int(selected.get("army", -1))]); refresh())
+    var hold_action: Button = world.game_button(field_actions, "Ⅱ", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
+    var return_action: Button = world.game_button(field_actions, "↩", func(): field_response.text = world.order("recall", [int(selected.get("army", -1))]); refresh())
     hold_action.tooltip_text = "Send messenger: hold position"
     return_action.tooltip_text = "Send messenger: return home"
     hold_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -314,7 +314,8 @@ func refresh_army() -> void:
         armies_action.text = "Army orders · New destination / battle plan"
         field_actions.visible = army.status in ["Marching", "Returning", "Holding", "Fighting", "Raiding"]
         status.text = "Your army · " + str(army.status)
-        details.text = "%d %s\nMorale · %.0f / 100\nExperience · %.0f%%\nTraining · %.0f%%\nCarried food · %.1f\n\nFormation · %s\nTactics · %s\nRetreat below · %.0f morale\nCommander discretion · %s" % [army.soldiers.size(), army.unit, army.morale, army.experience * 100, minf(100, army.training / preload("res://scripts/warfare.gd").UNITS[army.unit].days * 100), army.supplies, army.formation, army.tactic, army.retreat, "Enabled" if army.autonomy else "Disabled"]
+        details.text = "%s\nMorale · %.0f / 100\nExperience · %.0f%%\nTraining · %.0f%%\nCarried food · %.1f\n\nFormation · %s\nTactics · %s\nRetreat below · %.0f morale\nCommander discretion · %s" % [preload("res://scripts/warfare.gd").composition_text(army), army.morale, army.experience * 100, minf(100, army.training / (30.0 if army.unit == "Mixed" else preload("res://scripts/warfare.gd").UNITS[army.unit].days) * 100), army.supplies, army.formation, army.tactic, army.retreat, "Enabled" if army.autonomy else "Disabled"]
+        details.text += "\nCasualties · %d%% → %s (0 = off)\nLoad · %.1f / %.1f" % [army.get("casualty_limit", 50), army.get("casualty_action", "Retreat"), preload("res://scripts/warfare.gd").carried(army), preload("res://scripts/warfare.gd").carry_capacity(army)]
         var messenger_pending := false
         for campaign in world.session.visible_campaigns:
             if campaign.own and int(campaign.army) == int(army.id):
@@ -363,6 +364,6 @@ func benefit(kind: String) -> String:
         "School": return "Supports education and adds a 25% settlement research bonus. Schools also accelerate apprenticeships and increase training places."
         "Training Grounds": return "Trains militia, spearmen and archers. Each completed training ground supports six trainees at full speed; larger intakes share training capacity.\n\nOpen training below to train units, then create armies from fully trained reserves. Recruitment also requires completed barracks with room for the soldiers."
         "Barracks": return "Adds room for 12 soldiers and enables trained military units.\nSettlement military capacity · %d soldiers\nOpen Armies & commanders to manage recruitment." % sim.military_capacity()
-        "Palisade": return "Each completed palisade adds 25% defense power, capped at 40% from palisades. Walls and palisades together are capped at 80%.\nCurrent fortification bonus · +%.0f%%" % (sim.fortification_bonus() * 100)
-        "Wall": return "Stone wall section unlocked by Masonry. Each completed wall adds 20% defense power, capped at 60% from walls. Walls and palisades together are capped at 80%.\nCurrent fortification bonus · +%.0f%%\nFortifications strengthen soldiers and emergency defenders; they do not supply troops or block movement." % (sim.fortification_bonus() * 100)
+        "Palisade": return "Timber fortification unlocked by Carpentry. Its footprint physically blocks troops and ordinary arrows. Can be breached (180 health) or bypassed. Arrow Slits lets nearby defending archers shoot through it."
+        "Wall": return "Stone wall section unlocked by Masonry. Its footprint physically blocks troops and ordinary arrows. Stronger than timber (420 health); can be breached or bypassed. Arrow Slits lets nearby defending archers shoot through it. Wall placement matters; a section is not a settlement-wide barrier."
     return ""

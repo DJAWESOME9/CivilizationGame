@@ -523,13 +523,14 @@ func make_forest() -> void:
     tree(-14.5, 7, 0.8)
 
 func make_rocks() -> void:
-    for i in range(38):
+    # Keep starting stone scenery sparse; reserves are allocated separately.
+    for i in range(16):
         var x := rng.randf_range(-24, -15)
         var z := rng.randf_range(-18, -7)
         var rock := sphere(self, pos(x, z, rng.randf_range(0.1, 0.5)), Vector3(rng.randf_range(0.35, 1.0), rng.randf_range(0.4, 1.4), rng.randf_range(0.4, 1.0)), mats.stone)
         rock.rotation = Vector3(rng.randf(), rng.randf(), rng.randf())
         inspectable(rock, {"kind": "Stone deposit"})
-    for i in range(24):
+    for i in range(12):
         var z := rng.randf_range(-25, 25)
         var x := 10 + sin((z + region_origin.y) * 0.095) * 3 - region_origin.x + (3.2 if i % 2 == 0 else -3.2)
         var stone := sphere(self, pos(x, z, 0.12), Vector3(0.35, 0.22, 0.3), mats.stone)
@@ -1150,7 +1151,7 @@ func make_ui() -> void:
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},
         "Resources": {"types": ["Storehouse", "Field", "Pottery Workshop", "Boatyard", "Carpenter Workshop"], "hint": "Store materials, grow food, supply boats, or improve construction."},
         "Services": {"types": ["Well", "School", "Town Hall", "Archive", "Bathhouse"], "hint": "Improve water quality, happiness, training, and education."},
-        "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and Masonry walls strengthen defense."}
+        "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and stronger Masonry walls physically block troops; Arrow Slits enables protected archery."}
     }
     var build_guidance := label("", 13, Color("d5c394"))
     build_guidance.custom_minimum_size.x = 300
@@ -1509,7 +1510,7 @@ func rebuild_buildings() -> void:
                     var angle := i * TAU / 20.0
                     cylinder(site, Vector3(cos(angle) * 1.35, 0.75, sin(angle) * 1.35), 0.11, 0.02, 1.5, mats.wood, 6)
             elif b.kind == "Wall":
-                stone_wall(site)
+                stone_wall(site, "Arrow Slits" in sim.technologies)
             elif b.kind == "Well":
                 cylinder(site, Vector3(0, 0.45, 0), 0.7, 0.7, 0.9, mats.stone)
                 cylinder(site, Vector3(0, 0.91, 0), 0.46, 0.46, 0.02, mats.dark)
@@ -1571,9 +1572,15 @@ func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary)
             var y := surface_height(center.x + x, center.y + z) - site.position.y + 0.14
             cylinder(site, Vector3(x, y, z), 0.035, 0.015, 0.26, mats.reed, 5)
 
-func stone_wall(parent: Node3D) -> void:
+func stone_wall(parent: Node3D, slits: bool = false) -> void:
     # A fortified section occupies one building hex, with towers and battlements.
-    box(parent, Vector3(0, 0.8, 0), Vector3(2.9, 1.6, 0.55), mats.stone)
+    if slits:
+        box(parent, Vector3(0, 0.35, 0), Vector3(2.9, 0.7, 0.55), mats.stone)
+        box(parent, Vector3(0, 1.4, 0), Vector3(2.9, 0.4, 0.55), mats.stone)
+        for x in [-1.23, -0.615, 0.0, 0.615, 1.23]:
+            box(parent, Vector3(x, 0.95, 0), Vector3(0.48, 0.5, 0.55), mats.stone)
+    else:
+        box(parent, Vector3(0, 0.8, 0), Vector3(2.9, 1.6, 0.55), mats.stone)
     for side in [-1.3, 1.3]:
         box(parent, Vector3(side, 1.0, 0), Vector3(0.55, 2.0, 0.9), mats.stone)
         for z in [-0.32, 0.32]:

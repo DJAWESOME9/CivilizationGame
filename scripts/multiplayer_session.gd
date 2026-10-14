@@ -286,9 +286,9 @@ func submit_command(action: String, args: Array) -> void:
     publish()
 
 func apply_command(simulation, action: String, args: Array) -> String:
-    if action in ["recruit", "army_plan", "disband", "defense", "appoint", "create_army", "rename_army", "assign_defense", "reserve_army", "resize_army"]:
+    if action in ["recruit", "army_plan", "disband", "defense", "appoint", "create_army", "rename_army", "assign_defense", "reserve_army", "resize_army", "form_army", "compose_army"]:
         return Warfare.army_order(simulation, action, args)
-    if action in ["raid", "attack", "recall", "messenger"]: return "Join a shared world to launch an expedition."
+    if action in ["raid", "attack", "raze", "recall", "messenger"]: return "Join a shared world to launch an expedition."
     match action:
         "assign":
             if args.size() != 2 or args[0] not in simulation.JOBS or not args[1] is int: return "Invalid workforce order."
@@ -549,7 +549,7 @@ func offers_for(token: String) -> Array:
     return offers
 
 func player_command(token: String, action: String, args: Array) -> String:
-    if action == "army_plan" and args.size() == 5 and args[0] is int:
+    if action == "army_plan" and args.size() in [5, 7] and args[0] is int:
         var army := Warfare.find_army(civilizations[token].sim, args[0])
         if army.get("status", "") in ["Marching", "Holding", "Returning", "Fighting", "Raiding"]:
             var response := warfare.send_messenger(self, token, args[0], "Plan", args.slice(1))
@@ -560,9 +560,10 @@ func player_command(token: String, action: String, args: Array) -> String:
         var response := warfare.send_messenger(self, token, args[0], args[1], args[2])
         persist()
         return response
-    if action in ["raid", "attack"]:
-        if args.size() != 2 or not args[0] is int or not args[1] is int: return "Choose an army and target."
-        var response := warfare.launch(self, token, args[0], args[1], "Attack" if action == "attack" else "Raid")
+    if action in ["raid", "attack", "raze"]:
+        if args.size() not in [2, 3] or not args[0] is int or not args[1] is int: return "Choose an army and target."
+        if action == "raze" and (args.size() != 3 or not args[2] is bool): return "Choose whether to destroy buildings."
+        var response := warfare.launch(self, token, args[0], args[1], "Attack" if action == "attack" else "Raze" if action == "raze" else "Raid", bool(args[2]) if args.size() == 3 else false)
         votes.clear()
         persist()
         return response
@@ -631,6 +632,17 @@ func update_world_intel() -> void:
                 var point: Vector2 = warfare.campaign_point(campaign) - origin
                 simulation.army_sights.append([point.x, point.y])
                 simulation.reveal_land(point, 5)
+        for campaign in warfare.campaigns:
+            if campaign.phase != "Fighting" or not campaign.has("battle"): continue
+            if campaign.attacker != token and campaign.defender != token: continue
+            var home = civilizations[campaign.defender].sim
+            var battle_offset := Vector2(home.world_origin[0], home.world_origin[1]) - origin
+            var side := 0 if campaign.attacker == token else 1
+            for fighter in campaign.battle.fighters:
+                if int(fighter.side) != side or fighter.hp <= 0 or fighter.state == "Escaped": continue
+                var sight := Vector2(fighter.point[0], fighter.point[1]) + battle_offset
+                simulation.army_sights.append([sight.x, sight.y])
+                simulation.reveal_land(sight, 5)
         for other in civilizations:
             if other == token: continue
             var target_record: Dictionary = civilizations[other]
@@ -640,7 +652,7 @@ func update_world_intel() -> void:
             if not simulation.known_civilizations.has(key):
                 simulation.announce("Scouts discovered " + target_record.name + ". Contact and military targeting are now available.")
                 simulation.report_revision += 1
-            simulation.known_civilizations[key] = {"name": target_record.name, "slot": target_record.slot, "point": [point.x, point.y], "last_seen": world_day, "population": target_record.sim.population, "buildings": target_record.sim.buildings.duplicate(true), "inhabitants": visible_inhabitants(target_record.sim)}
+            simulation.known_civilizations[key] = {"name": target_record.name, "slot": target_record.slot, "point": [point.x, point.y], "last_seen": world_day, "population": target_record.sim.population, "buildings": target_record.sim.buildings.duplicate(true), "arrow_slits": "Arrow Slits" in target_record.sim.technologies, "inhabitants": visible_inhabitants(target_record.sim)}
         for campaign in warfare.campaigns:
             var point: Vector2 = warfare.campaign_point(campaign) - origin
             var key := str(int(campaign.id))
@@ -671,7 +683,7 @@ func visible_inhabitants(simulation) -> Array:
         for person in simulation.job_roster[job]: roles[int(person.id)] = job
     for army in simulation.armies:
         if army.status not in ["Ready", "Training", "Recovering"]: continue
-        for id in army.soldiers: roles[int(id)] = army.unit
+        for id in army.soldiers: roles[int(id)] = Warfare.soldier_unit(army, int(id))
     var absent: Array = simulation.scouting_units() + simulation.emergency_defenders
     for army in simulation.armies:
         if army.status not in ["Ready", "Training", "Recovering"]: absent.append_array(army.soldiers)

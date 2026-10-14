@@ -54,6 +54,7 @@ const BUILDING_WORKER_CAPS = {
     "Palisade": 5.0, "Wall": 4.0
 }
 const TECHNOLOGIES = {
+    "Arrow Slits": 180.0,
     "Joinery": 180.0,
     "Pottery": 100.0, "Boatbuilding": 180.0, "River Navigation": 240.0,
     "Archery": 140.0, "Military Organization": 100.0, "Writing": 220.0,
@@ -66,6 +67,7 @@ const TECHNOLOGIES = {
 }
 const JOB_TECH = {"Gathering": "", "Fishing": "Fishing", "Logging": "Woodcutting", "Quarrying": "Stoneworking", "Construction": "Shelter Building", "Farming": "Planting"}
 const PREREQUISITES = {
+    "Arrow Slits": ["Masonry", "Archery"],
     "Joinery": ["Carpentry"],
     "Pottery": ["Storage", "Stoneworking"], "Boatbuilding": ["Carpentry", "Fishing"],
     "River Navigation": ["Boatbuilding"], "Archery": ["Hunting", "Carpentry"],
@@ -80,6 +82,7 @@ const PREREQUISITES = {
     "Sanitation": ["Stoneworking"], "Waterworks": ["Planting", "Sanitation"]
 }
 const TECH_DETAILS = {
+    "Arrow Slits": "Archers positioned behind completed palisades or stone walls can shoot through their own fortifications. Fortifications physically block soldiers and ordinary arrows until breached or bypassed.",
     "Joinery": "Unlocks carpenter workshops. The first completed workshop speeds construction up to 25%, spending 0.2 wood per extra unit of construction work. Additional workshops do not stack.",
     "Pottery": "Unlocks pottery workshops. The first completed workshop adds 100 shared storage and halves remaining food spoilage; additional workshops add storage only.",
     "Boatbuilding": "Unlocks boatyards. Each completed boatyard supplies one reusable scouting boat; river expeditions reserve a boat until return. Boat expeditions reach 60 map units from camp.",
@@ -145,6 +148,7 @@ var allow_migration := true
 var allow_births := true
 var government: Dictionary = {"influence": 0.0, "births": "Allowed", "active": {}, "feast_until": 0.0, "food_start": 30.0, "food_stop": 45.0, "food_groups": ["Idle", "Quarrying", "Construction"], "food_active": false}
 const CIVIC_POLICIES = {
+    "Fight back": {"cost": 2.0, "upkeep": 0.0, "detail": "Against Raid/Raze, eligible adults may rally alongside armies. Requires happiness around 55 or higher (threshold varies ±5); each willing adult then rallies with a happiness-percent chance. Attack leaves civilians alone."},
     "Community Feast": {"cost": 3.0, "upkeep": 0.0, "detail": "Spend 10 food for +8 happiness for 15 days. Cannot stack."},
     "Extended Workdays": {"cost": 2.0, "upkeep": 0.03, "detail": "+15% civilian work, -8 happiness. Excludes Rest Days."},
     "Rest Days": {"cost": 2.0, "upkeep": 0.0, "detail": "+6 happiness, -10% civilian work. Excludes Extended Workdays."},
@@ -1130,10 +1134,15 @@ func advance_armies(days: float) -> void:
                 army.status = "Ready"
                 announce("%d %s completed training%s." % [army.soldiers.size(), army.unit.to_lower(), " and are available to form armies" if army.get("reserve", false) else ""])
         if army.status in ["Ready", "Training", "Recovering"]:
+            if not army.has("health"): army.health = {}
+            for id in army.soldiers:
+                army.health[str(int(id))] = minf(100, float(army.health.get(str(int(id)), 100)) + days * 10)
             army.morale = minf(100, float(army.morale) + days * (2.0 if resources.food > 0 else 0.0))
             if army.status == "Recovering" and army.morale >= 60: army.status = "Ready"
+    var living_ids: Array = []
+    for person in people: living_ids.append(int(person.id))
     for id in emergency_defenders.duplicate():
-        if not adults_by_id.has(int(id)): emergency_defenders.erase(id)
+        if int(id) not in living_ids: emergency_defenders.erase(id)
 
 func fortification_bonus() -> float:
     var timber := minf(0.4, completed("Palisade") * 0.25)

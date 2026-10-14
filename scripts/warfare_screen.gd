@@ -16,11 +16,14 @@ var tactic: OptionButton
 var formation: OptionButton
 var autonomy: CheckBox
 var retreat: SpinBox
+var casualties: SpinBox
+var casualty_action: OptionButton
+var destroy_buildings: CheckBox
+var raze_button: Button
+var composition_counts: Dictionary = {}
 var defense: OptionButton
 var target: OptionButton
 var commander: OptionButton
-var army_unit: OptionButton
-var army_count: SpinBox
 var army_title: LineEdit
 var edit_hint: Label
 var reserve_hint: Label
@@ -105,12 +108,17 @@ func setup(scene: Node3D) -> void:
     var attack_row := row(column)
     attack_button = world.game_button(attack_row, "Attack", func(): dispatch("Attack"))
     raid_button = world.game_button(attack_row, "Raid", func(): dispatch("Raid"))
+    raze_button = world.game_button(attack_row, "Raze", func(): dispatch("Raze"))
+    destroy_buildings = CheckBox.new()
+    destroy_buildings.text = "Destroy buildings during Raze"
+    destroy_buildings.tooltip_text = "Unchecked: kill residents present and plunder within carrying limits. Checked: also demolish settlement buildings after resistance ends."
+    column.add_child(destroy_buildings)
     var messenger_row := row(column)
     hold_button = world.game_button(messenger_row, "Ⅱ", func(): command("messenger", [selected_army, "Hold", []]))
     recall_button = world.game_button(messenger_row, "↩", func(): command("recall", [selected_army]))
     hold_button.tooltip_text = "Send messenger: hold position"
     recall_button.tooltip_text = "Send messenger: return home"
-    text(column, "At home, Attack or Raid dispatches immediately. In the field, destination and plan changes travel by messenger. The army continues its current orders until delivery. Messengers travel three times faster than ordinary armies; one pending messenger per army. Held armies still consume provisions. Attack fights without plunder; Raid takes stores after victory.", 12)
+    text(column, "At home, Attack, Raid or Raze dispatches immediately. In the field, destination and plan changes travel by messenger. The army continues its current orders until delivery. Messengers travel three times faster than ordinary armies; one pending messenger per army. Held armies still consume provisions. Attack targets armies only. Raid loads whatever fits while fighting obstructing defenders. Raze attacks residents present; optional demolition follows. All troops carry at most 2 resource units each, including provisions; a full load slows movement by 25%.", 12)
     text(column, "Battle plan", 17)
     var orders := row(column)
     tactic = selector(orders, Warfare.TACTICS)
@@ -119,18 +127,29 @@ func setup(scene: Node3D) -> void:
     autonomy.text = "Commander discretion"
     orders.add_child(autonomy)
     var plan_row := row(column)
+    text(plan_row, "Retreat at morale")
     retreat = SpinBox.new()
     retreat.min_value = 15
     retreat.max_value = 70
     retreat.suffix = "% morale"
     retreat.value = 35
     plan_row.add_child(retreat)
-    orders_button = world.game_button(plan_row, "Apply plan / send messenger", func(): command("army_plan", [selected_army, tactic.get_item_text(tactic.selected), formation.get_item_text(formation.selected), autonomy.button_pressed, int(retreat.value)]))
+    var casualty_row := row(column)
+    text(casualty_row, "At casualties (0 = off)")
+    casualties = SpinBox.new()
+    casualties.min_value = 0
+    casualties.max_value = 100
+    casualties.suffix = "%"
+    casualties.value = 50
+    casualty_row.add_child(casualties)
+    casualty_action = selector(casualty_row, ["Retreat", "Surrender"])
+    orders_button = world.game_button(column, "Apply plan / send messenger", func(): command("army_plan", [selected_army, tactic.get_item_text(tactic.selected), formation.get_item_text(formation.selected), autonomy.button_pressed, int(retreat.value), int(casualties.value), casualty_action.get_item_text(casualty_action.selected)]))
+    text(column, "Either enabled threshold triggers its response. Casualties are measured against this battle’s starting strength. Retreating soldiers must reach safety and can be pursued or shot. Surrender gives the winner carried resources up to its army capacity or town storage, abandons excess, and sends surviving troops home. There are no prisoners.", 12)
     var standing := row(column)
     text(standing, "Standing defense policy")
     defense = selector(standing, Warfare.DEFENSES)
     defense.item_selected.connect(func(index): command("defense", [Warfare.DEFENSES[index]]))
-    text(column, "Only assigned home armies defend. Without assigned troops, Hold settlement / Counterattack can rally emergency civilians. Preserve people avoids that levy. These policies also apply offline.", 12)
+    text(column, "Only assigned home armies defend. Civilian rallying requires the Town Hall Fight back policy and sufficient happiness. It can supplement home armies against Raid/Raze; Attack leaves civilians alone. Orders apply offline.", 12)
     campaign_details = text(column, "")
     column = page("Training")
     text(column, "Train units", 22)
@@ -153,22 +172,29 @@ func setup(scene: Node3D) -> void:
     army_title.max_length = 32
     column.add_child(army_title)
     var creation := row(column)
-    army_unit = selector(creation, Warfare.UNITS.keys())
-    army_count = SpinBox.new()
-    army_count.min_value = 1
-    army_count.max_value = 30
-    army_count.value = 3
-    creation.add_child(army_count)
-    create_button = world.game_button(creation, "Create army", func(): command("create_army", [army_unit.get_item_text(army_unit.selected), int(army_count.value), army_title.text]))
+    for unit in Warfare.UNITS:
+        var unit_row := row(column)
+        text(unit_row, unit)
+        var amount := SpinBox.new()
+        amount.min_value = 0
+        amount.max_value = 30
+        amount.value = 3 if unit == "Militia" else 0
+        unit_row.add_child(amount)
+        composition_counts[unit] = amount
+    create_button = world.game_button(creation, "Create army", func(): command("form_army", [requested_composition(), army_title.text]))
     reserve_hint = text(column, "")
     text(column, "Edit the army selected on the Armies page", 20)
     edit_hint = text(column, "")
     world.game_button(column, "Use name above for selected army", func(): command("rename_army", [selected_army, army_title.text]))
-    world.game_button(column, "Set selected army size to count above", func(): command("resize_army", [selected_army, int(army_count.value)]))
+    world.game_button(column, "Set selected army to unit counts above", func(): command("compose_army", [selected_army, requested_composition()]))
+    world.game_button(column, "Load selected army counts", func():
+        var selected := Warfare.find_army(world.sim, selected_army)
+        var counts := Warfare.composition(selected)
+        for unit in counts: composition_counts[unit].value = counts[unit])
     var appointment := row(column)
     commander = selector(appointment, ["None"])
     world.game_button(appointment, "Assign commander", func(): command("appoint", [selected_army, commander.get_item_text(commander.selected)]))
-    text(column, "No commanders are granted at the start. Existing saved commanders remain available; acquiring new commanders is a future system. Without one, commander bonuses and discretion are unavailable. Armies currently contain one unit type.", 12)
+    text(column, "No commanders are granted at the start. Existing saved commanders remain available; acquiring new commanders is a future system. Without one, commander bonuses and discretion are unavailable. Armies can combine Militia, Spearmen and Archers, up to 30 total. Archers form the rear and fire from range.", 12)
     world.game_button(column, "Return selected army to trained reserves", func(): command("reserve_army", [selected_army]))
     disband_button = world.game_button(column, "Dismiss selected army to civilian work", func(): command("disband", [selected_army]))
     world.game_button(column, "Back to armies", func(): pages.current_tab = 0)
@@ -180,8 +206,19 @@ func setup(scene: Node3D) -> void:
 func dispatch(mission: String) -> void:
     var army := Warfare.find_army(world.sim, selected_army)
     if army.is_empty(): return
-    if army.status == "Ready": command("attack" if mission == "Attack" else "raid", [selected_army, target.get_selected_id()])
-    else: command("messenger", [selected_army, mission, [target.get_selected_id()]])
+    if army.status == "Ready":
+        var args: Array = [selected_army, target.get_selected_id()]
+        if mission == "Raze": args.append(destroy_buildings.button_pressed)
+        command(mission.to_lower(), args)
+    else:
+        var payload: Array = [target.get_selected_id()]
+        if mission == "Raze": payload.append(destroy_buildings.button_pressed)
+        command("messenger", [selected_army, mission, payload])
+
+func requested_composition() -> Dictionary:
+    var result: Dictionary = {}
+    for unit in composition_counts: result[unit] = int(composition_counts[unit].value)
+    return result
 
 func open_training() -> void:
     pages.current_tab = 1
@@ -198,7 +235,7 @@ func select_destination(slot: int) -> void:
     refresh()
     var index := target.get_item_index(slot)
     if index >= 0: target.select(index)
-    response.text = "Choose one of your armies above, then Attack or Raid. Field armies receive the destination by messenger."
+    response.text = "Choose one of your armies above, then Attack, Raid or Raze. Field armies receive the destination by messenger."
 
 func refresh() -> void:
     var sim = world.sim
@@ -216,10 +253,16 @@ func refresh() -> void:
     for army in sim.armies:
         if not army.get("reserve", false) and army.status != "Training": continue
         if army.status == "Ready" and army.get("reserve", false): reserves[army.unit] += army.soldiers.size()
-        else: training_lines.append("%d %s · %s · %.0f%%" % [army.soldiers.size(), army.unit, army.status, minf(100, army.training / Warfare.UNITS[army.unit].days * 100)])
+        else: training_lines.append("%d %s · %s · %.0f%%" % [army.soldiers.size(), Warfare.composition_text(army), army.status, minf(100, army.training / Warfare.UNITS[army.unit].days * 100)])
     training_list.text = "Training intakes\n" + ("\n".join(training_lines) if not training_lines.is_empty() else "No units training.")
     reserve_hint.text = "Fully trained reserves\nMilitia: %d · Spearmen: %d · Archers: %d" % [reserves.Militia, reserves.Spearmen, reserves.Archers]
-    create_button.disabled = reserves[army_unit.get_item_text(army_unit.selected)] < int(army_count.value) or world.session.connecting
+    var requested := requested_composition()
+    var total := 0
+    var available := true
+    for kind in requested:
+        total += requested[kind]
+        if reserves[kind] < requested[kind]: available = false
+    create_button.disabled = not available or total < 1 or total > 30 or world.session.connecting
     var chiefs := Warfare.available_commanders(sim)
     if str(chiefs) != str(commander.get_meta("chiefs", [])):
         commander.set_meta("chiefs", chiefs)
@@ -231,7 +274,7 @@ func refresh() -> void:
         armies_list.clear()
         for army in sim.armies:
             if army.get("reserve", false): continue
-            var index := armies_list.add_item("%s · %d %s · %s%s" % [Warfare.army_name(army), army.soldiers.size(), army.unit, army.status, " · home defense" if army.get("defend_home", true) else ""])
+            var index := armies_list.add_item("%s · %s · %s%s" % [Warfare.army_name(army), Warfare.composition_text(army), army.status, " · home defense" if army.get("defend_home", true) else ""])
             armies_list.set_item_metadata(index, int(army.id))
             if selected_army == int(army.id): armies_list.select(index)
     var army := Warfare.find_army(sim, selected_army)
@@ -241,14 +284,17 @@ func refresh() -> void:
         army = Warfare.find_army(sim, selected_army)
         armies_list.select(0)
     details.text = "No formed army. Open Training, then Create / edit armies." if army.is_empty() else "%s · %s · Commander: %s\nMorale %.0f · Experience %.0f%% · Carried food %.1f\n%s" % [Warfare.army_name(army), army.status, army.commander, army.morale, army.experience * 100, army.supplies, Warfare.COMMANDERS.get(army.commander, Warfare.COMMANDERS["None"]).description]
-    edit_hint.text = "No army selected." if army.is_empty() else "%s · %d %s · %s" % [Warfare.army_name(army), army.soldiers.size(), army.unit, army.status]
-    var next_plan := str([selected_army, army.get("tactic"), army.get("formation"), army.get("autonomy"), army.get("retreat")])
+    if not army.is_empty(): details.text += "\nLoad %.1f / %.1f · March speed %.0f%%" % [Warfare.carried(army), Warfare.carry_capacity(army), Warfare.load_factor(army) * 100]
+    edit_hint.text = "No army selected." if army.is_empty() else "%s · %s · %s" % [Warfare.army_name(army), Warfare.composition_text(army), army.status]
+    var next_plan := str([selected_army, army.get("tactic"), army.get("formation"), army.get("autonomy"), army.get("retreat"), army.get("casualty_limit"), army.get("casualty_action")])
     if not army.is_empty() and next_plan != plan_signature:
         plan_signature = next_plan
         tactic.select(Warfare.TACTICS.find(army.tactic))
         formation.select(Warfare.FORMATIONS.find(army.formation))
         autonomy.set_pressed_no_signal(army.autonomy and army.commander != "None")
         retreat.set_value_no_signal(army.retreat)
+        casualties.set_value_no_signal(army.get("casualty_limit", 50))
+        casualty_action.select(1 if army.get("casualty_action", "Retreat") == "Surrender" else 0)
     autonomy.disabled = army.is_empty() or army.get("commander", "None") == "None"
     defense.select(Warfare.DEFENSES.find(sim.defense_order))
     var next_targets := str(sim.known_civilizations)
@@ -275,12 +321,18 @@ func refresh() -> void:
     orders_button.disabled = army.is_empty() or pending or world.session.connecting
     raid_button.disabled = not (home and army.get("status") == "Ready" or field) or pending or not world.session.active or target.item_count == 0
     attack_button.disabled = raid_button.disabled
+    raze_button.disabled = raid_button.disabled
     hold_button.disabled = not field or pending
     recall_button.disabled = not field or pending
     disband_button.disabled = not home
     var report_lines := PackedStringArray()
     for report in sim.battle_reports:
         report_lines.append("Day %.1f · %s → %s\n%s · %s\n%d rounds · %d attacking / %d defending casualties\nPlunder: %.1f food, %.1f wood, %.1f stone\n" % [report.day, report.attacker, report.defender, report.outcome, report.reason, report.rounds, report.attacker_losses, report.defender_losses, report.loot.food, report.loot.wood, report.loot.stone])
+    for report in sim.battle_reports:
+        if report.get("surrender_loot", {}).is_empty(): continue
+        for recipient in report.surrender_loot:
+            var seized: Dictionary = report.surrender_loot[recipient]
+            report_lines.append("Day %.1f · Surrender resources received by %s: %.1f food, %.1f wood, %.1f stone" % [report.day, report.attacker if recipient == "attacker" else report.defender, seized.food, seized.wood, seized.stone])
     reports.text = "\n".join(report_lines) if not report_lines.is_empty() else "No battle reports yet."
 
 func _process(delta: float) -> void:

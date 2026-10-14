@@ -7,6 +7,8 @@ var villages: Dictionary = {}
 var fallen: Array = []
 var clock := 0.0
 var arrows: Array = []
+var fighters: Dictionary = {}
+var observed_events: Dictionary = {}
 
 func setup(scene: Node3D) -> void:
     world = scene
@@ -17,6 +19,8 @@ func clear() -> void:
     villages.clear()
     fallen.clear()
     arrows.clear()
+    fighters.clear()
+    observed_events.clear()
 
 func figure(unit: String, index: int, parent: Node3D) -> Dictionary:
     var p: Dictionary = world.citizens.make_person(index)
@@ -28,6 +32,7 @@ func figure(unit: String, index: int, parent: Node3D) -> Dictionary:
 func refresh() -> void:
     var active: Dictionary = {}
     var origin := Vector2(world.sim.world_origin[0], world.sim.world_origin[1])
+    var active_fighters: Dictionary = {}
     for info in world.session.visible_campaigns:
         if info.get("scene", {}).is_empty(): continue
         var point: Vector2 = world.world_entities.campaign_math.campaign_point(info) - origin if info.own else Vector2(info.point[0], info.point[1])
@@ -35,6 +40,9 @@ func refresh() -> void:
         var key := str(int(info.id))
         active[key] = true
         var scene: Dictionary = info.scene
+        if not scene.get("tactical", {}).is_empty():
+            refresh_tactical(info, scene.tactical, active_fighters)
+            continue
         if not battles.has(key):
             battles[key] = {"figures": [], "signature": "", "losses": [int(scene.attacker_losses), int(scene.defender_losses)], "militia_losses": int(scene.militia_losses), "label": world.world_entities.caption(self)}
         var battle: Dictionary = battles[key]
@@ -73,7 +81,38 @@ func refresh() -> void:
             for p in battles[key].figures: p.node.queue_free()
             battles[key].label.queue_free()
             battles.erase(key)
+    for key in fighters.keys():
+        if not active_fighters.has(key):
+            fighters[key].figure.node.queue_free()
+            fighters.erase(key)
     refresh_villages()
+
+func refresh_tactical(info: Dictionary, tactical: Dictionary, active: Dictionary) -> void:
+    var campaign_key := str(int(info.id))
+    var baseline := not observed_events.has(campaign_key)
+    var previous := int(observed_events.get(campaign_key, tactical.serial))
+    for f in tactical.fighters:
+        var key := "%s:%d:%d" % [campaign_key, f.side, f.id]
+        active[key] = true
+        if not fighters.has(key):
+            var p := figure(f.unit if f.armed else "Resting", int(f.id), self)
+            p.node.scale *= lerpf(0.45, 1.0, clampf(float(f.get("age", 16)) / 16.0, 0, 1))
+            if f.armed and not f.civilian:
+                world.inspectable(p.node, {"kind": "Army", "own": f.own, "campaign": int(info.id), "army": int(f.army)})
+            p.node.position = world.pos(f.point[0], f.point[1], 0.04)
+            fighters[key] = {"figure": p, "info": f}
+        fighters[key].info = f
+    for e in tactical.events:
+        if baseline or int(e.serial) <= previous: continue
+        var spot := Vector2(e.from[0], e.from[1])
+        if e.kind == "Fall":
+            var p := figure(e.unit if not e.civilian else "Resting", int(e.id), self)
+            p.node.position = world.pos(spot.x, spot.y, 0.04)
+            fallen.append({"figure": p, "age": 0.0, "point": spot})
+        elif e.kind == "Arrow":
+            var key := "%s:%d:%d" % [campaign_key, e.side, e.id]
+            if fighters.has(key): projectile(fighters[key].figure, world.pos(e.to[0], e.to[1], 1.0), true)
+    observed_events[campaign_key] = int(tactical.serial)
 
 func refresh_villages() -> void:
     for key in villages.keys():
@@ -102,12 +141,29 @@ func refresh_villages() -> void:
             for i in range(mini(village.figures.size(), inhabitants.size())):
                 village.figures[i].node.scale = Vector3.ONE * lerpf(0.45, 1.0, clampf(float(inhabitants[i].age) / 16.0, 0, 1))
         village.live = live
-        village.point = point + Vector2(4, 0)
+        village.point = point
         village.info = info
 
 func animate(delta: float) -> void:
     var running: bool = world.running or world.session.active
     if running: clock += delta
+    var blend := 1.0 - exp(-delta * 12.0)
+    for fighter in fighters.values():
+        var f: Dictionary = fighter.info
+        var p: Dictionary = fighter.figure
+        var spot := Vector2(f.point[0], f.point[1])
+        p.node.visible = world.sim.has_live_sight(spot)
+        p.cargo.visible = f.get("laden", false)
+        p.node.position = p.node.position.lerp(world.pos(spot.x, spot.y, 0.04), blend)
+        p.node.rotation.y = lerp_angle(p.node.rotation.y, float(f.heading), blend)
+        if f.armed:
+            world.citizens.animate_soldier(p, f.action, clock, delta if running else 0.0)
+        else:
+            var swing := sin(clock * 7 + p.index) * 0.45 if f.action == "Marching" else 0.0
+            p.ll.rotation.x = swing
+            p.rl.rotation.x = -swing
+            p.la.rotation.x = -swing
+            p.ra.rotation.x = swing
     for battle in battles.values():
         var point: Vector2 = battle.point
         for i in range(battle.figures.size()):
@@ -173,8 +229,8 @@ func animate(delta: float) -> void:
                 p.tool.visible = not walking and p.job != "Resting" and not night_rest
                 p.cargo.visible = not night_rest and phase > 0.75 and p.job in ["Logging", "Gathering", "Quarrying", "Farming"]
 
-func projectile(p: Dictionary, destination: Vector3) -> void:
-    if clock < float(p.get("next_arrow", 0)): return
+func projectile(p: Dictionary, destination: Vector3, actual_shot: bool = false) -> void:
+    if not actual_shot and clock < float(p.get("next_arrow", 0)): return
     p.next_arrow = clock + 1.4 + (p.index % 3) * 0.15
     var node := Node3D.new()
     add_child(node)
