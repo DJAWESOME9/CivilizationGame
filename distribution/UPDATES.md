@@ -121,3 +121,8 @@ updater test was run.
 ## Published 0.2.14 / build 16 — 2026-10-13
 
 Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.14. Includes all pending worktree gameplay/UI changes: Town Hall policies/influence/happiness, configurable food response, pregnancy/recovery workforce exclusion, research points, starting-object dismantling, construction caps, army reserves/defense/messengers, 16 civilization slots/late joining/mixed AI, fields, river scouting and winter hex contrast. Mac/Windows ZIPs, both PCKs, signed update.json and checksums uploaded. Packaging completed; RSA signature, local pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer tests run. Source stays local under the private-source policy; the public repository receives release assets.
+
+
+## 0.2.14 blank startup window correction — 2026-10-13
+
+User screenshot shows a blank gray game window. Actual 20:08:58 startup log reports a GDScript parse error at settlement.gd:1523: cannot infer the type of absolute. The field corner array was untyped, so loop elements lacked a known Vector2 type. Changed corners to Array[Vector2]. This addresses the reported parse failure without changing game rules or saves. Published 0.2.15/build 17 as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.15. Both platform exports completed; signed feed, local sizes/hashes/checksums and all six GitHub asset sizes/digests verified. Packaging alone does not establish startup success. If the broken gray window cannot update, manually replace the app with the corrected ZIP; user data stays separate. No game launch or tests performed under the project rule.

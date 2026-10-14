@@ -1,4 +1,4 @@
-Civilization: First Settlement — version 0.2.14 / build 16
+Civilization: First Settlement — version 0.2.15 / build 17
 
 You do not need to install Godot.
 

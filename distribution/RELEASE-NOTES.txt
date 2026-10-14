@@ -1,13 +1,9 @@
-Civilization 0.2.14 / build 16
+Civilization 0.2.15 / build 17 — Startup fix
 
-- Town Hall, Community Organization research, influence, policies, birth policies and configurable emergency food orders.
-- Happiness affects civilian work efficiency; per-building construction labor caps.
-- Individual pregnancy and recovery exclude people from available workforce.
-- Research points with 40–60 point foundational technologies and School daily-output bonuses.
-- Starting camp objects block placement until builders dismantle them.
-- Army training reserves, army creation/editing, assigned home defense and messenger-delivered field orders.
-- Up to 16 civilizations, late joining and mixed Easy/Medium/Hard AI counts.
-- Terrain-following connected fields, scoutable dry riverbanks and clearer winter daylight hex lines.
-- Food HUD rate reflects net stock change after consumption and spoilage.
+Fixes the GDScript type-inference error in field rendering that prevented the main settlement scene from loading, leaving a blank gray window in 0.2.14. Uses a typed Vector2 corner array so field coordinates have a known type.
 
-Mac and Windows packages and signed content updates. Gameplay, live updater installation and cross-machine multiplayer have not been tested for this release.
+Includes all 0.2.14 features. Existing saves and identity files are unchanged.
+
+If the gray window cannot receive updates, close it and replace the app with this release ZIP. Saves are stored separately from the app.
+
+Diagnosed from the user's startup log and inspected source. No game launch, gameplay or multiplayer test was run.

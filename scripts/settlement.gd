@@ -1513,7 +1513,7 @@ func rebuild_buildings() -> void:
 func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary) -> void:
     # A small terrain-following grid replaces the flat tile that could be
     # buried by the map's steep terrain triangles.
-    var corners := [Vector2(-1.42, -1.42), Vector2(1.42, -1.42), Vector2(1.42, 1.42), Vector2(-1.42, 1.42)]
+    var corners: Array[Vector2] = [Vector2(-1.42, -1.42), Vector2(1.42, -1.42), Vector2(1.42, 1.42), Vector2(-1.42, 1.42)]
     var vertices := PackedVector3Array()
     var q := int(field.q)
     var r := int(field.r)
