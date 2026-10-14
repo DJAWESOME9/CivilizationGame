@@ -8,7 +8,9 @@ var visible_campaigns: Array = []
 const Simulation = preload("res://scripts/simulation.gd")
 const UpdateSupport = preload("res://scripts/update_support.gd")
 var world_save_path := "user://multiplayer_world.json"
-const LIMIT := Warfare.SITES.size()
+# Godot does not accept Array.size() calls in constant expressions.
+# Keep this capacity aligned with the sixteen starting sites in Warfare.SITES.
+const LIMIT: int = 16
 const PROTOCOL_VERSION := 2
 const AI_NAMES := ["Oakborn", "Stonevale", "Riverfolk", "Ashfield", "Pinewatch", "Sunmere", "Greycliff"]
 var host_port := 24567

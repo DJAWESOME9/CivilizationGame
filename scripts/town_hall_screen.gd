@@ -45,7 +45,7 @@ func setup(scene: Node3D) -> void:
     scroll.add_child(content)
     for name in world.sim.CIVIC_POLICIES:
         var info: Dictionary = world.sim.CIVIC_POLICIES[name]
-        var line: Label = world.label("%s · %g influence%s\n%s" % [name, info.cost, " + %g/day" % info.upkeep if info.upkeep > 0 else "", info.detail], 15, Color("c1d0b3"))
+        var line: Label = world.label("%s · %.0f influence%s\n%s" % [name, info.cost, " + %.2f/day" % info.upkeep if info.upkeep > 0 else "", info.detail], 15, Color("c1d0b3"))
         line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         content.add_child(line)
         var action: Button = world.game_button(content, "", func():

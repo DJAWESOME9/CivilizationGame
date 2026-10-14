@@ -137,7 +137,7 @@ func setup(scene: Node3D) -> void:
         card.add_child(state_label)
         states[tech] = state_label
         labels[tech] = title
-        var cost_label: Label = world.label("Available from start" if tech == "Scouting" else "%g research points" % world.sim.TECHNOLOGIES[tech], 11, Color("a6b599"))
+        var cost_label: Label = world.label("Available from start" if tech == "Scouting" else "%.0f research points" % world.sim.TECHNOLOGIES[tech], 11, Color("a6b599"))
         cost_label.position = Vector2(14, 52)
         card.add_child(cost_label)
     var footer := Panel.new()
@@ -230,7 +230,7 @@ func refresh() -> void:
         cards[tech].add_theme_color_override("font_color", Color("eee4cb") if state != "LOCKED" else Color("a4b1a5"))
     var prerequisites: String = ", ".join(sim.PREREQUISITES[selected])
     var blocked: String = sim.research_block(selected)
-    detail.text = "%s · %s · %g research points\n%s\n%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], blocked if not blocked.is_empty() else ("Prerequisites: " + prerequisites if not prerequisites.is_empty() else "Foundational technology · no technology prerequisites.")]
+    detail.text = "%s · %s · %.0f research points\n%s\n%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], blocked if not blocked.is_empty() else ("Prerequisites: " + prerequisites if not prerequisites.is_empty() else "Foundational technology · no technology prerequisites.")]
     start.disabled = selected in sim.technologies or selected == sim.research or not blocked.is_empty()
     queue_button.disabled = selected in sim.technologies or selected == sim.research or selected == sim.queued_research or not sim.research_block(selected, true).is_empty() or sim.research.is_empty()
     start.text = "Learned" if selected in sim.technologies else "Researching" if selected == sim.research else "Start research"

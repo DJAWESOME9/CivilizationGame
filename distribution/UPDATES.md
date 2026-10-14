@@ -126,3 +126,12 @@ Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag
 ## 0.2.14 blank startup window correction — 2026-10-13
 
 User screenshot shows a blank gray game window. Actual 20:08:58 startup log reports a GDScript parse error at settlement.gd:1523: cannot infer the type of absolute. The field corner array was untyped, so loop elements lacked a known Vector2 type. Changed corners to Array[Vector2]. This addresses the reported parse failure without changing game rules or saves. Published 0.2.15/build 17 as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.15. Both platform exports completed; signed feed, local sizes/hashes/checksums and all six GitHub asset sizes/digests verified. Packaging alone does not establish startup success. If the broken gray window cannot update, manually replace the app with the corrected ZIP; user data stays separate. No game launch or tests performed under the project rule.
+
+
+## Multiplayer setup compilation and formatting correction — 2026-10-13
+
+User screenshot shows literal %d in capacity heading, only Easy label, missing AI spinners and nonworking Host. Current startup log confirms multiplayer_session.gd LIMIT declaration fails as Warfare.SITES.size() is not a constant expression; ensuing null capacity prevents setup at the first spinner and leaves session unavailable. Replaced it with explicit integer capacity 16, aligned with the sixteen existing starting sites. Independent Easy/Medium/Hard counts and host callbacks remain the implemented flow; Resume preserves saved AI and disables new mix editing only when a world save exists.
+
+Also corrected unsupported %g formatting in research costs and Town Hall influence/upkeep labels, matching repeated formatting errors in the log. Source/log inspection only; no launch, gameplay or multiplayer runtime test performed. Saves and identity unchanged.
+
+Published 0.2.16/build 18 as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.16. Mac/Windows exports, signed feed and six assets published; signature and local/remote package sizes/hashes verified. No runtime hosting or UI verification performed.

@@ -1,9 +1,9 @@
-Civilization 0.2.15 / build 17 — Startup fix
+Civilization 0.2.16 / build 18 — Multiplayer setup fix
 
-Fixes the GDScript type-inference error in field rendering that prevented the main settlement scene from loading, leaving a blank gray window in 0.2.14. Uses a typed Vector2 corner array so field coordinates have a known type.
+Fixes the multiplayer capacity constant that failed compilation and prevented the World screen from finishing setup. Restores the 16-civilization heading, independent Easy/Medium/Hard AI count controls, and Host world action.
 
-Includes all 0.2.14 features. Existing saves and identity files are unchanged.
+Replaces unsupported number formatting in research and Town Hall policy labels.
 
-If the gray window cannot receive updates, close it and replace the app with this release ZIP. Saves are stored separately from the app.
+For a new AI mix, uncheck Resume saved multiplayer world and choose counts for each difficulty. Resuming retains saved opponents. Up to 15 AI plus the host; unused slots remain available for friends.
 
-Diagnosed from the user's startup log and inspected source. No game launch, gameplay or multiplayer test was run.
+Diagnosed from the actual game log and inspected source. Existing saves and identities untouched. No game launch or multiplayer runtime test performed.
