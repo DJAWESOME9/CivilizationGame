@@ -1,12 +1,5 @@
-Traveling trade scouts and clearer settlement controls
+Startup correction — 0.2.22 / build 24
 
-- Trade offers travel with three scouts and reserved cargo; recipients accept, decline or seize them. AI decisions use resource needs and relations and AI can initiate offers.
-- Ready home armies can kill visiting exploration or trade scouts within home influence, taking cargo within storage capacity and damaging relations.
-- Clickable army roster, direct editing and troop selectors bounded by available trained units and the 30-soldier limit.
-- Enemy badges hide outside live sight; home influence identifies troops and their mission.
-- Simpler houses, barracks and town hall; softer fog edges; faint technology arrows with brighter prerequisite and onward paths.
-- Corrects a terrain shader identifier collision. The reported native saved-world crash remains unconfirmed.
+Corrects the missing color argument in the Your armies heading that prevents the main scene loading in 0.2.21. Includes returning scouts restoring eligible former civilian jobs. If the gray window cannot update, close the game and replace the app with the corrected ZIP. Saves and identities are stored separately.
 
-Extract the Mac or Windows ZIP and open the game. Existing updater-enabled copies download signed content and apply it after reopening. Multiplayer participants need matching builds.
-
-Exports and artifact integrity checks are recorded separately. No gameplay, live updater or multiplayer tests run for this release. Earlier isolated saved-world source runs removed the terrain shader error but did not reproduce the native crash.
+Exports and artifact integrity checks completed; no parser checks, game launch, gameplay or multiplayer tests run. Publication pending explicit upload approval.

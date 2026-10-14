@@ -1285,7 +1285,7 @@ func make_ui() -> void:
         dispatch_scouts(selected_land))
     explore_page.add_child(label("Click land to inspect · drag to move the map.\nUnknown land is hidden; old reports fade.", 12, Color("9fae99")))
 
-    military_page.add_child(label("Your armies", 18))
+    military_page.add_child(label("Your armies", 18, Color("eee1bf")))
     command_armies = VBoxContainer.new()
     command_armies.add_theme_constant_override("separation", 7)
     military_page.add_child(command_armies)
