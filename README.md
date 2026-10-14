@@ -144,8 +144,9 @@ asks before replacing your local progress.
    Learned technologies have green checkmarked badges; the queued technology has
    a blue arrow badge. The tree header shows the queue and total learned count.
    The tree groups subjects into rows and prerequisite stages into columns. Select
-   a card to show its immediate prerequisites (gold arrows) and next unlocks (blue
-   arrows); all required technologies are listed in its details and tooltip.
+   a card to brighten its prerequisite chain (gold arrows) and all onward unlock
+   paths (blue arrows). Other arrows remain faintly visible; all required
+   technologies are listed in its details and tooltip.
    Scroll vertically with the wheel, sideways with Shift + wheel, or in either
    direction with a trackpad or scrollbars. The header and selected controls stay in place.
 6. Open **Population & workforce priorities**. Set current percentages and enable
@@ -199,8 +200,10 @@ and ◉ scouting age (days). Numbers show troop counts; ? means unknown. Raid
 cargo uses ● food, ≋ wood and ◆ stone. Nearby badges shift horizontally to avoid
 overlap. Click a badge for full army details. Hold (Ⅱ) and Return (↩) buttons
 explain their messenger orders on hover.
-Enemy armies show basic sightings; send scouts within sight to learn troop
-count/type, formation and commander. Scout details retain their observation
+Enemy map badges appear only in current sight. Inside your home influence
+(the current 21-unit home sight radius), troop count/type, formation, commander
+and mission are revealed. Scouts farther away identify troops without revealing
+their mission. Scout details retain their observation
 date and may become outdated. Enemy morale, supplies, experience, destinations
 and private orders stay hidden. Unseen armies retain only their dated sightings.
 Esc closes management screens/cancels placement.
@@ -324,8 +327,11 @@ The main map's collapsible Command panel groups actions into Overview, Build,
 People, Explore, and Armies tabs. Overview shows settlement status and the
 first-steps guide. Build contains Housing, Resources, Services, and Military
 building categories. People shows child, adult and elder counts, worker assignments, and a shortcut to
-population priorities. Explore contains scouting controls. Military opens army
-management. Time and event controls remain in their own panel. Scouting is
+population priorities. Explore contains scouting controls. Armies lists your formed
+armies with troop composition, status, and home-defense assignment. Click an army
+to manage that specific force: assign defense, choose expedition orders, or use
+**Edit selected army** to load its name and troop counts for editing. Training
+and army creation shortcuts appear below the list. Time and event controls remain in their own panel. Scouting is
 available from Explore from the start and appears as learned in the technology
 tree; it requires no research.
 
@@ -436,12 +442,11 @@ are not implemented.
 ### Barter
 
 Use Multiplayer → **Barter**, select another civilization, choose materials and
-amounts, and send an offer. The recipient selects the received offer and accepts or
-declines it. Senders can cancel their pending offers. On acceptance the host checks
-both inventories and both settlements' storage capacities, then transfers the
-materials together. Up to four outgoing offers per civilization may be pending.
-Transfers are immediate in this prototype; trade routes, transport costs, caravans
-and diplomatic-contact requirements remain future work.
+amounts, and send an offer with three settlers carrying the reserved materials.
+After arrival the recipient can accept, decline, or kill the scouts and seize cargo.
+Senders can cancel pending offers. Acceptance checks payment and destination storage;
+payment travels home with the surviving scouts. Up to four outgoing offers may be
+pending. See Traveling barter parties below for details and current limits.
 
 The original native World and Barter screens have been rendered and inspected.
 The sixteen-slot expansion and invitation controls were inspected in source only;
@@ -482,6 +487,11 @@ the rear and shoot from up to nine map units away; melee range is 1.15 units.
 | Militia | Toolmaking | 2 wood | 10 game days | 1.0 / 0.8 |
 | Spearmen | Stoneworking | 4 wood, 2 stone | 20 game days | 1.5 / 1.8 |
 | Archers | Archery | 6 wood, 2 stone | 30 game days | 1.8 / 0.9 |
+
+Army unit selectors are capped by available fully trained troops and the 30-soldier
+army limit. Creation uses unassigned reserves; editing uses separate counts and
+includes the selected ready home army’s existing members. **Load selected army
+counts** fills the editing selectors.
 
 Fresh civilizations start with **no commanders and no commander abilities**.
 Existing commanders in older saves are preserved. Without a commander, armies
@@ -651,14 +661,14 @@ Easy makes decisions every 12 game days and begins raiding after day 720; Medium
 acts every 6 days and may raid after day 540; Hard acts every 2 days and may raid
 after day 360, maintaining larger armies. Raids still require discoveries, trained
 soldiers, and provisions. Local source adds saved relationships with each AI:
-Hostile (15%), Unfriendly (35%), Neutral (60%), Friendly (80%), and Trusted (95%).
-Multiplayer → Barter shows the selected AI’s status, score and acceptance chance.
-These chances apply only to fair offers of different resources, with sufficient
-stock, storage and the AI’s food reserve. AI starts Neutral. Completed trades add
-5 relationship points, at most once per pair per game day; attacks/raids subtract
-40 when fighting begins. Scores range from -100 to 100; tier boundaries are -60,
--20, 20 and 60. Older worlds start Neutral without losing progress. These values
-are provisional. AI currently responds to offers rather than initiating trade.
+Hostile, Unfriendly, Neutral, Friendly and Trusted statuses appear with a relationship
+score in Multiplayer → Barter. Acceptance odds are hidden. AI weighs resource needs,
+exchange value, available stock, storage and its food reserve, and periodically
+initiates offers for shortages. Unfriendly AI may kill trade scouts and seize cargo.
+Accepted different-resource trades add 5 relationship points, at most once per pair
+per game day; attacks, raids and killing scouts subtract 40. Scores range from -100
+to 100; tier boundaries are -60, -20, 20 and 60. Older worlds start Neutral. These
+values are provisional.
 
 Each AI’s difficulty (Medium retains the existing Normal behavior), decision schedules, civilizations, and campaigns persist in the
 shared-world save. Resume retains saved opponents; creation controls are disabled
@@ -773,3 +783,24 @@ required to commission it and supply its benefit. It costs 24 wood/32 stone and
 55 construction work. A supplied completed Bathhouse adds 6 happiness, shown in
 the happiness breakdown. Extra bathhouses do not stack.
 
+
+### Traveling barter parties
+
+In Multiplayer → Barter, Send offer dispatches three available settlers with reserved
+cargo and trip provisions to a discovered civilization. The offer shows Traveling
+until arrival; the recipient can then accept, decline, or **Kill scouts / seize cargo**.
+Acceptance exchanges cargo at the destination and sends payment home with the scouts;
+declining or canceling returns the original cargo. Killing scouts removes those
+residents and severely damages relations in both directions. Cargo exceeding town
+storage on seizure or return is lost. AI civilizations periodically propose trades
+based on shortages and surplus; their decisions consider resource needs, affordability
+and relationships. Acceptance odds are hidden. Unfriendly AI may seize visiting parties.
+These local changes have only been inspected in source; gameplay is unverified.
+
+Visiting scouts appear in **Multiplayer → Barter → Visiting scouts** while inside
+your home influence. Select the party and a ready army at home, then choose
+**Use selected army to kill visiting scouts**. This applies to exploration and
+trade scouts, removes their actual settlers, damages relations, and seizes cargo
+within town storage. Trade-offer seizure also requires a ready formed army.
+Hostile AI civilizations can use their home armies against your visiting scouts.
+Scout attacks currently resolve immediately; they do not use the tactical battle scene.

@@ -652,7 +652,11 @@ func campaign_view(session, campaign: Dictionary, token: String) -> Dictionary:
         for mission in simulation.scout_missions:
             if point.distance_to(simulation.mission_position(mission)) <= 7: party_sight = true
         if simulation.scout_missions.is_empty() and not simulation.scout_mission.is_empty() and point.distance_to(simulation.scout_position()) <= 7: party_sight = true
-        if party_sight:
+        if simulation.has_home_influence(point):
+            observed["mission"] = campaign.get("mission", "Raid")
+        else:
+            observed.erase("mission")
+        if party_sight or simulation.has_home_influence(point):
             observed.merge({"intel_scouted": true, "last_scouted": session.world_day, "unit": army.get("unit", "Militia"), "count": army.get("soldiers", []).size(), "formation": army.get("formation", "Line"), "commander": army.get("commander", ""), "composition": composition(army)}, true)
         observed["scene"] = battle_scene(session, campaign, token)
         return observed

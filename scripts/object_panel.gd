@@ -291,6 +291,11 @@ func refresh_scouts() -> void:
         next_event = "Return to camp"
         stage_days = sim.mission_remaining_days(mission)
         stage_progress = clampf((age - travel - survey_days) / maxf(sim.mission_return_travel(mission), 0.001), 0.0, 1.0)
+    if mission.get("trade_waiting", false) and age >= travel:
+        stage = "Awaiting trade decision"
+        next_event = "Recipient must accept, decline or seize cargo"
+        stage_days = 0.0
+        stage_progress = 1.0
     status.text = "%d scouts · %s · %d food packed%s" % [mission.units.size(), stage, int(mission.get("food", 0)), " · boat expedition" if mission.get("boat", false) else ""]
     progress.show()
     progress.value = stage_progress * 100
@@ -298,6 +303,9 @@ func refresh_scouts() -> void:
     scout_route.show()
     scout_route.set_route(destination, point, sim.mission_direction(mission), sim.mission_return_point(mission), sim.CAMP_RADIUS, sim.mission_departure_point(mission))
     details.text = "Route · Departure (%.1f, %.1f) → Destination (%.1f, %.1f) → Camp boundary\nCurrent position · (%.1f, %.1f)\n\n%s · approximately %.1f game days\nReturn to camp · approximately %.1f game days\nFood packed · %d\n\nScouts only pause at a destination when they find a civilization. They become available on entering the camp area. Estimates use the current seasonal rate; changing seasons can alter them. Time follows the world clock; solo pause stops the countdown." % [sim.mission_departure_point(mission).x, sim.mission_departure_point(mission).y, destination.x, destination.y, point.x, point.y, next_event, stage_days, sim.mission_remaining_days(mission), int(mission.get("food", 0))]
+    if mission.has("trade_id"):
+        details.text += "\n\nTrade cargo: " + str(mission.get("cargo", {}))
+        if mission.get("trade_waiting", false): details.text += "\nReturn estimate excludes time waiting for the recipient's decision."
 
 func refresh_army() -> void:
     var sim = world.sim
@@ -342,10 +350,12 @@ func refresh_army() -> void:
     var live: bool = sim.has_live_sight(point)
     status.text = "Currently in sight" if live else "Seen %.1f days ago" % maxf(0.0, sim.day - float(report.last_seen))
     details.text = "Civilization · %s\nObserved position · (%.0f, %.0f)\n%s" % [report.get("attacker", "Unknown"), point.x, point.y, "Activity · " + str(report.phase) if live else "Position and activity may have changed."]
+    if live and sim.has_home_influence(point) and report.has("mission"):
+        details.text += "\nIntention · " + str(report.mission)
     if report.get("intel_scouted", false):
-        details.text += "\n\nScout report · day %.1f\nTroops · %d %s\nFormation · %s\nCommander · %s\nThese details describe the last scout observation." % [report.last_scouted, report.count, report.unit, report.formation, report.commander]
+        details.text += "\n\nIdentified report · day %.1f\nTroops · %d %s\nFormation · %s\nCommander · %s\nThese details describe the last identification by scouts or home influence." % [report.last_scouted, report.count, report.unit, report.formation, report.commander]
     else:
-        details.text += "\n\nTroop count · Unknown\nUnit type · Unknown\nFormation · Unknown\nCommander · Unknown\nSend your scouting party within sight of this army to identify it."
+        details.text += "\n\nTroop count · Unknown\nUnit type · Unknown\nFormation · Unknown\nCommander · Unknown\nIdentify this army with scouts or when it enters your home influence."
     details.text += "\n\nMorale, experience, supplies, destination and standing orders are hidden."
 
 func benefit(kind: String) -> String:

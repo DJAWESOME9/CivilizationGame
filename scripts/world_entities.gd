@@ -58,8 +58,12 @@ func refresh_settlements() -> void:
             world.get_child(world.get_child_count() - 1).reparent(root)
             for building in info.buildings:
                 var location := point + Vector2(3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
-                if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks", "Pottery Workshop", "Archive"]:
-                    var home: Node3D = world.house(location.x, location.y, 0.15, 0.85)
+                if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall", "Pottery Workshop", "Archive"]:
+                    var home: Node3D
+                    if building.kind in ["House", "Barracks", "Town Hall"]:
+                        home = world.early_building(location.x, location.y, building.kind)
+                    else:
+                        home = world.house(location.x, location.y, 0.15, 0.85)
                     home.reparent(root)
                 elif building.progress >= 1 and building.kind in ["Carpenter Workshop", "Bathhouse"]:
                     var facility := Node3D.new()
@@ -138,6 +142,9 @@ func refresh_forces() -> void:
         if info.phase == "Raiding" and not info.get("scene", {}).is_empty():
             var loot: Dictionary = info.scene.loot
             badge += "  ·  ● %.1f  ≋ %.1f  ◆ %.1f" % [loot.get("food", 0), loot.get("wood", 0), loot.get("stone", 0)]
+        if not info.own and info.has("mission") and world.sim.has_home_influence(at):
+            badge += "  ·  " + str(info.mission)
+        forces[key].label.visible = live
         forces[key].label.text = badge
         forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
         forces[key].info = info
@@ -217,6 +224,7 @@ func arrange_captions() -> void:
     for courier in couriers.values(): labels.append(courier.label)
     var occupied: Array[Rect2] = []
     for label in labels:
+        if not label.visible: continue
         label.position = Vector3(0, 3.4, 0)
         if world.camera.is_position_behind(label.global_position): continue
         var area := caption_rect(label).grow(6.0)
@@ -239,6 +247,7 @@ func arrange_captions() -> void:
 
 # Caption hit areas follow the billboard projection as the camera pans or zooms.
 func caption_rect(label: Label3D) -> Rect2:
+    if not label.visible: return Rect2()
     if world.camera.is_position_behind(label.global_position): return Rect2()
     var center: Vector2 = world.camera.unproject_position(label.global_position)
     var lines := label.text.split("\n")

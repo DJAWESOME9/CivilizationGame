@@ -16,6 +16,8 @@ var building_nodes := Node3D.new()
 var visual_revision := -1
 var hud_timer := 0.0
 var save_timer := 0.0
+var command_armies: VBoxContainer
+var command_armies_signature := ""
 var status_label: Label
 var stock_label: Label
 var research_button: Button
@@ -412,6 +414,46 @@ func roof(parent: Node3D, w: float, d: float, wall: float, peak: float, material
     m.cull_mode = BaseMaterial3D.CULL_DISABLED
     mesh_from_triangles(vertices, m, parent)
     beam(parent, f, g, 0.07, mats.wood)
+
+# Early settlement structures use earth, rough poles and low thatch roofs.
+func early_building(x: float, z: float, kind: String, angle: float = 0.15, scale_value: float = 0.85) -> Node3D:
+    var shelter := Node3D.new()
+    shelter.position = pos(x, z)
+    shelter.rotation.y = angle
+    shelter.scale = Vector3.ONE * scale_value
+    add_child(shelter)
+    box(shelter, Vector3(0, 0.025, 0), Vector3(2.6, 0.05, 2.8), mats.soil)
+    if kind == "House":
+        # A squat mud-and-wattle hut with an unframed, open entrance.
+        box(shelter, Vector3(0, 0.56, 0), Vector3(2.15, 1.08, 2.3), mats.soil)
+        box(shelter, Vector3(0, 0.43, 1.16), Vector3(0.58, 0.82, 0.025), mats.dark)
+        roof(shelter, 1.35, 1.45, 1.05, 1.95, mats.thatch)
+        for xx in [-1.0, 1.0]:
+            beam(shelter, Vector3(xx, 0, 1.13), Vector3(xx, 1.12, 1.13), 0.055, mats.wood)
+    elif kind == "Barracks":
+        # Communal sleeping shelter: rough log sides and a broad open doorway.
+        for i in range(6):
+            var yy := 0.13 + i * 0.17
+            for xx in [-1.08, 1.08]:
+                beam(shelter, Vector3(xx, yy, -1.23), Vector3(xx, yy, 1.23), 0.09, mats.wood)
+            beam(shelter, Vector3(-1.08, yy, -1.2), Vector3(1.08, yy, -1.2), 0.09, mats.wood)
+        roof(shelter, 1.35, 1.5, 1.1, 1.95, mats.thatch)
+        for xx in [-1.05, 1.05]:
+            beam(shelter, Vector3(xx, 0, 1.2), Vector3(xx, 1.15, 1.2), 0.075, mats.wood)
+        # Two bedrolls distinguish military housing without a formal banner.
+        for xx in [-0.65, 0.65]:
+            box(shelter, Vector3(xx, 0.11, 0.2), Vector3(0.48, 0.14, 1.35), mats.thatch)
+    else:
+        # The first town hall is an open-sided meeting canopy, not a civic mansion.
+        roof(shelter, 1.4, 1.45, 1.25, 2.05, mats.thatch)
+        for xx in [-1.15, 1.15]:
+            for zz in [-1.2, 1.2]:
+                beam(shelter, Vector3(xx, 0, zz), Vector3(xx, 1.32, zz), 0.085, mats.wood)
+        box(shelter, Vector3(0, 0.45, -1.18), Vector3(2.25, 0.85, 0.1), mats.soil)
+        for xx in [-0.82, 0.82]:
+            beam(shelter, Vector3(xx, 0.22, -0.6), Vector3(xx, 0.22, 0.65), 0.13, mats.wood)
+        cylinder(shelter, Vector3(0, 0.22, -0.2), 0.32, 0.28, 0.4, mats.wood, 8)
+    return shelter
 
 func house(x: float, z: float, angle: float, scale_value: float = 1.0) -> Node3D:
     var home := Node3D.new()
@@ -1243,7 +1285,11 @@ func make_ui() -> void:
         dispatch_scouts(selected_land))
     explore_page.add_child(label("Click land to inspect · drag to move the map.\nUnknown land is hidden; old reports fade.", 12, Color("9fae99")))
 
-    game_button(military_page, "Armies", func(): multiplayer_screen.open_warfare())
+    military_page.add_child(label("Your armies", 18))
+    command_armies = VBoxContainer.new()
+    command_armies.add_theme_constant_override("separation", 7)
+    military_page.add_child(command_armies)
+    game_button(military_page, "Manage all armies", func(): multiplayer_screen.open_warfare())
     game_button(military_page, "Training", func(): multiplayer_screen.open_warfare(); multiplayer_screen.warfare_page.open_training())
     game_button(military_page, "Create / edit armies", func(): multiplayer_screen.open_warfare(); multiplayer_screen.warfare_page.pages.current_tab = 2)
     military_page.add_child(label("Build training grounds and barracks from Build → Military.", 13, Color("9fae99")))
@@ -1359,11 +1405,37 @@ func add_scroll_tab(tabs: TabContainer, title: String, separation: int) -> VBoxC
     return content
 
 
+func refresh_command_armies() -> void:
+    if not is_instance_valid(command_armies): return
+    var warfare = preload("res://scripts/warfare.gd")
+    var entries: Array = []
+    for army in sim.armies:
+        if army.get("reserve", false): continue
+        entries.append([int(army.id), warfare.army_name(army), warfare.composition_text(army), str(army.status), bool(army.get("defend_home", false))])
+    var signature := str(entries)
+    if signature == command_armies_signature: return
+    command_armies_signature = signature
+    for child in command_armies.get_children():
+        command_armies.remove_child(child)
+        child.queue_free()
+    if entries.is_empty():
+        var empty := label("No armies formed. Train units, then create an army below.", 13, Color("9fae99"))
+        empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        command_armies.add_child(empty)
+    for entry in entries:
+        var army_id: int = entry[0]
+        var button := game_button(command_armies, "%s\n%s\n%s%s" % [entry[1], entry[2], entry[3], " · Home defense" if entry[4] else ""], func():
+            multiplayer_screen.open_warfare()
+            multiplayer_screen.warfare_page.select_force(army_id))
+        button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        button.tooltip_text = "Manage this army: edit troops and name, assign defense, or issue expedition orders."
+
 func refresh_game() -> void:
     if not is_instance_valid(status_label): return
     for node in get_tree().get_nodes_in_group("inspectable"):
         var info: Dictionary = node.get_meta("inspection", {})
         if info.has("camp_id"): node.visible = sim.camp_object_present(info.camp_id)
+    refresh_command_armies()
     resource_deposits.refresh(self)
     var online: bool = is_instance_valid(session) and (session.active or session.connecting)
     civilization_title.text = str(session.cached_own.get("civilization_name", "SHARED WORLD")) if online else "FIRST SETTLEMENT"
@@ -1472,16 +1544,13 @@ func rebuild_buildings() -> void:
     for b in sim.buildings:
         var center := Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5))
         if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall", "Pottery Workshop", "Archive"]:
-            var home := house(center.x, center.y, 0.15, 0.85)
+            var home: Node3D
+            if b.kind in ["House", "Barracks", "Town Hall"]:
+                home = early_building(center.x, center.y, b.kind)
+            else:
+                home = house(center.x, center.y, 0.15, 0.85)
             home.reparent(building_nodes)
             inspectable(home, {"kind": b.kind, "q": b.q, "r": b.r})
-            if b.kind in ["Barracks", "Town Hall"]:
-                var banner := Node3D.new()
-                building_nodes.add_child(banner)
-                banner.position = pos(center.x + 1.2, center.y, 0.05)
-                beam(banner, Vector3.ZERO, Vector3(0, 2.6, 0), 0.04, mats.wood)
-                box(banner, Vector3(0.34, 2.3, 0), Vector3(0.65, 0.4, 0.035), mats.cloth)
-                inspectable(banner, {"kind": b.kind, "q": b.q, "r": b.r})
         else:
             var site := Node3D.new()
             building_nodes.add_child(site)

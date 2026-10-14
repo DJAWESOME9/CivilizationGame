@@ -21,6 +21,8 @@ var casualty_action: OptionButton
 var destroy_buildings: CheckBox
 var raze_button: Button
 var composition_counts: Dictionary = {}
+var edit_composition_counts: Dictionary = {}
+var compose_button: Button
 var defense: OptionButton
 var target: OptionButton
 var commander: OptionButton
@@ -98,6 +100,7 @@ func setup(scene: Node3D) -> void:
     armies_list.item_selected.connect(func(index): selected_army = int(armies_list.get_item_metadata(index)); plan_signature = ""; refresh())
     column.add_child(armies_list)
     details = text(column, "")
+    world.game_button(column, "Edit selected army", func(): open_army_editor())
     var defense_row := row(column)
     defend_button = world.game_button(defense_row, "Defend this location", func(): command("assign_defense", [selected_army, true]))
     release_button = world.game_button(defense_row, "Release from defense", func(): command("assign_defense", [selected_army, false]))
@@ -172,25 +175,21 @@ func setup(scene: Node3D) -> void:
     army_title.max_length = 32
     column.add_child(army_title)
     var creation := row(column)
-    for unit in Warfare.UNITS:
-        var unit_row := row(column)
-        text(unit_row, unit)
-        var amount := SpinBox.new()
-        amount.min_value = 0
-        amount.max_value = 30
-        amount.value = 3 if unit == "Militia" else 0
-        unit_row.add_child(amount)
-        composition_counts[unit] = amount
+    add_composition_inputs(column, composition_counts)
     create_button = world.game_button(creation, "Create army", func(): command("form_army", [requested_composition(), army_title.text]))
     reserve_hint = text(column, "")
     text(column, "Edit the army selected on the Armies page", 20)
     edit_hint = text(column, "")
     world.game_button(column, "Use name above for selected army", func(): command("rename_army", [selected_army, army_title.text]))
-    world.game_button(column, "Set selected army to unit counts above", func(): command("compose_army", [selected_army, requested_composition()]))
+    add_composition_inputs(column, edit_composition_counts)
+    compose_button = world.game_button(column, "Set selected army to unit counts above", func(): command("compose_army", [selected_army, requested_composition(edit_composition_counts)]))
     world.game_button(column, "Load selected army counts", func():
         var selected := Warfare.find_army(world.sim, selected_army)
         var counts := Warfare.composition(selected)
-        for unit in counts: composition_counts[unit].value = counts[unit])
+        for unit in counts:
+            edit_composition_counts[unit].max_value = 30
+            edit_composition_counts[unit].set_value_no_signal(counts[unit])
+        refresh())
     var appointment := row(column)
     commander = selector(appointment, ["None"])
     world.game_button(appointment, "Assign commander", func(): command("appoint", [selected_army, commander.get_item_text(commander.selected)]))
@@ -215,9 +214,36 @@ func dispatch(mission: String) -> void:
         if mission == "Raze": payload.append(destroy_buildings.button_pressed)
         command("messenger", [selected_army, mission, payload])
 
-func requested_composition() -> Dictionary:
+func add_composition_inputs(parent: Node, inputs: Dictionary) -> void:
+    for unit in Warfare.UNITS:
+        var unit_row := row(parent)
+        text(unit_row, unit)
+        var amount := SpinBox.new()
+        amount.min_value = 0
+        amount.max_value = 30
+        unit_row.add_child(amount)
+        inputs[unit] = amount
+        amount.value_changed.connect(func(_value): refresh())
+
+func limit_composition(inputs: Dictionary, available: Dictionary) -> int:
+    # Clamp stock first, then cap each selector by the remaining army places.
+    for unit in inputs:
+        inputs[unit].set_value_no_signal(mini(int(inputs[unit].value), int(available[unit])))
+    var total := 0
+    for unit in inputs: total += int(inputs[unit].value)
+    for unit in inputs:
+        var amount: SpinBox = inputs[unit]
+        var others := total - int(amount.value)
+        amount.set_block_signals(true)
+        amount.max_value = mini(int(available[unit]), maxi(0, 30 - others))
+        amount.set_block_signals(false)
+        amount.editable = amount.max_value > 0
+    return total
+
+func requested_composition(inputs: Dictionary = {}) -> Dictionary:
+    if inputs.is_empty(): inputs = composition_counts
     var result: Dictionary = {}
-    for unit in composition_counts: result[unit] = int(composition_counts[unit].value)
+    for unit in inputs: result[unit] = int(inputs[unit].value)
     return result
 
 func open_training() -> void:
@@ -226,8 +252,23 @@ func open_training() -> void:
 
 func select_force(army_id: int) -> void:
     selected_army = army_id
+    army_signature = ""
     plan_signature = ""
     pages.current_tab = 0
+    refresh()
+
+func open_army_editor() -> void:
+    refresh()
+    var army := Warfare.find_army(world.sim, selected_army)
+    if army.is_empty() or army.get("reserve", false):
+        response.text = "Select a formed army first."
+        return
+    army_title.text = Warfare.army_name(army)
+    var counts := Warfare.composition(army)
+    for unit in counts:
+        edit_composition_counts[unit].max_value = 30
+        edit_composition_counts[unit].set_value_no_signal(counts[unit])
+    pages.current_tab = 2
     refresh()
 
 func select_destination(slot: int) -> void:
@@ -252,17 +293,14 @@ func refresh() -> void:
     for kind in Warfare.UNITS: reserves[kind] = 0
     for army in sim.armies:
         if not army.get("reserve", false) and army.status != "Training": continue
-        if army.status == "Ready" and army.get("reserve", false): reserves[army.unit] += army.soldiers.size()
+        if army.status == "Ready" and army.get("reserve", false):
+            var counts := Warfare.composition(army)
+            for kind in counts: reserves[kind] += counts[kind]
         else: training_lines.append("%d %s · %s · %.0f%%" % [army.soldiers.size(), Warfare.composition_text(army), army.status, minf(100, army.training / Warfare.UNITS[army.unit].days * 100)])
     training_list.text = "Training intakes\n" + ("\n".join(training_lines) if not training_lines.is_empty() else "No units training.")
     reserve_hint.text = "Fully trained reserves\nMilitia: %d · Spearmen: %d · Archers: %d" % [reserves.Militia, reserves.Spearmen, reserves.Archers]
-    var requested := requested_composition()
-    var total := 0
-    var available := true
-    for kind in requested:
-        total += requested[kind]
-        if reserves[kind] < requested[kind]: available = false
-    create_button.disabled = not available or total < 1 or total > 30 or world.session.connecting
+    var total := limit_composition(composition_counts, reserves)
+    create_button.disabled = total < 1 or total > 30 or world.session.connecting
     var chiefs := Warfare.available_commanders(sim)
     if str(chiefs) != str(commander.get_meta("chiefs", [])):
         commander.set_meta("chiefs", chiefs)
@@ -286,6 +324,13 @@ func refresh() -> void:
     details.text = "No formed army. Open Training, then Create / edit armies." if army.is_empty() else "%s · %s · Commander: %s\nMorale %.0f · Experience %.0f%% · Carried food %.1f\n%s" % [Warfare.army_name(army), army.status, army.commander, army.morale, army.experience * 100, army.supplies, Warfare.COMMANDERS.get(army.commander, Warfare.COMMANDERS["None"]).description]
     if not army.is_empty(): details.text += "\nLoad %.1f / %.1f · March speed %.0f%%" % [Warfare.carried(army), Warfare.carry_capacity(army), Warfare.load_factor(army) * 100]
     edit_hint.text = "No army selected." if army.is_empty() else "%s · %s · %s" % [Warfare.army_name(army), Warfare.composition_text(army), army.status]
+    var editable_army: bool = not army.is_empty() and army.status == "Ready"
+    var edit_available: Dictionary = reserves.duplicate()
+    var existing := Warfare.composition(army) if editable_army else Warfare.composition({})
+    for kind in edit_available:
+        edit_available[kind] = int(edit_available[kind]) + int(existing[kind]) if editable_army else 0
+    var edit_total := limit_composition(edit_composition_counts, edit_available)
+    compose_button.disabled = not editable_army or edit_total < 1 or edit_total > 30 or world.session.connecting
     var next_plan := str([selected_army, army.get("tactic"), army.get("formation"), army.get("autonomy"), army.get("retreat"), army.get("casualty_limit"), army.get("casualty_action")])
     if not army.is_empty() and next_plan != plan_signature:
         plan_signature = next_plan

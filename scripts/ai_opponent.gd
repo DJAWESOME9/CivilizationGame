@@ -39,17 +39,37 @@ static func decide(session, token: String) -> void:
             var new_id: int = sim.next_army_id
             Warfare.army_order(sim, "create_army", [pool.unit, pool.soldiers.size(), "Home guard"])
             Warfare.army_order(sim, "assign_defense", [new_id, true])
+    # Hostile civilizations can also stop ordinary scouts with their home armies.
+    if not session.ready_scout_guard(token).is_empty():
+        for party in session.visiting_scouts(token):
+            if party.trade: continue
+            var other := ""
+            for candidate in session.civilizations:
+                if int(session.civilizations[candidate].slot) == int(party.slot): other = candidate
+            if not other.is_empty() and int(session.relationship(token, other).score) <= -20 and randf() < 0.15:
+                session.kill_visiting_scouts(token, int(party.slot), float(party.started), party.units)
     for offer in session.trade_offers.duplicate():
-        if offer.to != token: continue
-        # Accept fair exchanges only when payment leaves a food reserve.
+        if offer.to != token or offer.get("stage", "") != "Awaiting decision": continue
         var reserve: float = sim.population * 0.5 if offer.ask == "food" else 0.0
-        var fair: bool = offer.give != offer.ask and offer.give_amount >= offer.ask_amount and sim.resources[offer.ask] - offer.ask_amount >= reserve
-        var willing: bool = randi_range(1, 100) <= int(session.relationship(token, str(offer.from)).chance)
-        session.player_command(token, "accept_trade" if fair and willing else "decline_trade", [int(offer.id)])
-        # If capacity or the sender's stock changed, dismiss the failed offer.
+        var value_received: float = offer.give_amount * resource_need(sim, offer.give)
+        var value_paid: float = offer.ask_amount * resource_need(sim, offer.ask)
+        var fair: bool = offer.give != offer.ask and value_received >= value_paid and sim.resources[offer.ask] - offer.ask_amount >= reserve
+        var chance: float = float(session.relationship(token, str(offer.from)).chance) * clampf(value_received / maxf(1.0, value_paid), 0.25, 1.5)
+        var hostile: bool = int(session.relationship(token, str(offer.from)).score) <= -20
+        var decision := "seize_trade" if hostile and randf() < 0.15 else ("accept_trade" if fair and randf() * 100 < chance else "decline_trade")
+        session.player_command(token, decision, [int(offer.id)])
         if offer in session.trade_offers: session.player_command(token, "decline_trade", [int(offer.id)])
-        if offer not in session.trade_offers and (not fair or not willing):
-            session.civilizations[offer.from].sim.announce("%s declined your barter offer. Relationship: %s; fair offers still require stock and storage." % [record.name, session.relationship(token, str(offer.from)).status])
+    if session.world_day >= float(record.get("next_trade", 0)):
+        record.next_trade = session.world_day + 30.0
+        var needed := "food"
+        var surplus := "wood"
+        for resource in ["food", "wood", "stone"]:
+            if resource_need(sim, resource) > resource_need(sim, needed): needed = resource
+            if resource_need(sim, resource) < resource_need(sim, surplus): surplus = resource
+        if needed != surplus and resource_need(sim, needed) > 1.0 and sim.resources[surplus] >= 20:
+            for contact in sim.known_civilizations.values():
+                session.player_command(token, "offer_trade", [int(contact.slot), surplus, 10, needed, 10])
+                break
     if session.world_day >= float(record.get("next_raid", spec.peace_days)) and sim.resources.food > sim.population:
         for army in sim.armies:
             if army.status != "Ready" or army.morale < 80: continue
@@ -119,3 +139,7 @@ static func scout(session, token: String) -> void:
         if other == token or sim.known_civilizations.has(str(slot)): continue
         sim.send_scouts(Warfare.SITES[slot] - origin)
         return
+
+static func resource_need(sim, resource: String) -> float:
+    var target: float = maxf(15.0, float(sim.population)) if resource == "food" else (65.0 if resource == "wood" else 45.0)
+    return clampf(target / maxf(1.0, float(sim.resources[resource])), 0.25, 4.0)

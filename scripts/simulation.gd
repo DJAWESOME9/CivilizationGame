@@ -284,6 +284,7 @@ func mission_direction(mission: Dictionary) -> Vector2:
     var travel: float = mission.travel
     var survey_days := mission_survey_duration(mission)
     var destination := Vector2(mission.destination[0], mission.destination[1])
+    if mission.get("trade_waiting", false) and age >= travel: return Vector2.ZERO
     if age < travel: return destination - mission_departure_point(mission)
     if age < travel + survey_days or age >= travel + survey_days + mission_return_travel(mission): return Vector2.ZERO
     return mission_return_point(mission) - destination
@@ -300,6 +301,7 @@ func mission_position(mission: Dictionary) -> Vector2:
     var destination := Vector2(mission.destination[0], mission.destination[1])
     var age: float = float(mission.get("progress", day - mission.started))
     var travel: float = mission.travel
+    if mission.get("trade_waiting", false) and age >= travel: return destination
     if age < travel: return mission_departure_point(mission).lerp(destination, age / travel)
     var survey_days := mission_survey_duration(mission)
     if age < travel + survey_days: return destination
@@ -446,6 +448,11 @@ func update_exploration(dt: float = 0.0) -> void:
             var outbound_time := minf(mission_remaining, (travel - progress) / mission_travel_rate(mission))
             progress += outbound_time * mission_travel_rate(mission)
             mission_remaining -= outbound_time
+        if mission.get("trade_waiting", false):
+            mission.progress = minf(progress, travel)
+            mission.survey_days = 0.0
+            reveal_land(mission_position(mission), 7)
+            continue
         if progress >= travel and survey_days < 0.0:
             survey_days = 3.0 if has_civilization_near(Vector2(mission.destination[0], mission.destination[1])) else 0.0
             mission.survey_days = survey_days
@@ -467,6 +474,13 @@ func update_exploration(dt: float = 0.0) -> void:
         if age >= mission.travel + survey_days + returning_travel:
             var report_point := Vector2(mission.destination[0], mission.destination[1])
             returned.append(mission)
+            if mission.has("cargo"):
+                for resource in mission.cargo:
+                    var room: float = maxf(0, capacity() - resources.food - resources.wood - resources.stone)
+                    var delivered: float = minf(room, float(mission.cargo[resource]))
+                    resources[resource] += delivered
+                    if delivered < float(mission.cargo[resource]): announce("Returning trade cargo exceeded storage; excess was lost.")
+                announce("Trade scouting party returned with its cargo.")
             for landmark in LANDMARKS:
                 var point := Vector2(landmark.point[0], landmark.point[1])
                 if point.distance_to(report_point) < 9 and landmark.name not in discoveries:
@@ -1157,8 +1171,11 @@ func military_housed() -> int:
     for army in armies: count += army.soldiers.size()
     return mini(count, military_capacity())
 
+func has_home_influence(point: Vector2) -> bool:
+    return point.distance_to(Vector2(-4, 0)) <= 21
+
 func has_live_sight(point: Vector2) -> bool:
-    if point.distance_to(Vector2(-4, 0)) <= 21: return true
+    if has_home_influence(point): return true
     for mission in scout_missions:
         if point.distance_to(mission_position(mission)) <= 7: return true
     if scout_missions.is_empty() and not scout_mission.is_empty() and point.distance_to(scout_position()) <= 7: return true

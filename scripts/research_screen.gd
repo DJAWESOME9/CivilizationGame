@@ -283,7 +283,7 @@ func add_connection_path(points: PackedVector2Array, source: String, targets: Ar
     connection_nodes[connection_nodes.size()] = {"from": source, "targets": targets, "line": line, "arrow": tip}
 
 func refresh_connections() -> void:
-    # Show a local dependency view, with one independent arrow per relationship.
+    # Keep the whole tree visible, emphasizing the selected prerequisite/future paths.
     # Long routes stay in the empty row gutters instead of crossing intervening cards.
     var layout: Array = [selected]
     for tech in cards: layout.append([tech, cards[tech].position, cards[tech].size])
@@ -294,10 +294,27 @@ func refresh_connections() -> void:
         links.remove_child(child)
         child.queue_free()
     connection_nodes.clear()
-    var route_index := 0
+    var ancestors: Array = [selected]
+    var descendants: Array = [selected]
+    var pending: Array = [selected]
+    while not pending.is_empty():
+        var current: String = pending.pop_back()
+        for prerequisite in world.sim.PREREQUISITES[current]:
+            if prerequisite not in ancestors:
+                ancestors.append(prerequisite)
+                pending.append(prerequisite)
+    pending = [selected]
+    while not pending.is_empty():
+        var current: String = pending.pop_back()
+        for candidate in cards:
+            if current in world.sim.PREREQUISITES[candidate] and candidate not in descendants:
+                descendants.append(candidate)
+                pending.append(candidate)
+    var source_routes: Dictionary = {}
     for tech in cards:
         for source in world.sim.PREREQUISITES[tech]:
-            if tech != selected and source != selected: continue
+            var route_index: int = source_routes.get(source, 0)
+            source_routes[source] = route_index + 1
             var parent: Button = cards[source]
             var target: Button = cards[tech]
             var incoming: Array = world.sim.PREREQUISITES[tech]
@@ -317,8 +334,12 @@ func refresh_connections() -> void:
             points.append(to)
             add_connection_path(points, source, [tech], true)
             var connection: Dictionary = connection_nodes[connection_nodes.size() - 1]
-            var color := Color("efd08b") if tech == selected else Color("83c9ed")
+            var prerequisite_path: bool = source in ancestors and tech in ancestors
+            var future_path: bool = source in descendants and tech in descendants
+            var emphasized := prerequisite_path or future_path
+            var color := Color("ffe1a0") if prerequisite_path else Color("99dcff") if future_path else Color(0.58, 0.66, 0.61, 0.24)
             connection.line.default_color = color
-            connection.line.width = 3.0
+            connection.line.width = 3.5 if emphasized else 1.5
+            connection.line.z_index = 1 if emphasized else 0
             connection.arrow.color = color
-            route_index += 1
+            connection.arrow.z_index = 1 if emphasized else 0

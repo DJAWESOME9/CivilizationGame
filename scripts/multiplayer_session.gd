@@ -113,7 +113,7 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
                 simulation.shared_region = true
                 var site: Vector2 = Warfare.SITES[int(record.slot)]
                 simulation.world_origin = [site.x + 4.0, site.y]
-                civilizations[token] = {"name": record.name, "sim": simulation, "slot": record.slot, "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day + 90), "relationships": record.get("relationships", {})}
+                civilizations[token] = {"name": record.name, "sim": simulation, "slot": record.slot, "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day + 90), "next_trade": record.get("next_trade", world_day), "relationships": record.get("relationships", {})}
             var elapsed := maxf(0, Time.get_unix_time_from_system() - float(data.saved_at)) / 86400.0 * clock_days
             # Accelerated testing runs only while the host is open.
             # Do not simulate months of unintended catch-up after closing.
@@ -254,6 +254,7 @@ func advance_world(days: float) -> void:
             if civilizations[token].get("ai", false): AIOpponent.decide(self, token)
         for record in civilizations.values(): record.sim.advance(step)
         world_day += step
+        advance_trades()
         warfare.advance(self, step)
         update_world_intel()
         remaining -= step
@@ -392,6 +393,7 @@ func publish() -> void:
         state["civilization_name"] = civilizations[token].name
         state["trade_offers"] = offers_for(token)
         state["relationships"] = relationships_for(token)
+        state["visiting_scouts"] = visiting_scouts(token)
         state["campaigns"] = warfare.public_campaigns(self, token)
         state["food_ledger"] = civilizations[token].sim.food_ledger
         state["daily_food_change"] = civilizations[token].sim.daily_food_change
@@ -439,7 +441,7 @@ func persist() -> void:
     var records: Dictionary = {}
     for token in civilizations:
         var record: Dictionary = civilizations[token]
-        records[token] = {"name": record.name, "slot": record.slot, "state": record.sim.snapshot(), "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day), "relationships": record.get("relationships", {})}
+        records[token] = {"name": record.name, "slot": record.slot, "state": record.sim.snapshot(), "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day), "next_trade": record.get("next_trade", world_day), "relationships": record.get("relationships", {})}
     var file := FileAccess.open(world_save_path, FileAccess.WRITE)
     if file: file.store_string(JSON.stringify({"version": 1, "world_id": world_id, "day": world_day, "clock": clock_days, "civilizations": records, "trade_offers": trade_offers, "next_offer": next_offer, "campaigns": warfare.campaigns, "next_campaign": warfare.next_campaign, "saved_at": Time.get_unix_time_from_system()}))
 
@@ -525,12 +527,13 @@ func relationships_for(token: String) -> Dictionary:
     var known: Dictionary = civilizations[token].sim.known_civilizations
     for other in civilizations:
         var record: Dictionary = civilizations[other]
-        if record.get("ai", false) and other != token and known.has(str(int(record.slot))):
-            result[str(int(record.slot))] = relationship(other, token)
+        if other != token and known.has(str(int(record.slot))):
+            var opinion := relationship(other, token)
+            opinion.erase("chance")
+            result[str(int(record.slot))] = opinion
     return result
 
 func change_relationship(ai_token: String, other: String, amount: int, trade: bool = false) -> void:
-    if not civilizations[ai_token].get("ai", false): return
     var records: Dictionary = civilizations[ai_token].get("relationships", {})
     var entry: Dictionary = records.get(other, {"score": 0, "last_trade_day": -1})
     # Several tiny offers in one day cannot build unlimited trust.
@@ -545,10 +548,60 @@ func offers_for(token: String) -> Array:
     var offers: Array = []
     for offer in trade_offers:
         if offer.from == token or offer.to == token:
-            offers.append({"id": offer.id, "incoming": offer.to == token, "from_name": civilizations[offer.from].name, "to_name": civilizations[offer.to].name, "give": offer.give, "give_amount": offer.give_amount, "ask": offer.ask, "ask_amount": offer.ask_amount})
+            offers.append({"id": offer.id, "incoming": offer.to == token, "from_name": civilizations[offer.from].name, "to_name": civilizations[offer.to].name, "give": offer.give, "give_amount": offer.give_amount, "ask": offer.ask, "ask_amount": offer.ask_amount, "stage": offer.get("stage", "Awaiting decision")})
     return offers
 
+func ready_scout_guard(token: String, army_id: int = -1) -> Dictionary:
+    for army in civilizations[token].sim.armies:
+        if army_id >= 0 and int(army.id) != army_id: continue
+        if army.status == "Ready" and not army.get("reserve", false) and not army.soldiers.is_empty(): return army
+    return {}
+
+func visiting_scouts(token: String) -> Array:
+    var result: Array = []
+    var home = civilizations[token].sim
+    var origin := Vector2(home.world_origin[0], home.world_origin[1])
+    for other in civilizations:
+        if other == token: continue
+        var sender = civilizations[other].sim
+        var offset := Vector2(sender.world_origin[0], sender.world_origin[1]) - origin
+        for mission in sender.scout_missions:
+            if not home.has_home_influence(sender.mission_position(mission) + offset): continue
+            result.append({"slot": int(civilizations[other].slot), "name": civilizations[other].name, "started": mission.started, "units": mission.units.duplicate(), "trade": mission.has("trade_id")})
+    return result
+
+func kill_visiting_scouts(token: String, slot: int, started: float, units: Array, army_id: int = -1) -> String:
+    var guard := ready_scout_guard(token, army_id)
+    if guard.is_empty(): return "Choose a ready, formed army at home to attack visiting scouts."
+    var home = civilizations[token].sim
+    for other in civilizations:
+        if other == token or int(civilizations[other].slot) != slot: continue
+        var sender = civilizations[other].sim
+        var offset := Vector2(sender.world_origin[0], sender.world_origin[1]) - Vector2(home.world_origin[0], home.world_origin[1])
+        for mission in sender.scout_missions:
+            if float(mission.started) != started or mission.units != units: continue
+            if not home.has_home_influence(sender.mission_position(mission) + offset): return "These scouts have left your civilization's influence."
+            deposit_trade_cargo(home, mission.get("cargo", {}))
+            for person in sender.people.duplicate():
+                if int(person.id) in mission.units: sender.people.erase(person)
+            sender.population = sender.people.size()
+            sender.scout_missions.erase(mission)
+            sender.scout_mission = sender.scout_missions[0] if not sender.scout_missions.is_empty() else {}
+            sender.clamp_assignments()
+            for offer in trade_offers.duplicate():
+                if offer.from == other and int(offer.id) == int(mission.get("trade_id", -1)): trade_offers.erase(offer)
+            change_relationship(other, token, -40)
+            change_relationship(token, other, -40)
+            sender.announce(civilizations[token].name + " used an army to kill your visiting scouts.")
+            home.announce(str(guard.name) + " killed visiting scouts from " + civilizations[other].name + ". Cargo seized within storage capacity; relations deteriorated.")
+            persist()
+            return "Visiting scouts killed by " + str(guard.name) + "; relations damaged."
+    return "This scouting party is no longer present."
+
 func player_command(token: String, action: String, args: Array) -> String:
+    if action == "attack_scouts":
+        if args.size() != 4 or not args[0] is int or not (args[1] is float or args[1] is int) or not args[2] is Array or not args[3] is int or int(args[3]) < 0: return "Choose visiting scouts and a ready army."
+        return kill_visiting_scouts(token, args[0], float(args[1]), args[2], args[3])
     if action == "army_plan" and args.size() in [5, 7] and args[0] is int:
         var army := Warfare.find_army(civilizations[token].sim, args[0])
         if army.get("status", "") in ["Marching", "Holding", "Returning", "Fighting", "Raiding"]:
@@ -585,39 +638,58 @@ func player_command(token: String, action: String, args: Array) -> String:
             if offer.from == token: own_offers += 1
         if own_offers >= 4: return "You already have four pending offers. Cancel one first."
         if civilizations[token].sim.resources[args[1]] < args[2]: return "You do not have the offered resources."
-        trade_offers.append({"id": next_offer, "from": token, "to": target, "give": args[1], "give_amount": args[2], "ask": args[3], "ask_amount": args[4]})
+        var sender = civilizations[token].sim
+        var destination: Vector2 = Warfare.SITES[int(civilizations[target].slot)] - Vector2(sender.world_origin[0], sender.world_origin[1])
+        var blocked: String = sender.scouting_block(destination)
+        if not blocked.is_empty(): return blocked
+        var provisions: int = sender.scout_food_cost(destination)
+        if args[1] == "food" and sender.resources.food < args[2] + provisions: return "Not enough food for both cargo and the scouting party."
+        sender.send_scouts(destination)
+        var mission: Dictionary = sender.scout_missions.back()
+        mission["trade_id"] = next_offer
+        mission["trade_waiting"] = true
+        mission["cargo"] = {str(args[1]): int(args[2])}
+        sender.resources[args[1]] -= args[2]
+        trade_offers.append({"id": next_offer, "from": token, "to": target, "give": args[1], "give_amount": args[2], "ask": args[3], "ask_amount": args[4], "stage": "Traveling"})
         next_offer += 1
-        civilizations[target].sim.announce("Barter offer received from " + civilizations[token].name + ".")
-        return "Barter offer sent. Materials are checked again on acceptance."
-    if action in ["accept_trade", "decline_trade"]:
+        persist()
+        return "Three settlers departed with the offered cargo. The recipient decides when they arrive."
+    if action in ["accept_trade", "decline_trade", "seize_trade"]:
         if args.size() != 1 or not args[0] is int: return "Choose a pending offer."
         for offer in trade_offers:
             if offer.id != args[0]: continue
             if token not in [offer.from, offer.to]: return "This offer belongs to another civilization."
-            if action == "decline_trade":
-                trade_offers.erase(offer)
-                return "Offer dismissed."
-            if token != offer.to: return "Only the receiving civilization can accept."
-            var sender_sim = civilizations[offer.from].sim
-            var receiver_sim = civilizations[offer.to].sim
-            if sender_sim.resources[offer.give] < offer.give_amount or receiver_sim.resources[offer.ask] < offer.ask_amount: return "One civilization no longer has enough resources."
-            var sender_total: float = sender_sim.resources.food + sender_sim.resources.wood + sender_sim.resources.stone - offer.give_amount + offer.ask_amount
-            var receiver_total: float = receiver_sim.resources.food + receiver_sim.resources.wood + receiver_sim.resources.stone - offer.ask_amount + offer.give_amount
-            if sender_total > sender_sim.capacity() or receiver_total > receiver_sim.capacity(): return "A civilization needs more storage space for this trade."
-            sender_sim.resources[offer.give] -= offer.give_amount
-            receiver_sim.resources[offer.give] += offer.give_amount
-            receiver_sim.resources[offer.ask] -= offer.ask_amount
-            sender_sim.resources[offer.ask] += offer.ask_amount
-            if offer.give != offer.ask:
-                change_relationship(offer.to, offer.from, 5, true)
-                change_relationship(offer.from, offer.to, 5, true)
-            sender_sim.announce("Barter completed with " + civilizations[offer.to].name + ".")
-            receiver_sim.announce("Barter completed with " + civilizations[offer.from].name + ".")
-            sender_sim.tick(0)
-            receiver_sim.tick(0)
+            var sender = civilizations[offer.from].sim
+            var receiver = civilizations[offer.to].sim
+            var mission := trade_mission(offer)
+            if token == offer.from and action != "decline_trade": return "Only the receiving civilization can decide."
+            if token == offer.to and offer.get("stage", "Awaiting decision") != "Awaiting decision": return "The scouting party has not arrived."
+            if action == "seize_trade":
+                if mission.is_empty(): return "No trade party is present."
+                return kill_visiting_scouts(token, int(civilizations[offer.from].slot), float(mission.started), mission.units)
+            elif action == "accept_trade":
+                if receiver.resources[offer.ask] < offer.ask_amount: return "Not enough resources to pay for this trade."
+                var total: float = receiver.resources.food + receiver.resources.wood + receiver.resources.stone - offer.ask_amount + offer.give_amount
+                if total > receiver.capacity(): return "Not enough storage for the offered cargo."
+                if mission.is_empty():
+                    # Pending offers from older saves have no reserved cargo or traveling party.
+                    trade_offers.erase(offer)
+                    return "Legacy offer expired. Please send a new scouting party."
+                receiver.resources[offer.ask] -= offer.ask_amount
+                receiver.resources[offer.give] += offer.give_amount
+                mission.cargo = {str(offer.ask): offer.ask_amount}
+                release_trade_party(mission)
+                if offer.give != offer.ask:
+                    change_relationship(offer.to, offer.from, 5, true)
+                    change_relationship(offer.from, offer.to, 5, true)
+                sender.announce(civilizations[offer.to].name + " accepted your trade. Scouts are bringing payment home.")
+                receiver.announce("Trade accepted. Relations improve.")
+            else:
+                if not mission.is_empty(): release_trade_party(mission)
+                sender.announce("Trade declined or canceled; scouts return with their cargo.")
             trade_offers.erase(offer)
             persist()
-            return "Barter completed."
+            return "Trade scouts killed; cargo seized and relations damaged." if action == "seize_trade" else "Trade resolved. Scouts return home with their cargo."
         return "This offer is no longer available."
     return apply_command(civilizations[token].sim, action, args)
 
@@ -698,3 +770,36 @@ func visible_inhabitants(simulation) -> Array:
         result.append({"id": int(person.id), "job": roles.get(int(person.id), "Resting"), "age": float(person.age)})
         if result.size() >= army_figures + 48: break
     return result
+
+func trade_mission(offer: Dictionary) -> Dictionary:
+    for mission in civilizations[offer.from].sim.scout_missions:
+        if int(mission.get("trade_id", -1)) == int(offer.id): return mission
+    return {}
+
+func release_trade_party(mission: Dictionary) -> void:
+    mission.trade_waiting = false
+    mission.surveyed = true
+    mission.survey_days = 0.0
+    # Cancellation on the outward journey turns the party around at its current position.
+    if float(mission.progress) < float(mission.travel):
+        var simulation_position: Vector2 = Vector2(mission.origin[0], mission.origin[1]).lerp(Vector2(mission.destination[0], mission.destination[1]), float(mission.progress) / float(mission.travel))
+        mission.destination = [simulation_position.x, simulation_position.y]
+        mission.travel = maxf(0.001, float(mission.progress))
+    mission.progress = mission.travel
+
+func deposit_trade_cargo(simulation, cargo: Dictionary) -> void:
+    for resource in cargo:
+        var room: float = maxf(0, simulation.capacity() - simulation.resources.food - simulation.resources.wood - simulation.resources.stone)
+        var stored: float = minf(room, float(cargo[resource]))
+        simulation.resources[resource] += stored
+        if stored < float(cargo[resource]): simulation.announce("Trade cargo exceeded storage; excess was lost.")
+
+func advance_trades() -> void:
+    for offer in trade_offers.duplicate():
+        var mission := trade_mission(offer)
+        if mission.is_empty():
+            trade_offers.erase(offer)
+            continue
+        if offer.get("stage", "Traveling") == "Traveling" and float(mission.progress) >= float(mission.travel):
+            offer.stage = "Awaiting decision"
+            civilizations[offer.to].sim.announce("Trade scouts arrived from " + civilizations[offer.from].name + ". Open Barter to accept, decline or seize their cargo.")

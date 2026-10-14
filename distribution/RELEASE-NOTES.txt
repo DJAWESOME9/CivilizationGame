@@ -1,11 +1,12 @@
-Visible battles and living rival settlements
+Traveling trade scouts and clearer settlement controls
 
-- Opposing fighters, villager militia, archer projectiles and visible falls tied to actual battle casualties.
-- Successful raiders load stolen stores before returning with carried loot.
-- Currently observed rival settlements show civilian workers and home troops; activity freezes outside live sight.
-- Rival settlement inspection offers barter, scouting and army targeting.
-- Dismantle actions remain reliable during live panel refreshes.
+- Trade offers travel with three scouts and reserved cargo; recipients accept, decline or seize them. AI decisions use resource needs and relations and AI can initiate offers.
+- Ready home armies can kill visiting exploration or trade scouts within home influence, taking cargo within storage capacity and damaging relations.
+- Clickable army roster, direct editing and troop selectors bounded by available trained units and the 30-soldier limit.
+- Enemy badges hide outside live sight; home influence identifies troops and their mission.
+- Simpler houses, barracks and town hall; softer fog edges; faint technology arrows with brighter prerequisite and onward paths.
+- Corrects a terrain shader identifier collision. The reported native saved-world crash remains unconfirmed.
 
-Extract the Mac or Windows ZIP and open the game. Existing updater-enabled copies can download signed content and apply it after reopening. Multiplayer players need the same build.
+Extract the Mac or Windows ZIP and open the game. Existing updater-enabled copies download signed content and apply it after reopening. Multiplayer participants need matching builds.
 
-Both platform exports completed. Signed feed, pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer runtime tests performed.
+Exports and artifact integrity checks are recorded separately. No gameplay, live updater or multiplayer tests run for this release. Earlier isolated saved-world source runs removed the terrain shader error but did not reproduce the native crash.

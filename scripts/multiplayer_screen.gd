@@ -24,6 +24,12 @@ var wanted_resource: OptionButton
 var offered_amount: SpinBox
 var wanted_amount: SpinBox
 var offers_list: ItemList
+var visitor_list: ItemList
+var scout_guard: OptionButton
+var attack_visitors: Button
+var visitor_signature := ""
+var guard_signature := ""
+var seize_offer: Button
 var trade_result: Label
 var relationship_label: Label
 var send_offer: Button
@@ -320,6 +326,19 @@ func make_trade_page(tabs: TabContainer) -> void:
     send_offer = world.game_button(give_row, "Send offer", func():
         trade_result.text = world.order("offer_trade", [trade_partner.get_selected_id(), ["food", "wood", "stone"][offered_resource.selected], int(offered_amount.value), ["food", "wood", "stone"][wanted_resource.selected], int(wanted_amount.value)]))
     page.add_child(HSeparator.new())
+    page.add_child(world.label("Visiting scouts · defend your civilization", 18, Color("eee1bf")))
+    visitor_list = ItemList.new()
+    visitor_list.custom_minimum_size.y = 95
+    page.add_child(visitor_list)
+    scout_guard = OptionButton.new()
+    page.add_child(scout_guard)
+    attack_visitors = world.game_button(page, "Use selected army to kill visiting scouts", func():
+        var chosen := visitor_list.get_selected_items()
+        if chosen.is_empty(): return
+        var party: Dictionary = visitor_list.get_item_metadata(chosen[0])
+        trade_result.text = world.order("attack_scouts", [int(party.slot), float(party.started), party.units, scout_guard.get_selected_id()]))
+    attack_visitors.tooltip_text = "Ready armies at home can kill ordinary or trade scouts inside home influence. Relations deteriorate; cargo is seized within town storage."
+    page.add_child(HSeparator.new())
     offers_list = ItemList.new()
     offers_list.custom_minimum_size.y = 220
     offers_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -328,11 +347,13 @@ func make_trade_page(tabs: TabContainer) -> void:
     page.add_child(actions)
     accept_offer = world.game_button(actions, "Accept selected offer", func(): trade_action("accept_trade"))
     decline_offer = world.game_button(actions, "Decline / cancel selected offer", func(): trade_action("decline_trade"))
-    trade_result = world.label("Pending offers appear here. Nothing transfers until an offer is accepted.", 14, Color("d9c59c"))
+    seize_offer = world.game_button(actions, "Kill scouts / seize cargo", func(): trade_action("seize_trade"))
+    seize_offer.tooltip_text = "Uses a ready army at home to kill the three visiting settlers and takes cargo within storage capacity. Severely damages relations."
+    trade_result = world.label("Offers travel with three settlers and reserved cargo. Decide when visiting scouts arrive.", 14, Color("d9c59c"))
     trade_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     page.add_child(trade_result)
     page.add_child(world.label("Acceptance checks both stockpiles and storage capacity.
-Barter currently transfers directly; caravans, routes and diplomatic contact are future systems.", 13, Color("9fb398")))
+Scouts carry offers out and payment home. Declined offers return with their cargo. Killing visiting scouts damages relations.", 13, Color("9fb398")))
 
 func trade_action(action: String) -> void:
     var selected_items := offers_list.get_selected_items()
@@ -343,6 +364,27 @@ func trade_action(action: String) -> void:
 
 func refresh_trades() -> void:
     var session = world.session
+    var visitors: Array = session.cached_own.get("visiting_scouts", []) if session.active else []
+    if visitor_signature != str(visitors):
+        var previous: Dictionary = {}
+        if not visitor_list.get_selected_items().is_empty(): previous = visitor_list.get_item_metadata(visitor_list.get_selected_items()[0])
+        visitor_signature = str(visitors)
+        visitor_list.clear()
+        for party in visitors:
+            var index := visitor_list.add_item("%s · %d %s scouts" % [party.name, party.units.size(), "trade" if party.trade else "exploration"])
+            visitor_list.set_item_metadata(index, party)
+            if party == previous: visitor_list.select(index)
+    var guards: Array = []
+    for army in world.sim.armies:
+        if army.status == "Ready" and not army.get("reserve", false) and not army.soldiers.is_empty(): guards.append({"id": army.id, "name": army.name})
+    if guard_signature != str(guards):
+        guard_signature = str(guards)
+        var previous_id := scout_guard.get_selected_id()
+        scout_guard.clear()
+        for army in guards: scout_guard.add_item(army.name, int(army.id))
+        var previous_index := scout_guard.get_item_index(previous_id)
+        if previous_index >= 0: scout_guard.select(previous_index)
+    attack_visitors.disabled = not session.active or guards.is_empty() or visitor_list.get_selected_items().is_empty()
     var own_slot := int(session.cached_own.get("slot", -1))
     var signature := str(session.roster) + str(own_slot) + str(world.sim.known_civilizations.keys())
     if player_signature != signature:
@@ -355,7 +397,7 @@ func refresh_trades() -> void:
         if previous >= 0: trade_partner.select(previous)
     var relations: Dictionary = session.cached_own.get("relationships", {})
     var relation: Dictionary = relations.get(str(trade_partner.get_selected_id()), {})
-    relationship_label.text = "Relationship: %s (%d) · %d%% chance to accept a fair, affordable offer.\nCompleted trades improve relations; attacks and raids damage them." % [relation.status, int(relation.score), int(relation.chance)] if not relation.is_empty() else ("Human civilization · the player decides whether to accept." if trade_partner.item_count > 0 else "Discover an AI civilization to see its relationship with you.")
+    relationship_label.text = "Relationship: %s (%d).\nResource needs and relations influence decisions. Accepted trades improve relations; killing scouts damages them." % [relation.status, int(relation.score)] if not relation.is_empty() else ("Human civilization · the player decides whether to accept." if trade_partner.item_count > 0 else "Discover an AI civilization to see its relationship with you.")
     var next_trades := str(session.visible_trades)
     if trade_signature != next_trades:
         trade_signature = next_trades
@@ -364,10 +406,21 @@ func refresh_trades() -> void:
         if not selected_items.is_empty(): selected_id = int(offers_list.get_item_metadata(selected_items[0]))
         offers_list.clear()
         for offer in session.visible_trades:
-            var text := "%s · %s → %s: %d %s for %d %s" % ["RECEIVED" if offer.incoming else "SENT", offer.from_name, offer.to_name, offer.give_amount, offer.give, offer.ask_amount, offer.ask]
+            var text := "%s · %s · %s → %s: %d %s for %d %s" % [offer.get("stage", "Awaiting decision"), "RECEIVED" if offer.incoming else "SENT", offer.from_name, offer.to_name, offer.give_amount, offer.give, offer.ask_amount, offer.ask]
             var index := offers_list.add_item(text)
             offers_list.set_item_metadata(index, offer.id)
             if offer.id == selected_id: offers_list.select(index)
     send_offer.disabled = not session.active or trade_partner.item_count == 0
     accept_offer.disabled = not session.active or offers_list.get_selected_items().is_empty()
     decline_offer.disabled = accept_offer.disabled
+    seize_offer.disabled = true
+    accept_offer.disabled = true
+    var selected := offers_list.get_selected_items()
+    if not selected.is_empty():
+        var offer_id := int(offers_list.get_item_metadata(selected[0]))
+        for offer in session.visible_trades:
+            if int(offer.id) == offer_id:
+                var arrived: bool = offer.incoming and offer.get("stage", "") == "Awaiting decision"
+                accept_offer.disabled = not session.active or not arrived
+                seize_offer.disabled = accept_offer.disabled or guards.is_empty()
+                decline_offer.disabled = not session.active or (offer.incoming and not arrived)
