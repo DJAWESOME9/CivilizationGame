@@ -5,6 +5,8 @@ var world: Node3D
 var settlements: Dictionary = {}
 var forces: Dictionary = {}
 var timer := 0.0
+var hovered_settlement := ""
+var couriers: Dictionary = {}
 var campaign_math = Warfare.new()
 var animation_clock := 0.0
 
@@ -17,6 +19,7 @@ func invalidate() -> void:
         child.queue_free()
     settlements.clear()
     forces.clear()
+    couriers.clear()
 
 func caption(parent: Node3D) -> Label3D:
     var label := Label3D.new()
@@ -66,7 +69,7 @@ func refresh_settlements() -> void:
             settlements[key] = {"node": root, "label": caption(marker), "signature": signature}
         var live: bool = world.sim.has_live_sight(point)
         settlements[key].label.text = "%s\n%d people · %s" % [info.name, info.population, "in sight" if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen))]
-        settlements[key].label.modulate = Color("dfd6ba") if live else Color("8d9a8b")
+        settlements[key].label.modulate = Color("fff0b9") if key == hovered_settlement else Color("dfd6ba") if live else Color("8d9a8b")
 
 func refresh_forces() -> void:
     var visible: Dictionary = {}
@@ -105,7 +108,7 @@ func refresh_forces() -> void:
             forces[key] = {"node": root, "figures": figures, "label": caption(root), "signature": signature, "info": info, "live": false, "heading": 0.0}
         var at := Vector2(info.point[0], info.point[1])
         var live: bool = info.own or world.sim.has_live_sight(at)
-        var name_text: String = "%s · %d %s" % [info.commander, info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
+        var name_text: String = "%s · %d %s" % [info.get("name", info.commander), info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
         if not info.own and info.get("intel_scouted", false): name_text += " · scouted day %.1f" % info.last_scouted
         forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen)))
         forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
@@ -114,8 +117,8 @@ func refresh_forces() -> void:
         if not live: forces[key].node.position = world.pos(at.x, at.y, 0.04)
         if live and not info.own: forces[key].heading = float(info.get("heading", 0.0))
         if live and info.own:
-            var route: Vector2 = Warfare.SITES[int(info.to_slot)] - Warfare.SITES[int(info.from_slot)]
-            if info.phase == "Returning": route = -route
+            var route: Vector2 = Warfare.SITES[int(info.to_slot)] - Vector2(info.route_start[0], info.route_start[1])
+            if info.phase == "Returning": route = Warfare.SITES[int(info.from_slot)] - Vector2(info.return_point[0], info.return_point[1])
             forces[key].heading = atan2(route.x, route.y)
 
 func formation_position(index: int, count: int, formation: String) -> Vector3:
@@ -151,3 +154,72 @@ func _process(delta: float) -> void:
         refresh_settlements()
         refresh_forces()
     animate_forces(delta)
+    refresh_hover()
+    refresh_couriers(delta)
+
+# Caption hit areas follow the billboard projection as the camera pans or zooms.
+func caption_rect(label: Label3D) -> Rect2:
+    if world.camera.is_position_behind(label.global_position): return Rect2()
+    var center: Vector2 = world.camera.unproject_position(label.global_position)
+    var lines := label.text.split("\n")
+    var length := 1
+    for line in lines: length = maxi(length, line.length())
+    var width: float = label.pixel_size * label.font_size * length * 0.58
+    var height: float = label.pixel_size * label.font_size * lines.size() * 1.3
+    var right: Vector3 = world.camera.global_transform.basis.x * width * 0.5
+    var up: Vector3 = world.camera.global_transform.basis.y * height * 0.5
+    var half_width: float = center.distance_to(world.camera.unproject_position(label.global_position + right))
+    var half_height: float = center.distance_to(world.camera.unproject_position(label.global_position + up))
+    var size := Vector2(maxf(20, half_width * 2), maxf(18, half_height * 2))
+    return Rect2(center - size * 0.5, size)
+
+func pick_caption(screen: Vector2) -> Dictionary:
+    for key in settlements:
+        if caption_rect(settlements[key].label).has_point(screen):
+            return {"kind": "Civilization", "slot": int(key)}
+    for force in forces.values():
+        if caption_rect(force.label).has_point(screen):
+            return {"kind": "Army", "own": force.info.own, "campaign": int(force.info.id), "army": int(force.info.get("army", -1))}
+    return {}
+
+func refresh_hover() -> void:
+    var previous := hovered_settlement
+    hovered_settlement = ""
+    var screen: Vector2 = get_viewport().get_mouse_position()
+    if not world.management_open() and not world.pointer_over_panel(screen):
+        for key in settlements:
+            if caption_rect(settlements[key].label).has_point(screen):
+                hovered_settlement = key
+                break
+    if previous != hovered_settlement: refresh_settlements()
+
+func refresh_couriers(delta: float) -> void:
+    var active: Dictionary = {}
+    var origin := Vector2(world.sim.world_origin[0], world.sim.world_origin[1])
+    for campaign in world.session.visible_campaigns:
+        if not campaign.own: continue
+        var messages: Array = campaign.get("messengers", [])
+        if messages.is_empty(): continue
+        var key := str(int(campaign.id))
+        active[key] = true
+        if not couriers.has(key):
+            var figure: Dictionary = world.citizens.make_person(0)
+            figure.node.reparent(self)
+            figure.node.scale *= 1.1
+            var title := caption(figure.node)
+            title.text = "Messenger"
+            title.modulate = Color("ffe6a3")
+            couriers[key] = {"figure": figure, "started": false}
+        var courier: Dictionary = couriers[key]
+        var point := Vector2(messages[0].point[0], messages[0].point[1]) - origin
+        var destination: Vector3 = world.pos(point.x, point.y, 0.04)
+        var node: Node3D = courier.figure.node
+        var movement := destination - node.position
+        if courier.started and movement.length() > 0.001: node.rotation.y = atan2(movement.x, movement.z)
+        node.position = node.position.lerp(destination, 1.0 - exp(-delta * 12.0)) if courier.started else destination
+        courier.started = true
+        if world.running: world.citizens.animate_soldier(courier.figure, "Marching", animation_clock * 1.6, delta)
+    for key in couriers.keys():
+        if not active.has(key):
+            couriers[key].figure.node.queue_free()
+            couriers.erase(key)

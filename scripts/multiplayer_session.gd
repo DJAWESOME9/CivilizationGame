@@ -8,7 +8,7 @@ var visible_campaigns: Array = []
 const Simulation = preload("res://scripts/simulation.gd")
 const UpdateSupport = preload("res://scripts/update_support.gd")
 var world_save_path := "user://multiplayer_world.json"
-const LIMIT := 8
+const LIMIT := Warfare.SITES.size()
 const PROTOCOL_VERSION := 2
 const AI_NAMES := ["Oakborn", "Stonevale", "Riverfolk", "Ashfield", "Pinewatch", "Sunmere", "Greycliff"]
 var host_port := 24567
@@ -56,10 +56,22 @@ func setup(scene: Node3D) -> void:
     multiplayer.server_disconnected.connect(func(): leave("Host disconnected. Your civilization remains in the host's world save."))
     multiplayer.peer_disconnected.connect(disconnected)
 
-func host_game(nickname: String, port: int, days: float, resume: bool, ai_count: int = 0, ai_difficulty: String = "Normal") -> String:
+func host_game(nickname: String, port: int, days: float, resume: bool, ai_count: int = 0, ai_difficulty: String = "Normal", ai_mix: Dictionary = {}) -> String:
     if active or connecting: return "Leave the current session first."
-    if ai_count < 0 or ai_count >= LIMIT or ai_difficulty not in AIOpponent.DIFFICULTIES:
-        return "Choose 0–7 AI opponents and Easy, Normal or Hard difficulty."
+    var levels: Array[String] = []
+    if ai_mix.is_empty():
+        if ai_count < 0 or ai_count >= LIMIT or ai_difficulty not in AIOpponent.DIFFICULTIES:
+            return "Choose up to %d AI opponents with Easy, Medium or Hard difficulty." % (LIMIT - 1)
+        for i in range(ai_count): levels.append(ai_difficulty)
+    else:
+        var total := 0
+        for level in ai_mix:
+            if level not in AIOpponent.DIFFICULTIES or not ai_mix[level] is int or ai_mix[level] < 0:
+                return "Choose whole, nonnegative counts for Easy, Medium and Hard AI."
+            total += int(ai_mix[level])
+            if total >= LIMIT: return "Choose at most %d AI opponents total; reserve one slot for the host." % (LIMIT - 1)
+        for level in ["Easy", "Normal", "Hard"]:
+            for i in range(int(ai_mix.get(level, 0))): levels.append(level)
     if port < 1024 or port > 65535: return "Choose a port between 1024 and 65535."
     var resumed := resume and FileAccess.file_exists(world_save_path)
     var peer := ENetMultiplayerPeer.new()
@@ -107,7 +119,7 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
     if not civilizations.has(own_token) and civilizations.size() >= LIMIT:
         peer.close()
         solo_sim = null
-        return "This world already has eight civilizations. Use its original host profile or create a new world."
+        return "This world already has %d civilizations. Use its original host profile or create a new world." % LIMIT
     if days >= 0: clock_days = days
     for record in civilizations.values(): record.sim.days_per_real_day = clock_days
     multiplayer.multiplayer_peer = peer
@@ -116,10 +128,11 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
     peer_tokens[1] = own_token
     ensure_civilization(own_token, player_name)
     if not resumed:
-        for i in range(ai_count):
+        for i in range(levels.size()):
+            var difficulty: String = levels[i]
             var token := "ai_%d" % i
-            ensure_civilization(token, AI_NAMES[i])
-            civilizations[token].merge({"ai": true, "difficulty": ai_difficulty, "next_decision": world_day, "next_raid": AIOpponent.DIFFICULTIES[ai_difficulty].peace_days})
+            ensure_civilization(token, AI_NAMES[i % AI_NAMES.size()] + (" %d" % (floori(float(i) / AI_NAMES.size()) + 1) if i >= AI_NAMES.size() else ""))
+            civilizations[token].merge({"ai": true, "difficulty": difficulty, "next_decision": world_day, "next_raid": AIOpponent.DIFFICULTIES[difficulty].peace_days})
     world.sim = civilizations[own_token].sim
     world.running = true
     var addresses := PackedStringArray()
@@ -179,6 +192,7 @@ func ensure_civilization(token: String, nickname: String) -> void:
     var site: Vector2 = Warfare.SITES[civilizations.size()]
     simulation.world_origin = [site.x + 4.0, site.y]
     simulation.shared_region = true
+    # Late arrivals start fresh at the shared date, without simulating missed years.
     simulation.day = world_day
     simulation.days_per_real_day = clock_days
     simulation.tick(0)
@@ -208,11 +222,12 @@ func register_player(token: String, nickname: String, protocol: int = -1, invite
         reject_join.rpc_id(sender, "That player profile is already connected.")
         return
     if not civilizations.has(token) and civilizations.size() >= LIMIT:
-        reject_join.rpc_id(sender, "This world already contains eight civilizations.")
+        reject_join.rpc_id(sender, "This world already contains %d civilizations. Disconnected civilizations still occupy their saved slots." % LIMIT)
         return
     ensure_civilization(token, nickname.strip_edges().left(24))
     peer_tokens[sender] = token
     votes.clear()
+    update_world_intel()
     publish()
     persist()
 
@@ -269,9 +284,9 @@ func submit_command(action: String, args: Array) -> void:
     publish()
 
 func apply_command(simulation, action: String, args: Array) -> String:
-    if action in ["recruit", "army_plan", "disband", "defense", "appoint"]:
+    if action in ["recruit", "army_plan", "disband", "defense", "appoint", "create_army", "rename_army", "assign_defense", "reserve_army", "resize_army"]:
         return Warfare.army_order(simulation, action, args)
-    if action in ["raid", "recall"]: return "Join a shared world to launch an expedition."
+    if action in ["raid", "attack", "recall", "messenger"]: return "Join a shared world to launch an expedition."
     match action:
         "assign":
             if args.size() != 2 or args[0] not in simulation.JOBS or not args[1] is int: return "Invalid workforce order."
@@ -282,6 +297,9 @@ func apply_command(simulation, action: String, args: Array) -> String:
         "research":
             if args.size() != 2 or args[0] not in simulation.TECHNOLOGIES or not args[1] is bool: return "Unknown technology."
             return simulation.choose_research(args[0], args[1])
+        "dismantle":
+            if args.size() != 1 or not args[0] is String or not simulation.STARTING_OBJECTS.has(args[0]): return "Invalid dismantling order."
+            return simulation.order_dismantle(args[0])
         "build":
             if args.size() != 3 or args[0] not in simulation.BUILDINGS or not args[1] is int or not args[2] is int: return "Invalid building order."
             return simulation.order_build(args[0], args[1], args[2])
@@ -291,8 +309,12 @@ func apply_command(simulation, action: String, args: Array) -> String:
         "train":
             if args.size() != 1 or args[0] not in simulation.JOBS: return "Invalid profession."
             return simulation.start_training(args[0])
+        "civic":
+            if args.size() != 2 or not args[0] is String: return "Invalid civic order."
+            return simulation.enact_civic(args[0], args[1])
         "policy":
             if args.size() != 2 or args[0] not in ["allow_migration", "allow_births", "automatic_workforce", "emergency_food"] or not args[1] is bool: return "Invalid policy."
+            if args[0] == "allow_births": return "Use the Town Hall birth policy."
             simulation.set(args[0], args[1])
             if args[0] == "automatic_workforce" and args[1]: simulation.apply_targets()
         "rations":
@@ -309,6 +331,7 @@ func command_result(message: String) -> void:
     world.feedback.text = message
     if world.research_screen.visible: world.research_screen.result.text = message
     if world.population_screen.visible: world.population_screen.response.text = message
+    if world.object_panel.visible: world.object_panel.field_response.text = message
     if world.multiplayer_screen.visible:
         world.multiplayer_screen.trade_result.text = message
         world.multiplayer_screen.warfare_page.response.text = message
@@ -482,15 +505,26 @@ func offers_for(token: String) -> Array:
     return offers
 
 func player_command(token: String, action: String, args: Array) -> String:
-    if action == "raid":
+    if action == "army_plan" and args.size() == 5 and args[0] is int:
+        var army := Warfare.find_army(civilizations[token].sim, args[0])
+        if army.get("status", "") in ["Marching", "Holding", "Returning", "Fighting"]:
+            var response := warfare.send_messenger(self, token, args[0], "Plan", args.slice(1))
+            persist()
+            return response
+    if action == "messenger":
+        if args.size() != 3 or not args[0] is int or not args[1] is String or not args[2] is Array: return "Invalid messenger order."
+        var response := warfare.send_messenger(self, token, args[0], args[1], args[2])
+        persist()
+        return response
+    if action in ["raid", "attack"]:
         if args.size() != 2 or not args[0] is int or not args[1] is int: return "Choose an army and target."
-        var response := warfare.launch(self, token, args[0], args[1])
+        var response := warfare.launch(self, token, args[0], args[1], "Attack" if action == "attack" else "Raid")
         votes.clear()
         persist()
         return response
     if action == "recall":
         if args.size() != 1 or not args[0] is int: return "Choose an army to recall."
-        var response := warfare.recall(self, token, args[0])
+        var response := warfare.send_messenger(self, token, args[0], "Return")
         persist()
         return response
     if action == "offer_trade":

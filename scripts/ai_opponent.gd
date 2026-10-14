@@ -27,13 +27,18 @@ static func decide(session, token: String) -> void:
     if sim.resources.food > sim.population * 0.5:
         var military_goal := int(spec.soldiers) * (2 if record.difficulty == "Hard" else 1)
         if sim.military_ids().size() < military_goal and sim.workforce_capacity() > 14:
-            for commander in ["Mira", "Aren", "Tovan"]:
+            for commander in ["None"]:
                 var unit := "Spearmen" if "Stoneworking" in sim.technologies else "Militia"
                 var count := mini(int(spec.soldiers), military_goal - sim.military_ids().size())
                 if Warfare.recruit_block(sim, unit, count, commander).is_empty():
                     Warfare.recruit(sim, unit, count, commander)
                     break
         scout(session, token)
+    for pool in sim.armies.duplicate():
+        if pool.get("reserve", false) and pool.status == "Ready":
+            var new_id: int = sim.next_army_id
+            Warfare.army_order(sim, "create_army", [pool.unit, pool.soldiers.size(), "Home guard"])
+            Warfare.army_order(sim, "assign_defense", [new_id, true])
     for offer in session.trade_offers.duplicate():
         if offer.to != token: continue
         # Accept fair exchanges only when payment leaves a food reserve.

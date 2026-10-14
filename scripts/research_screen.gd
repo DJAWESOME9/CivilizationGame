@@ -1,14 +1,14 @@
 extends Control
 
 const POSITIONS = {
-    "Scouting": Vector2(1130, 180),
+    "Scouting": Vector2(1130, 180), "Community Organization": Vector2(1130, 320),
     "Basketry": Vector2(50, 180), "Planting": Vector2(50, 320), "Toolmaking": Vector2(50, 460),
     "Hunting": Vector2(320, 180), "Fishing": Vector2(320, 320), "Shelter Building": Vector2(320, 460), "Stoneworking": Vector2(320, 600),
     "Woodcutting": Vector2(590, 180), "Preservation": Vector2(590, 320), "Storage": Vector2(590, 460), "Sanitation": Vector2(590, 600),
     "Forestry": Vector2(860, 180), "Crop Rotation": Vector2(860, 320), "Carpentry": Vector2(860, 460), "Waterworks": Vector2(860, 600),
     "Masonry": Vector2(1130, 460), "Education": Vector2(1130, 600)
 }
-const TITLES = {"Scouting": "EXPLORATION","Basketry": "WOVEN CARRIERS", "Planting": "CULTIVATION", "Toolmaking": "EARLY TOOLS", "Hunting": "TRACKING", "Fishing": "RIVER FOOD", "Shelter Building": "SETTLEMENT", "Stoneworking": "EXTRACTION", "Woodcutting": "TIMBER", "Preservation": "FOOD STORAGE", "Storage": "SUPPLY NETWORK", "Sanitation": "PUBLIC HEALTH", "Forestry": "REPLANTING", "Crop Rotation": "FERTILITY", "Carpentry": "CRAFTSMANSHIP", "Waterworks": "IRRIGATION", "Masonry": "STONE BUILDING", "Education": "THE NEXT GENERATION"}
+const TITLES = {"Community Organization": "LOCAL GOVERNMENT","Scouting": "EXPLORATION","Basketry": "WOVEN CARRIERS", "Planting": "CULTIVATION", "Toolmaking": "EARLY TOOLS", "Hunting": "TRACKING", "Fishing": "RIVER FOOD", "Shelter Building": "SETTLEMENT", "Stoneworking": "EXTRACTION", "Woodcutting": "TIMBER", "Preservation": "FOOD STORAGE", "Storage": "SUPPLY NETWORK", "Sanitation": "PUBLIC HEALTH", "Forestry": "REPLANTING", "Crop Rotation": "FERTILITY", "Carpentry": "CRAFTSMANSHIP", "Waterworks": "IRRIGATION", "Masonry": "STONE BUILDING", "Education": "THE NEXT GENERATION"}
 
 var world: Node3D
 var selected := "Planting"
@@ -117,12 +117,12 @@ func setup(scene: Node3D) -> void:
         tree_content.add_child(card)
         cards[tech] = card
         var icon := Sprite2D.new()
-        icon.texture = load("res://assets/technology/" + tech.to_lower().replace(" ", "_") + ".svg")
+        icon.texture = load("res://assets/technology/" + ("shelter_building" if tech == "Community Organization" else tech.to_lower().replace(" ", "_")) + ".svg")
         icon.position = Vector2(13, 16)
         icon.centered = false
         icon.scale = Vector2(0.5, 0.5)
         card.add_child(icon)
-        var title: Label = world.label(tech, 16, Color("e9dfc6"))
+        var title: Label = world.label(tech, 12 if tech == "Community Organization" else 16, Color("e9dfc6"))
         title.position = Vector2(53, 14)
         card.add_child(title)
         var category: Label = world.label(TITLES[tech], 9, Color("9fad9b"))
@@ -137,7 +137,7 @@ func setup(scene: Node3D) -> void:
         card.add_child(state_label)
         states[tech] = state_label
         labels[tech] = title
-        var cost_label: Label = world.label("Available from start" if tech == "Scouting" else "%.2f cycles" % world.sim.TECHNOLOGIES[tech], 11, Color("a6b599"))
+        var cost_label: Label = world.label("Available from start" if tech == "Scouting" else "%g research points" % world.sim.TECHNOLOGIES[tech], 11, Color("a6b599"))
         cost_label.position = Vector2(14, 52)
         card.add_child(cost_label)
     var footer := Panel.new()
@@ -178,7 +178,8 @@ func refresh() -> void:
     var sim = world.sim
     var current: String = sim.research if not sim.research.is_empty() else "None selected"
     var current_cost: float = sim.TECHNOLOGIES.get(sim.research, 1.0)
-    summary.text = "Researching: %s · %.0f%% · %.2f cycles / season" % [current, 100 * sim.research_progress / current_cost, 1.25 if sim.completed("School") > 0 else 1.0]
+    var rate_per_day: float = sim.BASE_RESEARCH_POINTS_PER_DAY * (1.25 if sim.completed("School") > 0 else 1.0)
+    summary.text = "Researching: %s · %.0f%% · %.2f research points / day" % [current, 100 * sim.research_progress / current_cost, rate_per_day]
     queue_summary.text = "Queued next: %s" % (sim.queued_research if not sim.queued_research.is_empty() else "None")
     learned_summary.text = "Learned: %d / %d" % [sim.technologies.size(), cards.size()]
     learned_summary.tooltip_text = "Learned technologies: " + (", ".join(sim.technologies) if not sim.technologies.is_empty() else "None yet")
@@ -229,7 +230,7 @@ func refresh() -> void:
         cards[tech].add_theme_color_override("font_color", Color("eee4cb") if state != "LOCKED" else Color("a4b1a5"))
     var prerequisites: String = ", ".join(sim.PREREQUISITES[selected])
     var blocked: String = sim.research_block(selected)
-    detail.text = "%s · %s · %.2f cycles\n%s\n%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], blocked if not blocked.is_empty() else ("Prerequisites: " + prerequisites if not prerequisites.is_empty() else "Foundational technology · no technology prerequisites.")]
+    detail.text = "%s · %s · %g research points\n%s\n%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], blocked if not blocked.is_empty() else ("Prerequisites: " + prerequisites if not prerequisites.is_empty() else "Foundational technology · no technology prerequisites.")]
     start.disabled = selected in sim.technologies or selected == sim.research or not blocked.is_empty()
     queue_button.disabled = selected in sim.technologies or selected == sim.research or selected == sim.queued_research or not sim.research_block(selected, true).is_empty() or sim.research.is_empty()
     start.text = "Learned" if selected in sim.technologies else "Researching" if selected == sim.research else "Start research"

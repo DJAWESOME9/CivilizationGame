@@ -116,3 +116,8 @@ already-published 0.2.12 startup parsing correction. All six artifacts were
 published at https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.13.
 Signed feed, PCK sizes/hashes, and ZIP checksums verified; no gameplay or live
 updater test was run.
+
+
+## Published 0.2.14 / build 16 — 2026-10-13
+
+Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.14. Includes all pending worktree gameplay/UI changes: Town Hall policies/influence/happiness, configurable food response, pregnancy/recovery workforce exclusion, research points, starting-object dismantling, construction caps, army reserves/defense/messengers, 16 civilization slots/late joining/mixed AI, fields, river scouting and winter hex contrast. Mac/Windows ZIPs, both PCKs, signed update.json and checksums uploaded. Packaging completed; RSA signature, local pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer tests run. Source stays local under the private-source policy; the public repository receives release assets.

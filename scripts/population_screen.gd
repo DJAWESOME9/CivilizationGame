@@ -59,7 +59,7 @@ func setup(scene: Node3D) -> void:
     panel(Vector2(430, 135), Vector2(530, 515))
     panel(Vector2(985, 135), Vector2(415, 515))
     heading("SETTLEMENT CONDITION", Vector2(60, 155), 14)
-    summary = heading("", Vector2(60, 195), 15)
+    summary = heading("", Vector2(60, 195), 13)
     summary.size.x = 325
     summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     summary.add_theme_constant_override("line_spacing", -3)
@@ -126,17 +126,20 @@ func refresh() -> void:
     var sim = world.sim
     var food_days: float = sim.resources.food / maxf(0.001, sim.food_need())
     summary.text = "%d people\n%d working-age adults · %d children\n%d elders\nHappiness: %.0f / 100\n%s\nHousing: %d / %d occupied\nFood reserve: %.0f days\nRecent food change: %+.2f / day\n%s\n%s" % [sim.population, sim.adults(), sim.children(), sim.population - sim.adults() - sim.children(), sim.happiness, "Unrest" if sim.happiness < 40 else "Content" if sim.happiness >= 60 else "Concerned", sim.population, sim.housing(), food_days, sim.daily_food_change, "Treated water" if sim.completed("Well") > 0 else "Water needs treatment", " · ".join(sim.conditions)]
+    summary.text += "\nAvailable civilian workforce: %d\nPregnancy / birth recovery leave: %d" % [sim.workforce_capacity(), sim.birth_leave_count()]
     automatic.set_pressed_no_signal(sim.automatic_workforce)
     migration.set_pressed_no_signal(sim.allow_migration)
     families.set_pressed_no_signal(sim.allow_births)
+    families.disabled = true
+    families.text = "Births: " + str(sim.government.births) + " · Town Hall"
     var counts: Dictionary = {"General": 0}
     var training: Array[String] = []
     for job in sim.JOBS: counts[job] = 0
     for person in sim.people:
-        if person.age >= 16 and person.age < 65: counts[person.profession] = int(counts.get(person.profession, 0)) + 1
+        if person.age >= 16 and person.age < 65 and not sim.on_birth_leave(person): counts[person.profession] = int(counts.get(person.profession, 0)) + 1
         if not person.training.is_empty():
             training.append("Settler %d · %s · %.0f%%" % [person.id, person.training, person.training_progress / 60.0 * 100])
-    professions.text = "General workers: %d\nGatherers %d · Fishers %d · Loggers %d\nQuarriers %d · Builders %d · Farmers %d\nTrained workers add skill to matching jobs.\nLearning temporarily reduces work by 25%%." % [counts.General, counts.Gathering, counts.Fishing, counts.Logging, counts.Quarrying, counts.Construction, counts.Farming]
+    professions.text = "General workers: %d\nGatherers %d · Fishers %d · Loggers %d\nQuarriers %d · Builders %d · Farmers %d\nProfession counts exclude pregnancy/recovery leave.\nTrained workers add skill to matching jobs.\nLearning temporarily reduces work by 25%%." % [counts.General, counts.Gathering, counts.Fishing, counts.Logging, counts.Quarrying, counts.Construction, counts.Farming]
     apprentices.text = "\n".join(training) if not training.is_empty() else "No training underway. Choose an unlocked profession above."
     for job in sim.JOBS:
         target_controls[job].set_block_signals(true)

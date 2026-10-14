@@ -5,8 +5,7 @@ var nickname: LineEdit
 var address: LineEdit
 var port: SpinBox
 var clock: OptionButton
-var ai_count: SpinBox
-var ai_difficulty: OptionButton
+var ai_counts: Dictionary = {}
 var ai_help: Label
 var resume_world: CheckBox
 var status_label: Label
@@ -65,7 +64,7 @@ func setup(scene: Node3D) -> void:
     title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     header.add_child(title)
     world.game_button(header, "Back to civilization · Esc", func(): hide())
-    column.add_child(world.label("Up to eight civilizations · play with friends · optional AI opponents", 15, Color("b7c9a9")))
+    column.add_child(world.label("Up to %d civilizations · free player hosting · join at any time" % world.session.LIMIT, 15, Color("b7c9a9")))
     var tabs := TabContainer.new()
     pages = tabs
     tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -126,22 +125,21 @@ func setup(scene: Node3D) -> void:
     var ai_row := HBoxContainer.new()
     column.add_child(ai_row)
     ai_row.add_child(world.label("AI opponents", 15, Color("ddd2b5")))
-    ai_count = SpinBox.new()
-    ai_count.min_value = 0
-    ai_count.max_value = world.session.LIMIT - 1
-    ai_count.value = 0
-    ai_row.add_child(ai_count)
-    ai_row.add_child(world.label("Difficulty", 15, Color("ddd2b5")))
-    ai_difficulty = OptionButton.new()
-    for level in ["Easy", "Normal", "Hard"]: ai_difficulty.add_item(level)
-    ai_difficulty.select(1)
-    ai_row.add_child(ai_difficulty)
+    for level in ["Easy", "Normal", "Hard"]:
+        ai_row.add_child(world.label("Medium" if level == "Normal" else level, 15, Color("ddd2b5")))
+        var count := SpinBox.new()
+        count.min_value = 0
+        count.max_value = world.session.LIMIT - 1
+        count.step = 1
+        count.value = 0
+        ai_counts[level] = count
+        ai_row.add_child(count)
     ai_help = world.label("", 13, Color("9fb398"))
     ai_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(ai_help)
     resume_world.toggled.connect(func(_pressed): refresh())
-    ai_count.value_changed.connect(func(_value): refresh())
-    ai_difficulty.item_selected.connect(func(_index): refresh())
+    for count in ai_counts.values():
+        count.value_changed.connect(func(_value): refresh())
     var join_row := HBoxContainer.new()
     column.add_child(join_row)
     address = LineEdit.new()
@@ -193,7 +191,7 @@ func setup(scene: Node3D) -> void:
     result = world.label("", 14, Color("d9c59c"))
     result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     panel_column.add_child(result)
-    var instructions: Label = world.label("Host: copy an invitation above and send it to friends. Join: paste it and choose Join world.\nFor a second window on this Mac, launch Multiplayer Guest.command and join 127.0.0.1.\nThe host must remain open for live play. Disconnected civilizations keep working.\nFast-forward needs every human owner's vote; AI opponents do not vote.\nDirect Internet play needs a reachable host/UDP port. Matchmaking is not available yet.", 13, Color("9fb398"))
+    var instructions: Label = world.label("Host: copy an invitation above and send it to friends. Join: paste it and choose Join world.\nFor a second window on this Mac, launch Multiplayer Guest.command and join 127.0.0.1.\nJoin at any time while a slot is free; no world restart needed.\nThe host must remain open for live play. Disconnected civilizations keep working.\nFast-forward needs every human owner's vote; AI opponents do not vote.\nDirect Internet play needs a reachable host/UDP port. Matchmaking is not available yet.", 13, Color("9fb398"))
     instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(instructions)
     visibility_changed.connect(func():
@@ -204,8 +202,14 @@ func setup(scene: Node3D) -> void:
     hide()
     refresh()
 
+func selected_ai_counts() -> Dictionary:
+    var counts: Dictionary = {}
+    for level in ai_counts:
+        counts[level] = int(ai_counts[level].value)
+    return counts
+
 func host_now() -> void:
-    result.text = world.session.host_game(nickname.text, int(port.value), [-1.0, 90.0, 360.0, 8640.0, 2880.0][clock.selected], resume_world.button_pressed, int(ai_count.value), ai_difficulty.get_item_text(ai_difficulty.selected))
+    result.text = world.session.host_game(nickname.text, int(port.value), [-1.0, 90.0, 360.0, 8640.0, 2880.0][clock.selected], resume_world.button_pressed, 0, "Normal", selected_ai_counts())
     refresh()
     if world.session.active:
         invite_address.text = world.session.share_address
@@ -214,6 +218,7 @@ func host_now() -> void:
         hide()
 
 func open_warfare() -> void:
+    warfare_page.pages.current_tab = 0
     pages.current_tab = 2
     show()
 
@@ -233,9 +238,13 @@ func refresh() -> void:
     sharing_row.visible = session.active and world.multiplayer.is_server()
     refresh_invitation()
     var resuming := resume_world.button_pressed and FileAccess.file_exists(session.world_save_path)
-    ai_count.editable = not busy and not resuming
-    ai_difficulty.disabled = busy or resuming or ai_count.value == 0
-    ai_help.text = "Resuming keeps the saved AI opponents and difficulty. Uncheck Resume to create a new world." if resuming else "AI uses civilization slots. Play alone by hosting; remaining slots allow friends to join. " + ["Easy: slower decisions, cautious raids.", "Normal: balanced development and raids.", "Hard: frequent decisions, earlier and stronger raids."][ai_difficulty.selected]
+    var ai_total := 0
+    for count in ai_counts.values():
+        count.editable = not busy and not resuming
+        ai_total += int(count.value)
+    if not busy and not resuming:
+        host_button.disabled = ai_total >= session.LIMIT
+    ai_help.text = "Resuming keeps each saved AI opponent and its difficulty. Uncheck Resume to choose a new mix." if resuming else "%d AI opponents · %d slots left for friends (host uses one). Maximum %d AI total.\nEasy: slower, cautious. Medium: balanced. Hard: faster decisions and stronger raids." % [ai_total, maxi(0, session.LIMIT - 1 - ai_total), session.LIMIT - 1]
     status_label.text = session.status
     if session.active:
         var speed_text: String = "Testing · 1 day / %d seconds" % int(86400.0 / session.clock_days) if session.clock_days > 360 else "1 real day / %s" % ("year" if session.clock_days == 360 else "season")
@@ -244,7 +253,7 @@ func refresh() -> void:
     var lines := PackedStringArray()
     for player in session.roster:
         if player.get("ai", false):
-            lines.append("%s · AI · %s" % [player.name, player.get("difficulty", "Normal")])
+            lines.append("%s · AI · %s" % [player.name, "Medium" if player.get("difficulty", "Normal") == "Normal" else player.get("difficulty", "Normal")])
             continue
         lines.append("%s · %s · %s" % [player.name, "connected" if player.online else "offline · essential work continues", "agreed to advance" if player.voted else "not voted"])
     players_label.text = "WORLD CIVILIZATIONS · %d / %d slots\n" % [session.roster.size(), session.LIMIT] + ("\n".join(lines) if not lines.is_empty() else "Host a fresh world or resume it. Joining creates your civilization or restores your saved one.\nChoose zero AI opponents to leave all other slots for real people.")

@@ -10,6 +10,7 @@ var marker := Node3D.new()
 var nodes: Dictionary = {}
 var cover: MeshInstance3D
 var sights: ImageTexture
+var river_covers: Array[MeshInstance3D] = []
 
 func setup(scene: Node3D) -> void:
     world = scene
@@ -68,6 +69,23 @@ func redraw() -> void:
     if sights == null: sights = ImageTexture.create_from_image(mask)
     else: sights.update(mask)
     fog.set_shader_parameter("visibility_map", sights)
+    while river_covers.size() > world.river_surface_nodes.size():
+        var old_cover := river_covers.pop_back()
+        if is_instance_valid(old_cover): old_cover.queue_free()
+    while river_covers.size() < world.river_surface_nodes.size():
+        var river_cover := MeshInstance3D.new()
+        river_cover.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        add_child(river_cover)
+        river_covers.append(river_cover)
+    for i in range(world.river_surface_nodes.size()):
+        var surface: MeshInstance3D = world.river_surface_nodes[i]
+        var river_cover := river_covers[i]
+        river_cover.mesh = surface.mesh
+        river_cover.global_transform = surface.global_transform
+        var cover_material := world.river_visibility_material.duplicate() as ShaderMaterial
+        cover_material.set_shader_parameter("visibility_map", sights)
+        cover_material.set_shader_parameter("river_overlay", true)
+        river_cover.material_override = cover_material
     for object in objects:
         var point := Vector2(object.position.x, object.position.z)
         object.visible = not object.get_meta("resource_depleted", false) and sim.explored.has(sim.cell_key(point))

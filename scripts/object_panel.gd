@@ -6,10 +6,15 @@ var heading: Label
 var status: Label
 var progress: ProgressBar
 var details: Label
+var dismantle_action: Button
 var scout_action: Button
 var scout_help: Label
 var armies_action: Button
+var field_response: Label
+var field_actions: HBoxContainer
 var scout_route: Control
+var town_hall: Control
+var civic_action: Button
 var panel: PanelContainer
 
 func setup(scene: Node3D) -> void:
@@ -57,10 +62,31 @@ func setup(scene: Node3D) -> void:
     details.custom_minimum_size.x = 556
     details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(details)
+    town_hall = preload("res://scripts/town_hall_screen.gd").new()
+    add_child(town_hall)
+    town_hall.setup(world)
+    civic_action = world.game_button(column, "Policies & standing orders", func(): town_hall.open())
+    civic_action.hide()
+    dismantle_action = world.game_button(column, "Dismantle", func():
+        world.feedback.text = world.order("dismantle", [selected.get("camp_id", "")])
+        world.refresh_game()
+        refresh())
+    dismantle_action.hide()
     armies_action = world.game_button(column, "Armies & commanders", func():
         hide()
-        world.multiplayer_screen.open_warfare())
+        world.multiplayer_screen.open_warfare()
+        if selected.get("kind", "") == "Training Grounds": world.multiplayer_screen.warfare_page.open_training()
+        elif selected.get("kind", "") == "Civilization": world.multiplayer_screen.warfare_page.select_destination(int(selected.slot))
+        elif selected.get("kind", "") == "Army": world.multiplayer_screen.warfare_page.select_force(int(selected.get("army", -1))))
     armies_action.hide()
+    field_actions = HBoxContainer.new()
+    column.add_child(field_actions)
+    world.game_button(field_actions, "Messenger: hold position", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
+    world.game_button(field_actions, "Messenger: return home", func(): field_response.text = world.order("recall", [int(selected.get("army", -1))]); refresh())
+    field_actions.hide()
+    field_response = world.label("", 13, Color("e2c789"))
+    field_response.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(field_response)
     scout_action = world.game_button(column, "Send 3 settlers to scout", func():
         world.select_scout_land(selected.point)
         var message: String = world.dispatch_scouts(selected.point)
@@ -79,9 +105,16 @@ func setup(scene: Node3D) -> void:
     hide()
 
 func open_object(info: Dictionary) -> void:
+    field_response.text = ""
+    if info.get("kind", "") == "Civilization":
+        hide()
+        world.multiplayer_screen.open_warfare()
+        world.multiplayer_screen.warfare_page.select_destination(int(info.slot))
+        return
     selected = info.duplicate(true)
     if selected.get("kind", "") in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds"] and selected.has("point"):
         world.select_scout_land(selected.point)
+    town_hall.hide()
     refresh()
     show()
 
@@ -92,6 +125,10 @@ func refresh() -> void:
     progress.hide()
     scout_route.hide()
     armies_action.hide()
+    field_actions.hide()
+    armies_action.text = "Armies"
+    dismantle_action.hide()
+    civic_action.hide()
     var landscape: bool = kind in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds"] and selected.has("point")
     scout_action.visible = landscape
     scout_help.visible = landscape
@@ -104,6 +141,15 @@ func refresh() -> void:
     if kind == "Land":
         status.text = "Scouting destination"
         details.text = sim.land_report(selected.point)
+        return
+    if kind == "Civilization":
+        var contact: Dictionary = sim.known_civilizations.get(str(int(selected.slot)), {})
+        if contact.is_empty(): hide(); return
+        heading.text = contact.name
+        status.text = "Discovered civilization"
+        details.text = "%d people at last observation. Select an army you own to attack or raid this civilization." % int(contact.population)
+        armies_action.text = "Choose army · Attack / Raid"
+        armies_action.show()
         return
     if kind == "Army":
         refresh_army()
@@ -120,7 +166,9 @@ func refresh() -> void:
         if building.is_empty():
             hide()
             return
+        civic_action.visible = kind == "Town Hall" and building.progress >= 1
         armies_action.visible = kind == "Training Grounds"
+        armies_action.text = "Open training"
         status.text = "%s · Hex %d, %d" % ["Complete" if building.progress >= 1 else "Under construction", building.q, building.r]
         if building.progress < 1:
             progress.show()
@@ -141,12 +189,25 @@ func refresh() -> void:
         else:
             details.text = benefit(kind)
         return
+    if selected.has("camp_id"):
+        var id: String = selected.camp_id
+        if not sim.camp_object_present(id):
+            hide()
+            return
+        var item: Dictionary = sim.STARTING_OBJECTS[id]
+        var queued: bool = sim.camp_dismantling.has(id)
+        dismantle_action.visible = sim.job_unlocked("Construction")
+        dismantle_action.disabled = queued or world.session.connecting
+        dismantle_action.text = "Dismantling queued" if queued else "Dismantle · recover %.0f wood / %.0f stone" % [item.wood, item.stone]
+        if queued:
+            progress.show()
+            progress.value = float(sim.camp_dismantling[id]) * 100
     status.text = "Starting camp"
     match kind:
         "Starting tent":
-            details.text = "The starting camp provides 30 beds in total.\n\nSettlement housing · %d people / %d beds\nBuild houses to provide permanent homes and improve housing quality." % [sim.population, sim.housing()]
+            details.text = "Each remaining starting tent provides 15 beds.\n\nSettlement housing · %d people / %d beds\nBuild houses to provide permanent homes and improve housing quality." % [sim.population, sim.housing()]
         "Supply cache":
-            details.text = "Food · %.1f\nWood · %.1f\nStone · %.1f\n\nShared storage · %.1f / %.0f\nThe starting cache provides 180 capacity. Completed storehouses add 200 each." % [sim.resources.food, sim.resources.wood, sim.resources.stone, sim.resources.food + sim.resources.wood + sim.resources.stone, sim.capacity()]
+            details.text = "Food · %.1f\nWood · %.1f\nStone · %.1f\n\nShared storage · %.1f / %.0f\nThe starting cache provides 180 capacity until dismantled. Completed storehouses add 200 each." % [sim.resources.food, sim.resources.wood, sim.resources.stone, sim.resources.food + sim.resources.wood + sim.resources.stone, sim.capacity()]
         "Cart":
             details.text = "A supply cart from the settlers’ arrival. It marks the camp’s supplies and does not add storage or production."
         "Campfire":
@@ -164,6 +225,17 @@ func refresh() -> void:
         "Reeds":
             status.text = "Riverbank · in sight" if sim.has_live_sight(selected.point) else "Remembered riverbank"
             details.text = sim.land_report(selected.point) + "\n\nRiverbank scenery. Learn Fishing and assign fishing workers to collect food from the river."
+
+    if selected.has("camp_id"):
+        var id: String = selected.camp_id
+        var item: Dictionary = sim.STARTING_OBJECTS[id]
+        details.text += "\n\nDismantling recovers %.0f wood and %.0f stone when complete. Construction workers handle dismantling before new buildings, up to three workers per object. The space stays occupied until finished." % [item.wood, item.stone]
+        if kind == "Starting tent": details.text += "\nRemoving this tent removes 15 beds."
+        if kind == "Supply cache": details.text += "\nRemoving this cache removes 180 storage capacity. Build a storehouse first to retain storage; excess stocks follow the normal overflow rules."
+        if not sim.job_unlocked("Construction"): details.text += "\nResearch Shelter Building to unlock dismantling."
+        elif sim.camp_dismantling.has(id):
+            status.text = "Dismantling · %.0f%%" % progress.value
+            details.text += "\nAssign construction workers and advance time to finish."
 
 func refresh_scouts() -> void:
     var sim = world.sim
@@ -213,13 +285,19 @@ func refresh_army() -> void:
             status.text = "Army no longer available"
             details.text = "This group has disbanded or lost its remaining soldiers."
             return
-        heading.text = "%s's army" % army.commander
+        heading.text = preload("res://scripts/warfare.gd").army_name(army)
+        armies_action.show()
+        armies_action.text = "Army orders · New destination / battle plan"
+        field_actions.visible = army.status in ["Marching", "Returning", "Holding", "Fighting"]
         status.text = "Your army · " + str(army.status)
         details.text = "%d %s\nMorale · %.0f / 100\nExperience · %.0f%%\nTraining · %.0f%%\nCarried food · %.1f\n\nFormation · %s\nTactics · %s\nRetreat below · %.0f morale\nCommander discretion · %s" % [army.soldiers.size(), army.unit, army.morale, army.experience * 100, minf(100, army.training / preload("res://scripts/warfare.gd").UNITS[army.unit].days * 100), army.supplies, army.formation, army.tactic, army.retreat, "Enabled" if army.autonomy else "Disabled"]
         for campaign in world.session.visible_campaigns:
             if campaign.own and int(campaign.army) == int(army.id):
+                var messages: Array = campaign.get("messengers", [])
+                for button in field_actions.get_children(): button.disabled = not messages.is_empty()
+                if not messages.is_empty(): details.text += "\nMessenger en route: " + str(messages[0].order) + ". Current orders continue until arrival."
                 details.text += "\n\nExpedition · %s → %s\nBattle rounds · %d" % [campaign.attacker, campaign.defender, campaign.rounds]
-        details.text += "\n\nUse Armies & commanders to change orders."
+        details.text += "\n\nUse Army orders for a new destination or battle plan. Orders to field armies travel by messenger."
         return
     var report: Dictionary = {}
     var campaign_id := int(selected.get("campaign", -1))
@@ -250,8 +328,9 @@ func benefit(kind: String) -> String:
         "Storehouse": return "Adds 200 shared storage capacity.\nSettlement storage · %.1f / %.0f\nFood, wood, and stone share this capacity." % [sim.resources.food + sim.resources.wood + sim.resources.stone, sim.capacity()]
         "Field": return "Farmers grow crops here. Each harvest provides 70 food. Growth stops in winter."
         "Well": return "Supplies treated water, removing the untreated-water happiness penalty. With Waterworks, completed wells enable a 25% field-growth bonus."
+        "Town Hall": return "Expands the buildable clearing from radius 12 to 16. Click Policies & standing orders to manage government. Influence recharges over time, faster with happier citizens; capacity 10."
         "School": return "Supports education and adds a 25% settlement research bonus. Schools also accelerate apprenticeships and increase training places."
-        "Training Grounds": return "Trains militia, spearmen and archers. Each completed training ground supports six trainees at full speed; larger intakes share training capacity.\n\nOpen Armies & commanders below to recruit soldiers, appoint commanders and issue orders. Recruitment also requires completed barracks with room for the soldiers."
+        "Training Grounds": return "Trains militia, spearmen and archers. Each completed training ground supports six trainees at full speed; larger intakes share training capacity.\n\nOpen training below to train units, then create armies from fully trained reserves. Recruitment also requires completed barracks with room for the soldiers."
         "Barracks": return "Adds room for 12 soldiers and enables trained military units.\nSettlement military capacity · %d soldiers\nOpen Armies & commanders to manage recruitment." % sim.military_capacity()
         "Palisade": return "Each completed palisade adds 25% defense power, capped at 40% from palisades. Walls and palisades together are capped at 80%.\nCurrent fortification bonus · +%.0f%%" % (sim.fortification_bonus() * 100)
         "Wall": return "Stone wall section unlocked by Masonry. Each completed wall adds 20% defense power, capped at 60% from walls. Walls and palisades together are capped at 80%.\nCurrent fortification bonus · +%.0f%%\nFortifications strengthen soldiers and emergency defenders; they do not supply troops or block movement." % (sim.fortification_bonus() * 100)

@@ -71,7 +71,7 @@ func setup(scene: Node3D) -> void:
 
 func refresh() -> void:
     var sim = world.sim
-    score.text = "Happiness · %.0f / 100" % sim.happiness
+    score.text = "Happiness · %.1f / 100 · normal work at 50\nConditions below set the target; happiness adjusts gradually." % sim.happiness
     rations.select(0 if sim.ration_level < 1 else 2 if sim.ration_level > 1 else 1)
     var influences: Array = sim.happiness_influences()
     var next_signature := JSON.stringify(influences)

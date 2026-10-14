@@ -69,6 +69,7 @@ var dragging := false
 var orbiting := false
 var mats: Dictionary = {}
 var hex_grid := Node3D.new()
+var hex_grid_material: StandardMaterial3D
 var scenery_nodes: Array[Node] = []
 var resource_deposits = preload("res://scripts/resource_deposits.gd").new()
 var region_origin := Vector2.ZERO
@@ -84,6 +85,8 @@ var sunlight: DirectionalLight3D
 var water_material: ShaderMaterial
 var riverbank_material: StandardMaterial3D
 var rivershore_material: StandardMaterial3D
+var river_visibility_material: ShaderMaterial
+var river_surface_nodes: Array[MeshInstance3D] = []
 var frame_count := 0
 const ForestTree = preload("res://scripts/forest_tree.gd")
 var land_mesh: MeshInstance3D
@@ -285,6 +288,9 @@ func make_river() -> void:
     var water := ShaderMaterial.new()
     water.shader = load("res://scripts/water.gdshader")
     water_material = water
+    if river_visibility_material == null:
+        river_visibility_material = ShaderMaterial.new()
+        river_visibility_material.shader = load("res://scripts/exploration.gdshader")
     if riverbank_material == null:
         riverbank_material = StandardMaterial3D.new()
         riverbank_material.albedo_color = Color("82795a")
@@ -316,9 +322,16 @@ func make_river() -> void:
         var c := Vector3(x2 - 2.45, -0.18, z + 1)
         var d := Vector3(x2 + 2.45, -0.18, z + 1)
         vertices.append_array([a, b, c, b, d, c])
-    mesh_from_triangles(bank_vertices, riverbank_material, land_mesh.get_parent() if is_instance_valid(land_mesh) else self)
-    mesh_from_triangles(shore_vertices, rivershore_material, land_mesh.get_parent() if is_instance_valid(land_mesh) else self)
-    mesh_from_triangles(vertices, water)
+    var river_parent: Node = land_mesh.get_parent() if is_instance_valid(land_mesh) else self
+    var river_groups := [
+        [bank_vertices, riverbank_material],
+        [shore_vertices, rivershore_material],
+        [vertices, water],
+    ]
+    for group in river_groups:
+        var surface := mesh_from_triangles(group[0], group[1], river_parent)
+        surface.set_meta("river_visibility_base_material", group[1])
+        river_surface_nodes.append(surface)
 
 func box(parent: Node3D, location: Vector3, size_value: Vector3, material: Material) -> MeshInstance3D:
     var item := MeshInstance3D.new()
@@ -438,14 +451,14 @@ func tent(x: float, z: float, angle: float) -> void:
 
 func make_village() -> void:
     tent(-2, 5.0, -0.3)
-    inspectable(get_child(get_child_count() - 1), {"kind": "Starting tent"})
+    inspectable(get_child(get_child_count() - 1), {"kind": "Starting tent", "camp_id": "tent_east"})
     tent(-11, 5.7, 0.2)
-    inspectable(get_child(get_child_count() - 1), {"kind": "Starting tent"})
+    inspectable(get_child(get_child_count() - 1), {"kind": "Starting tent", "camp_id": "tent_west"})
     # Supply cache: racks, timber, jars, stacked sacks and a fabric shade.
     var cache := Node3D.new()
     cache.position = pos(-6.0, 0.0)
     add_child(cache)
-    inspectable(cache, {"kind": "Supply cache"})
+    inspectable(cache, {"kind": "Supply cache", "camp_id": "cache"})
     for i in range(6):
         var log_item := cylinder(cache, Vector3(-0.5 + (i % 3) * 0.25, 0.18 + (i / 3) * 0.23, 0), 0.12, 0.12, 1.5, mats.wood)
         log_item.rotation.z = PI * 0.5
@@ -458,10 +471,10 @@ func make_village() -> void:
     for i in range(12):
         var a := i * TAU / 12
         var stone := sphere(self, pos(-3 + cos(a) * 0.68, 1.5 + sin(a) * 0.68, 0.12), Vector3(0.19, 0.12, 0.15), mats.stone)
-        inspectable(stone, {"kind": "Campfire"})
+        inspectable(stone, {"kind": "Campfire", "camp_id": "hearth"})
     for i in range(3):
         beam(self, pos(-3.4, 1.1 + i * 0.18, 0.12), pos(-2.7, 1.7 - i * 0.13, 0.12), 0.06, mats.wood)
-        inspectable(get_child(get_child_count() - 1), {"kind": "Campfire"})
+        inspectable(get_child(get_child_count() - 1), {"kind": "Campfire", "camp_id": "hearth"})
     make_hearth()
     make_cart(-8.5, 2.6)
     make_cart(0.5, 3.5)
@@ -471,7 +484,7 @@ func make_cart(x: float, z: float) -> void:
     cart.position = pos(x, z)
     cart.rotation.y = 0.6
     add_child(cart)
-    inspectable(cart, {"kind": "Cart"})
+    inspectable(cart, {"kind": "Cart", "camp_id": "cart_west" if x < 0 else "cart_east"})
     box(cart, Vector3(0, 0.5, 0), Vector3(0.9, 0.12, 1.3), mats.wood)
     for xx in [-0.48, 0.48]:
         for j in range(3):
@@ -532,6 +545,7 @@ func make_hex_grid() -> void:
     hex_grid.visible = false
     var mat := StandardMaterial3D.new()
     mat.albedo_color = Color(0.89, 0.84, 0.65, 0.38)
+    hex_grid_material = mat
     mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
     mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -654,6 +668,8 @@ func mesh_hit_distance(node: Node3D, origin: Vector3, direction: Vector3) -> flo
     return nearest
 
 func pick_object(screen: Vector2) -> Dictionary:
+    var caption_hit: Dictionary = world_entities.pick_caption(screen)
+    if not caption_hit.is_empty(): return caption_hit
     var origin := camera.project_ray_origin(screen)
     var direction := camera.project_ray_normal(screen)
     var nearest := INF
@@ -1054,7 +1070,7 @@ func make_top_bar(layer: CanvasLayer) -> void:
         column.add_child(amount)
         resource_labels[resource] = amount
         var rate := label("", 11, Color("b6cf9a"))
-        rate.tooltip_text = "Produced per game day during the latest simulation interval, before consumption and spoilage."
+        rate.tooltip_text = "Food shows net stock change per game day after consumption, spoilage and overflow. Wood and Stone show collected amounts per game day after storage limits."
         if resource in ["wood", "stone"]:
             rate.tooltip_text = "Collected per game day during the latest simulation interval, after storage limits. Building and equipment costs are separate."
         column.add_child(rate)
@@ -1107,7 +1123,7 @@ func make_ui() -> void:
     var build_page := add_scroll_tab(command_tabs, "Build", 5)
     var people_page := add_scroll_tab(command_tabs, "People", 5)
     var explore_page := add_scroll_tab(command_tabs, "Explore", 7)
-    var military_page := add_scroll_tab(command_tabs, "Military", 7)
+    var military_page := add_scroll_tab(command_tabs, "Armies", 7)
     overview.add_child(label("A beginning by the river", 21, Color("f0e6ce")))
     status_label = label("", 14, Color("d5d9bd"))
     overview.add_child(status_label)
@@ -1129,7 +1145,7 @@ func make_ui() -> void:
     var groups := {
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},
         "Resources": {"types": ["Storehouse", "Field"], "hint": "Store materials or grow crops with assigned farmers."},
-        "Services": {"types": ["Well", "School"], "hint": "Improve water quality, training, and education."},
+        "Services": {"types": ["Well", "School", "Town Hall"], "hint": "Improve water quality, training, and education."},
         "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and Masonry walls strengthen defense."}
     }
     var build_guidance := label("", 13, Color("d5c394"))
@@ -1199,8 +1215,8 @@ func make_ui() -> void:
         row.add_child(spinner)
         job_controls[job] = spinner
     emergency_food_toggle = CheckBox.new()
-    emergency_food_toggle.text = "Food shortage: divert builders / quarry"
-    emergency_food_toggle.tooltip_text = "Temporarily sends builders and quarry workers gathering when food is low. Manually increasing either job turns this response off."
+    emergency_food_toggle.text = "Enable emergency food response"
+    emergency_food_toggle.tooltip_text = "Configure food thresholds and worker priority at the Town Hall."
     emergency_food_toggle.button_pressed = sim.emergency_food
     emergency_food_toggle.toggled.connect(func(value):
         order("policy", ["emergency_food", value])
@@ -1222,7 +1238,9 @@ func make_ui() -> void:
         dispatch_scouts(selected_land))
     explore_page.add_child(label("Click land to inspect · drag to move the map.\nUnknown land is hidden; old reports fade.", 12, Color("9fae99")))
 
-    game_button(military_page, "Armies & commanders", func(): multiplayer_screen.open_warfare())
+    game_button(military_page, "Armies", func(): multiplayer_screen.open_warfare())
+    game_button(military_page, "Training", func(): multiplayer_screen.open_warfare(); multiplayer_screen.warfare_page.open_training())
+    game_button(military_page, "Create / edit armies", func(): multiplayer_screen.open_warfare(); multiplayer_screen.warfare_page.pages.current_tab = 2)
     military_page.add_child(label("Build training grounds and barracks from Build → Military.", 13, Color("9fae99")))
 
     var bottom := panel_column(layer, Vector2(20, 660), 620, "Time & events")
@@ -1338,6 +1356,9 @@ func add_scroll_tab(tabs: TabContainer, title: String, separation: int) -> VBoxC
 
 func refresh_game() -> void:
     if not is_instance_valid(status_label): return
+    for node in get_tree().get_nodes_in_group("inspectable"):
+        var info: Dictionary = node.get_meta("inspection", {})
+        if info.has("camp_id"): node.visible = sim.camp_object_present(info.camp_id)
     resource_deposits.refresh(self)
     var online: bool = is_instance_valid(session) and (session.active or session.connecting)
     civilization_title.text = str(session.cached_own.get("civilization_name", "SHARED WORLD")) if online else "FIRST SETTLEMENT"
@@ -1349,8 +1370,8 @@ func refresh_game() -> void:
     happiness_button.add_theme_color_override("font_color", Color("d99580") if sim.happiness < 40 else Color("dec58f") if sim.happiness < 60 else Color("b6cf9a"))
     for resource in resource_labels: resource_labels[resource].text = "%.1f" % sim.resources[resource]
     for resource in resource_rate_labels:
-        var rate: float = float(sim.food_ledger.production) if resource == "food" else float(sim.material_production.get(resource, 0.0))
-        resource_rate_labels[resource].text = "+%.2f / day" % rate
+        var rate: float = float(sim.daily_food_change) if resource == "food" else float(sim.material_production.get(resource, 0.0))
+        resource_rate_labels[resource].text = ("+" if rate > 0 else "") + ("%.2f / day" % rate)
     top_storage.text = "%.0f / %.0f" % [sim.resources.food + sim.resources.wood + sim.resources.stone, sim.capacity()]
     if is_instance_valid(resource_panel) and resource_panel.visible: resource_panel.refresh()
     if is_instance_valid(object_panel) and object_panel.visible: object_panel.refresh()
@@ -1361,8 +1382,8 @@ func refresh_game() -> void:
     top_date.text = "%s · Year %d" % [season, int(sim.day / 360) + 1]
     top_date.tooltip_text = sim.season_description()
     status_label.text = "%s · Year %d · Day %d\n%s" % [season, int(sim.day / 360) + 1, int(sim.day) % 90 + 1, " · ".join(sim.conditions)]
-    stock_label.text = "Food use: %.2f / day · Production: %.2f / day\nHousing %d / %d" % [sim.food_need(), sim.food_ledger.production, sim.population, sim.housing()]
-    worker_label.text = "%d settlers · %d adults · %d assigned" % [sim.population, sim.adults(), sim.workers_used()]
+    stock_label.text = "Food use: %.2f / day · Production: %.2f / day · Net: %+.2f / day\nHousing %d / %d" % [sim.food_need(), sim.food_ledger.production, sim.daily_food_change, sim.population, sim.housing()]
+    worker_label.text = "%d settlers · %d available · %d on birth leave · %d assigned" % [sim.population, sim.workforce_capacity(), sim.birth_leave_count(), sim.workers_used()]
     population_age_labels["Children"].text = str(sim.children())
     population_age_labels["Adults"].text = str(sim.adults())
     population_age_labels["Elders"].text = str(sim.elders())
@@ -1399,6 +1420,8 @@ func refresh_game() -> void:
     var projects := PackedStringArray()
     for b in sim.buildings:
         if b.progress < 1: projects.append("%s: %.0f%%" % [b.kind, b.progress * 100])
+    for id in sim.camp_dismantling:
+        if sim.camp_object_present(id): projects.append("Dismantle %s: %.0f%%" % [sim.STARTING_OBJECTS[id].kind, float(sim.camp_dismantling[id]) * 100])
     project_label.text = "\n".join(projects) if projects.size() else "No construction in progress."
     event_label.text = "\n".join(sim.events.slice(0, 2))
     event_label.tooltip_text = event_label.text
@@ -1437,13 +1460,17 @@ func rebuild_buildings() -> void:
     for child in building_nodes.get_children():
         building_nodes.remove_child(child)
         child.queue_free()
+    var field_tiles: Dictionary = {}
+    for b in sim.buildings:
+        if b.kind == "Field" and b.progress >= 1.0:
+            field_tiles[Vector2i(int(b.q), int(b.r))] = true
     for b in sim.buildings:
         var center := Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5))
-        if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks"]:
+        if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall"]:
             var home := house(center.x, center.y, 0.15, 0.85)
             home.reparent(building_nodes)
             inspectable(home, {"kind": b.kind, "q": b.q, "r": b.r})
-            if b.kind == "Barracks":
+            if b.kind in ["Barracks", "Town Hall"]:
                 var banner := Node3D.new()
                 building_nodes.add_child(banner)
                 banner.position = pos(center.x + 1.2, center.y, 0.05)
@@ -1478,10 +1505,59 @@ func rebuild_buildings() -> void:
                 beam(site, Vector3(0.9, 0, 0), Vector3(0.9, 1.9, 0), 0.07, mats.wood)
                 beam(site, Vector3(-0.9, 1.9, 0), Vector3(0.9, 1.9, 0), 0.07, mats.wood)
             elif b.kind == "Field":
-                box(site, Vector3(0, 0, 0), Vector3(2.7, 0.03, 2.7), mats.soil)
-                for row in range(6):
-                    for col in range(6):
-                        cylinder(site, Vector3(-1.1 + col * 0.44, 0.13, -1.1 + row * 0.44), 0.035, 0.015, 0.26, mats.reed, 5)
+                if b.progress >= 1.0:
+                    _build_field_plot(site, b, field_tiles)
+                else:
+                    _build_field_plot(site, b, {})
+
+func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary) -> void:
+    # A small terrain-following grid replaces the flat tile that could be
+    # buried by the map's steep terrain triangles.
+    var corners := [Vector2(-1.42, -1.42), Vector2(1.42, -1.42), Vector2(1.42, 1.42), Vector2(-1.42, 1.42)]
+    var vertices := PackedVector3Array()
+    var q := int(field.q)
+    var r := int(field.r)
+    var center := Vector2(3.0 * q, sqrt(3.0) * 2.0 * (r + q * 0.5))
+    var local_points: Array[Vector2] = []
+    for corner in corners:
+        var absolute := center + corner
+        local_points.append(Vector2(absolute.x - float(site.position.x), absolute.y - float(site.position.z)))
+    var steps := 4
+    var grid: Array[PackedVector3Array] = []
+    for iz in range(steps + 1):
+        var row := PackedVector3Array()
+        var v := float(iz) / steps
+        for ix in range(steps + 1):
+            var u := float(ix) / steps
+            var top := local_points[0].lerp(local_points[1], u)
+            var bottom := local_points[3].lerp(local_points[2], u)
+            var p := top.lerp(bottom, v)
+            row.append(Vector3(p.x, surface_height(center.x + p.x, center.y + p.y) - center.y + 0.035, p.y))
+        grid.append(row)
+    for iz in range(steps):
+        for ix in range(steps):
+            var a: Vector3 = grid[iz][ix]
+            var b: Vector3 = grid[iz][ix + 1]
+            var c: Vector3 = grid[iz + 1][ix]
+            var d: Vector3 = grid[iz + 1][ix + 1]
+            vertices.append_array(PackedVector3Array([a, c, b, b, c, d]))
+    mesh_from_triangles(vertices, mats.soil, site)
+
+    # Crop rows run together over the plot. Omit the row-end gaps on a side
+    # when another completed field touches that side, so neighboring plots
+    # read as a single cultivated block.
+    var open_left := not field_tiles.has(Vector2i(q - 1, r))
+    var open_right := not field_tiles.has(Vector2i(q + 1, r))
+    var open_top := not field_tiles.has(Vector2i(q, r - 1))
+    var open_bottom := not field_tiles.has(Vector2i(q, r + 1))
+    for row in range(7):
+        for col in range(7):
+            if (col == 0 and not open_left) or (col == 6 and not open_right) or (row == 0 and not open_top) or (row == 6 and not open_bottom):
+                continue
+            var x := -1.18 + col * 0.39
+            var z := -1.18 + row * 0.39
+            var y := surface_height(center.x + x, center.y + z) - center.y + 0.14
+            cylinder(site, Vector3(x, y, z), 0.035, 0.015, 0.26, mats.reed, 5)
 
 func stone_wall(parent: Node3D) -> void:
     # A fortified section occupies one building hex, with towers and battlements.
@@ -1514,6 +1590,7 @@ func configure_world_map() -> void:
     region_shared = sim.shared_region
     has_selected_land = false
     choosing_scout_destination = false
+    river_surface_nodes.clear()
     for node in scenery_nodes:
         remove_child(node)
         node.queue_free()
@@ -1557,7 +1634,7 @@ func make_hearth() -> void:
     var root := Node3D.new()
     root.position = pos(-3, 1.5)
     add_child(root)
-    inspectable(root, {"kind": "Campfire"})
+    inspectable(root, {"kind": "Campfire", "camp_id": "hearth"})
     var glow := StandardMaterial3D.new()
     glow.albedo_color = Color("ec9b40")
     glow.emission_enabled = true
@@ -1579,6 +1656,10 @@ func update_daylight() -> void:
     var altitude := sin(progress * PI)
     var season := int(sim.day / 90) % 4
     var noon_color: Color = [Color("fff0d5"), Color("fff2cc"), Color("ffd3a0"), Color("cdddeb")][season]
+    if is_instance_valid(hex_grid_material):
+        # Dark lines contrast with sunlit snow; retain pale lines after dark.
+        var winter_day: float = smoothstep(0.15, 0.65, strength) if season == 3 else 0.0
+        hex_grid_material.albedo_color = Color(0.89, 0.84, 0.65, 0.38).lerp(Color(0.20, 0.27, 0.34, 0.78), winter_day)
     sunlight.light_color = Color("ffab72").lerp(noon_color, smoothstep(0, 0.55, altitude))
     sunlight.light_energy = strength * [0.85, 0.95, 0.8, 0.65][season]
     sunlight.rotation_degrees = Vector3(-maxf(8, altitude * (38 if season == 3 else 62)), lerpf(-105, 75, progress), 0)

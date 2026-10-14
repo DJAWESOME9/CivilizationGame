@@ -5,12 +5,28 @@ const Warfare = preload("res://scripts/warfare.gd")
 # Saved mission travel/progress retain their original units. Only movement
 # advances faster; the three-day survey still follows the seasonal world clock.
 const SCOUT_TRAVEL_RATE := 3.0
+const BASE_RESEARCH_POINTS_PER_DAY := 1.0
 const CAMP_RADIUS := 12.0
+const PREGNANCY_DAYS := 270.0
+const LATE_PREGNANCY_DAYS := 90.0
+const BIRTH_RECOVERY_DAYS := 60.0
 const ELDER_DEATH_AGE_MIN := 65.0
 const ELDER_DEATH_AGE_MAX := 75.0
 
+const STARTING_OBJECTS = {
+    "tent_east": {"kind": "Starting tent", "point": [-2.0, 5.0], "radius": 2.2, "work": 6.0, "wood": 3.0, "stone": 0.0},
+    "tent_west": {"kind": "Starting tent", "point": [-11.0, 5.7], "radius": 2.2, "work": 6.0, "wood": 3.0, "stone": 0.0},
+    "cache": {"kind": "Supply cache", "point": [-6.0, 0.0], "radius": 1.9, "work": 8.0, "wood": 5.0, "stone": 0.0},
+    "cart_west": {"kind": "Cart", "point": [-8.5, 2.6], "radius": 1.9, "work": 5.0, "wood": 4.0, "stone": 0.0},
+    "cart_east": {"kind": "Cart", "point": [0.5, 3.5], "radius": 1.9, "work": 5.0, "wood": 4.0, "stone": 0.0},
+    "hearth": {"kind": "Campfire", "point": [-3.0, 1.5], "radius": 1.0, "work": 3.0, "wood": 1.0, "stone": 2.0}
+}
+# Missing entries mean intact, including in older saves. Completed jobs stay saved.
+var camp_dismantling: Dictionary = {}
+
 const JOBS = ["Gathering", "Fishing", "Logging", "Quarrying", "Construction", "Farming"]
 const BUILDINGS = {
+    "Town Hall": {"wood": 28.0, "stone": 10.0, "work": 40.0},
     "House": {"wood": 18.0, "stone": 4.0, "work": 12.0},
     "Storehouse": {"wood": 24.0, "stone": 8.0, "work": 35.0},
     "Field": {"wood": 6.0, "stone": 0.0, "work": 15.0},
@@ -21,15 +37,24 @@ const BUILDINGS = {
     "Palisade": {"wood": 30.0, "stone": 4.0, "work": 30.0},
     "Wall": {"wood": 8.0, "stone": 24.0, "work": 40.0}
 }
+# Maximum effective construction labor assigned to one site. Any remaining
+# builders continue to the next unfinished site in placement order.
+const BUILDING_WORKER_CAPS = {
+    "Town Hall": 6.0, "House": 4.0, "Storehouse": 6.0, "Field": 3.0, "Well": 5.0,
+    "School": 7.0, "Training Grounds": 5.0, "Barracks": 6.0,
+    "Palisade": 5.0, "Wall": 4.0
+}
 const TECHNOLOGIES = {
+    "Community Organization": 60.0,
     "Scouting": 0.0,
-    "Basketry": 0.5, "Hunting": 1.0, "Storage": 0.75, "Education": 2.0,
-    "Toolmaking": 0.5, "Shelter Building": 0.5, "Fishing": 0.75, "Woodcutting": 0.75,
-    "Planting": 1.0, "Preservation": 1.5, "Forestry": 1.0, "Crop Rotation": 2.0,
-    "Stoneworking": 1.0, "Carpentry": 1.5, "Masonry": 2.0, "Sanitation": 2.0, "Waterworks": 2.5
+    "Basketry": 40.0, "Hunting": 80.0, "Storage": 60.0, "Education": 160.0,
+    "Toolmaking": 50.0, "Shelter Building": 50.0, "Fishing": 60.0, "Woodcutting": 60.0,
+    "Planting": 60.0, "Preservation": 120.0, "Forestry": 80.0, "Crop Rotation": 160.0,
+    "Stoneworking": 80.0, "Carpentry": 120.0, "Masonry": 160.0, "Sanitation": 160.0, "Waterworks": 200.0
 }
 const JOB_TECH = {"Gathering": "", "Fishing": "Fishing", "Logging": "Woodcutting", "Quarrying": "Stoneworking", "Construction": "Shelter Building", "Farming": "Planting"}
 const PREREQUISITES = {
+    "Community Organization": ["Shelter Building"],
     "Scouting": [],
     "Basketry": [], "Hunting": ["Toolmaking"], "Storage": ["Shelter Building"], "Education": ["Carpentry"],
     "Toolmaking": [], "Shelter Building": ["Toolmaking"], "Fishing": ["Toolmaking"], "Woodcutting": ["Toolmaking"],
@@ -39,6 +64,7 @@ const PREREQUISITES = {
     "Sanitation": ["Stoneworking"], "Waterworks": ["Planting", "Sanitation"]
 }
 const TECH_DETAILS = {
+    "Community Organization": "Unlocks one Town Hall: more buildable land, policies and standing orders.",
     "Scouting": "Available from the start. Send three settlers to survey distant land and bring back dated resource reports; no research is required.",
     "Basketry": "Woven carrying baskets improve gathering output by 20%.",
     "Hunting": "Learn coordinated hunting and tracking. Gathering yields 25% more food but consumes the same finite wildlife supply.",
@@ -64,6 +90,7 @@ var resources: Dictionary = {"food": 30.0, "wood": 40.0, "stone": 20.0}
 var assignments: Dictionary = {"Gathering": 30, "Fishing": 0, "Logging": 0, "Quarrying": 0, "Construction": 0, "Farming": 0}
 var buildings: Array = []
 var armies: Array = []
+var owned_commanders: Array = []
 var next_army_id := 1
 var defense_order := "Hold settlement"
 var emergency_defenders: Array = []
@@ -73,6 +100,7 @@ var research: String = "Toolmaking"
 var queued_research: String = ""
 var research_progress: float = 0
 var research_saved: Dictionary = {}
+var research_points_version: int = 4
 var forest: float = 1200
 var quarry: float = 1500
 var wildlife: float = 300
@@ -92,9 +120,18 @@ var generation_targets: Dictionary = {"Gathering": 15, "Fishing": 10, "Logging":
 var automatic_workforce := false
 var allow_migration := true
 var allow_births := true
+var government: Dictionary = {"influence": 0.0, "births": "Allowed", "active": {}, "feast_until": 0.0, "food_start": 30.0, "food_stop": 45.0, "food_groups": ["Idle", "Quarrying", "Construction"], "food_active": false}
+const CIVIC_POLICIES = {
+    "Community Feast": {"cost": 3.0, "upkeep": 0.0, "detail": "Spend 10 food for +8 happiness for 15 days. Cannot stack."},
+    "Extended Workdays": {"cost": 2.0, "upkeep": 0.03, "detail": "+15% civilian work, -8 happiness. Excludes Rest Days."},
+    "Rest Days": {"cost": 2.0, "upkeep": 0.0, "detail": "+6 happiness, -10% civilian work. Excludes Extended Workdays."},
+    "Winter Preparedness": {"cost": 2.0, "upkeep": 0.0, "detail": "Autumn/winter food response starts at least at 60 days, recovers to 75; houses and wells take construction priority."},
+    "Education Priority": {"cost": 3.0, "upkeep": 0.02, "detail": "Requires a completed School. +50% apprenticeship/schooling progress; learners work at 50% rather than 75%."},
+    "Conservation": {"cost": 2.0, "upkeep": 0.0, "detail": "Gathering and logging output -15%; wildlife and woodland recovery +50%."}
+}
 var migration_clock := 0.0
 var birth_progress := 0.0
-var happiness := 55.0
+var happiness := 50.0
 var ration_level := 1.0
 var daily_food_change := 0.0
 var job_roster: Dictionary = {}
@@ -121,6 +158,68 @@ const LANDMARKS = [
 func cell_key(point: Vector2) -> String:
     return "%d:%d" % [floori((point.x + 96) / 3), floori((point.y + 96) / 3)]
 
+func discovered_resource_capacity(resource: String) -> float:
+    # Match resource_deposits.gd's deterministic near-to-far reserve partition.
+    # This prevents workers from consuming the reserve represented by unseen objects.
+    var nodes: Array = []
+    if resource == "wood":
+        var forest_rng := RandomNumberGenerator.new()
+        forest_rng.seed = 72419
+        for i in range(1200):
+            var x := forest_rng.randf_range(-170, 95)
+            var z := forest_rng.randf_range(-125, 125)
+            var tree_size := forest_rng.randf_range(0.65, 1.5)
+            if absf(x) > 92 or absf(z) > 92: continue
+            if Vector2(x + 4, z).length() < 13.5: continue
+            if Vector2(x + 4, z).length() < 13.5 or absf(x - (10 + sin(z * 0.095) * 3)) < 4.6: continue
+            nodes.append({"point": Vector2(x, z), "weight": tree_size * tree_size * tree_size})
+        for tree in [[-13.5, -5.5, 0.95], [3.9, -4.0, 0.75], [-14.5, 7.0, 0.8]]:
+            nodes.append({"point": Vector2(tree[0], tree[1]), "weight": pow(float(tree[2]), 3.0)})
+    elif resource == "stone":
+        var rock_rng := RandomNumberGenerator.new()
+        rock_rng.seed = 72419
+        for i in range(38):
+            var x := rock_rng.randf_range(-24, -15)
+            var z := rock_rng.randf_range(-18, -7)
+            var sx := rock_rng.randf_range(0.35, 1.0)
+            var sy := rock_rng.randf_range(0.4, 1.4)
+            var sz := rock_rng.randf_range(0.4, 1.0)
+            rock_rng.randf() # rotation.x
+            rock_rng.randf() # rotation.y
+            rock_rng.randf() # rotation.z
+            nodes.append({"point": Vector2(x, z), "weight": sx * sy * sz})
+        for i in range(24):
+            var z := rock_rng.randf_range(-25, 25)
+            var x := 10 + sin(z * 0.095) * 3 + (3.2 if i % 2 == 0 else -3.2)
+            nodes.append({"point": Vector2(x, z), "weight": 0.35 * 0.22 * 0.3})
+    else:
+        return 0.0
+    nodes.sort_custom(func(a, b):
+        var pa: Vector2 = a.point
+        var pb: Vector2 = b.point
+        var da := pa.distance_squared_to(Vector2(-4, 0))
+        var db := pb.distance_squared_to(Vector2(-4, 0))
+        if not is_equal_approx(da, db): return da < db
+        if not is_equal_approx(pa.x, pb.x): return pa.x < pb.x
+        return pa.y < pb.y)
+    var total_weight := 0.0
+    for node in nodes: total_weight += float(node.weight)
+    var reserve_total := 1200.0 if resource == "wood" else 1500.0
+    var capacity := 0.0
+    for node in nodes:
+        var point: Vector2 = node.point
+        if explored.has(cell_key(point)):
+            capacity += reserve_total * float(node.weight) / maxf(total_weight, 0.001)
+    return capacity
+
+func discovered_resource_remaining(resource: String, reserve: float) -> float:
+    # Depletion follows the same near-to-far ordering as the rendered deposits.
+    # Sum only the remaining portions belonging to cells the player has discovered.
+    var discovered_capacity := discovered_resource_capacity(resource)
+    var reserve_total := 1200.0 if resource == "wood" else 1500.0
+    var harvested := maxf(0.0, reserve_total - reserve)
+    return maxf(0.0, discovered_capacity - harvested)
+
 func reveal_land(point: Vector2, radius: float) -> void:
     var changed := false
     for x in range(maxi(0, floori((point.x - radius + 96) / 3)), mini(64, ceili((point.x + radius + 96) / 3))):
@@ -133,7 +232,11 @@ func reveal_land(point: Vector2, radius: float) -> void:
     if changed: exploration_revision += 1
 
 func workforce_capacity() -> int:
-    return maxi(0, adults() - scouting_units().size() - military_ids().size())
+    var count := 0
+    var unavailable: Array = scouting_units() + military_ids()
+    for person in people:
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and int(person.id) not in unavailable: count += 1
+    return count
 
 func scouting_units() -> Array:
     var units: Array = []
@@ -223,14 +326,20 @@ func scouting_block(destination: Vector2) -> String:
     if "Scouting" not in technologies: return "Research Scouting first."
     if destination.distance_to(Vector2(-4, 0)) <= CAMP_RADIUS: return "Choose a destination outside the civilization's camp area."
     if absf(destination.x) > 88 or absf(destination.y) > 88: return "Destination lies beyond this world view."
-    var river := 10.0 + sin((destination.y + float(world_origin[1])) * 0.095) * 3.0
-    if (shared_region and destination.x + float(world_origin[0]) > river - 4.0) or (not shared_region and destination.x > 4): return "Crossing the river requires transport; survey the western bank for now."
+    # Match the water mesh's one-unit segments and 2.45-unit half-width.
+    # The surrounding sloped banks are dry land and remain scoutable.
+    var global_z := destination.y + float(world_origin[1])
+    var segment_z := floorf(global_z)
+    var river_start := 10.0 + sin(segment_z * 0.095) * 3.0
+    var river_end := 10.0 + sin((segment_z + 1.0) * 0.095) * 3.0
+    var river := lerpf(river_start, river_end, global_z - segment_z)
+    if destination.x + float(world_origin[0]) >= river - 2.45: return "Crossing the river requires transport; survey the western bank for now."
     var cost := scout_food_cost(destination)
     if resources.food < cost: return "This trip needs %d food for its distance and duration." % cost
     if adults() < 3: return "Three working-age settlers are needed."
     var units: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
             units.append(int(person.id))
             if units.size() == 3: break
     if units.size() < 3: return "Three adults outside training are needed."
@@ -241,7 +350,7 @@ func send_scouts(destination: Vector2) -> String:
     if not blocked.is_empty(): return blocked
     var units: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
             units.append(int(person.id))
             if units.size() == 3: break
     var cost := scout_food_cost(destination)
@@ -378,30 +487,34 @@ func elders() -> int:
 func food_need() -> float:
     var deployed := 0
     for army in armies:
-        if army.status in ["Marching", "Fighting", "Returning"]: deployed += army.soldiers.size()
+        if army.status in ["Marching", "Fighting", "Returning", "Holding"]: deployed += army.soldiers.size()
     return maxf(0, population - children() * 0.5 - deployed - scouting_units().size()) / 90.0 * ration_level
 
 func happiness_influences() -> Array:
-    var factors: Array = [{"name": "Community spirit", "value": 70.0, "detail": "The starting baseline for this settlement."}]
+    var factors: Array = [{"name": "Community spirit", "value": 50.0, "detail": "The starting baseline for this settlement."}]
     var reserve_days := float(resources.food) / maxf(0.001, (population - children() * 0.5) / 90.0)
     var food_value := 10.0 if reserve_days >= 90 else 0.0 if reserve_days >= 45 else -10.0 if reserve_days >= 27 else -20.0 if resources.food > 0 else -40.0
     factors.append({"name": "Food reserves", "value": food_value, "detail": "%.0f days at normal rations. Build reserves and reliable production." % reserve_days})
     factors.append({"name": "Ration policy", "value": -15.0 if ration_level < 1 else 5.0 if ration_level > 1 else 0.0, "detail": "Reduced rations save food but strain people; generous rations use more food."})
-    factors.append({"name": "Water quality", "value": -15.0 if completed("Well") == 0 else 0.0, "detail": "Untreated water. Research Sanitation and build a well." if completed("Well") == 0 else "A completed well supplies treated water."})
+    factors.append({"name": "Water quality", "value": -5.0 if completed("Well") == 0 else 0.0, "detail": "Untreated water. Research Sanitation and build a well." if completed("Well") == 0 else "A completed well supplies treated water."})
     factors.append({"name": "Crowding", "value": -minf(25.0, maxf(0, population - housing()) * 4.0), "detail": "%d people / %d shelter places." % [population, housing()]})
     var beds := completed("House") * (15 if "Masonry" in technologies else 10) + military_housed()
     var missing_beds := maxi(0, population - beds)
-    factors.append({"name": "Bedding & comfort", "value": -10.0 * missing_beds / maxf(1, population), "detail": "%d settlers lack permanent beds. Houses and occupied barracks include bedding; starting tents do not." % missing_beds})
+    factors.append({"name": "Bedding & comfort", "value": -5.0 * missing_beds / maxf(1, population), "detail": "%d settlers lack permanent beds. Houses and occupied barracks include bedding; starting tents do not." % missing_beds})
     var winter: bool = int(day / 90) % 4 == 3
     factors.append({"name": "Living conditions", "value": -8.0 * missing_beds / maxf(1, population) if winter else 0.0, "detail": "Winter exposes temporary shelters to cold." if winter else "No seasonal shelter penalty."})
     factors.append({"name": "Prolonged hardship", "value": -minf(15.0, starvation * 0.5), "detail": "Starvation leaves lasting strain; recovering food gradually relieves it."})
     factors.append({"name": "Education", "value": 5.0 if completed("School") > 0 else 0.0, "detail": "A school supports the community and prepares the next generation."})
+    var policy_happiness := (8.0 if float(government.feast_until) > day else 0.0) + (-8.0 if civic_active("Extended Workdays") else 0.0) + (6.0 if civic_active("Rest Days") else 0.0)
+    policy_happiness += 3.0 if government.births == "Encouraged" else -12.0 if government.births == "Forbidden" else 0.0
+    factors.append({"name": "Town Hall policies", "value": policy_happiness, "detail": "Feasts, working time and birth policy affect community happiness."})
+    factors.append({"name": "Daily mood", "value": 2.0 * sin(day / 7.0), "detail": "Slow natural mood variation, up to two points."})
     return factors
 
-func refresh_happiness() -> void:
-    happiness = 0
-    for factor in happiness_influences(): happiness += factor.value
-    happiness = clampf(happiness, 0, 100)
+func refresh_happiness(dt: float = 0.0) -> void:
+    var target := 0.0
+    for factor in happiness_influences(): target += float(factor.value)
+    if dt > 0: happiness = clampf(lerpf(happiness, target, 1.0 - exp(-dt / 3.0)), 0, 100)
 
 func target_total(targets: Dictionary) -> int:
     var count := 0
@@ -420,8 +533,11 @@ func job_unlocked(job: String) -> bool:
 func building_block(kind: String) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     if not job_unlocked("Construction"): return "Requires Shelter Building."
-    var required: String = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Shelter Building", "Palisade": "Carpentry", "Wall": "Masonry"}.get(kind, "")
+    var required: String = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Shelter Building", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization"}.get(kind, "")
     if not required.is_empty() and required not in technologies: return "Requires " + required + "."
+    if kind == "Town Hall":
+        for building in buildings:
+            if building.kind == "Town Hall": return "Only one Town Hall per settlement."
     var missing := PackedStringArray()
     for resource in BUILDINGS[kind]:
         if resource == "work": continue
@@ -455,7 +571,7 @@ func prepare_roster(work: Dictionary) -> void:
     job_roster.clear()
     var available: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and int(person.id) not in scouting_units() and int(person.id) not in military_ids(): available.append(person)
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and int(person.id) not in scouting_units() and int(person.id) not in military_ids(): available.append(person)
     # Reserve specialists for their matching jobs before filling general duties.
     for job in JOBS:
         job_roster[job] = []
@@ -470,7 +586,11 @@ func prepare_roster(work: Dictionary) -> void:
 func labor(job: String) -> float:
     var amount := 0.0
     for person in job_roster.get(job, []):
-        amount += (1.0 + float(person.skill) if person.profession == job else 1.0) * (0.75 if not person.training.is_empty() else 1.0)
+        amount += (1.0 + float(person.skill) if person.profession == job else 1.0) * ((0.5 if civic_active("Education Priority") else 0.75) if not person.training.is_empty() else 1.0)
+    amount *= 1.0 + (happiness - 50.0) * 0.005
+    if civic_active("Extended Workdays"): amount *= 1.15
+    if civic_active("Rest Days"): amount *= 0.9
+    if civic_active("Conservation") and job in ["Gathering", "Logging"]: amount *= 0.85
     return amount
 
 func start_training(job: String) -> String:
@@ -483,7 +603,7 @@ func start_training(job: String) -> String:
     if resources.food < 1 or resources.wood < 2: return "Training requires 1 food and 2 wood."
     var candidates: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and person.training.is_empty() and person.profession != job and int(person.id) not in scouting_units() and int(person.id) not in military_ids():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and person.profession != job and int(person.id) not in scouting_units() and int(person.id) not in military_ids():
             candidates.append(person)
     candidates.sort_custom(func(a, b): return a.profession == "General" and b.profession != "General")
     if candidates.is_empty(): return "No eligible adult available for retraining."
@@ -517,8 +637,8 @@ func update_population(dt: float) -> void:
             people.erase(person)
             announce("A settler died of old age at %.1f." % person.age)
             continue
-        if not person.training.is_empty():
-            person.training_progress += dt * (1.5 if completed("School") > 0 else 1.0)
+        if not person.training.is_empty() and not on_birth_leave(person):
+            person.training_progress += dt * (1.5 if completed("School") > 0 else 1.0) * (1.5 if civic_active("Education Priority") else 1.0)
             if person.training_progress >= 60:
                 person.profession = person.training
                 person.skill = 0.30
@@ -527,14 +647,15 @@ func update_population(dt: float) -> void:
                 announce("Settler %d qualified in %s." % [person.id, person.profession.to_lower()])
         if person.age >= 12 and person.age < 16 and completed("School") > 0 and person.career != "General" and not person.career.is_empty() and job_unlocked(person.career):
             person.profession = person.career
-            person.skill = minf(0.30, float(person.skill) + dt / 1800.0)
+            person.skill = minf(0.30, float(person.skill) + dt / 1800.0 * (1.5 if civic_active("Education Priority") else 1.0))
         if was_child and person.age >= 16:
             announce("A young settler joined the adult workforce.")
     for job in job_roster:
         for person in job_roster[job]:
             if person.profession == job: person.skill = minf(0.60, float(person.skill) + dt * 0.0003)
+    advance_pregnancies(dt)
     population = people.size()
-    refresh_happiness()
+    refresh_happiness(dt)
     migration_clock += dt
     if migration_clock >= 90:
         migration_clock -= 90
@@ -546,26 +667,30 @@ func update_population(dt: float) -> void:
                 people.append(migrant)
                 next_person_id += 1
             announce("%d migrants joined the settlement." % arrivals)
-    if allow_births and happiness >= 60 and housing() > people.size() and resources.food >= population * 0.5:
-        birth_progress += adults() * 0.035 / 360.0 * dt
+    if allow_births and government.births != "Forbidden" and happiness >= 50 and housing() > people.size() and resources.food >= population * 0.5:
+        birth_progress += adults() * 0.035 / 360.0 * dt * (1.5 if government.births == "Encouraged" else 1.0)
         if birth_progress >= 1:
-            birth_progress -= 1
-            var career := next_career()
-            var newborn := {"id": next_person_id, "age": 0.0, "profession": "General", "skill": 0.0, "training": "", "training_progress": 0.0, "career": career}
-            newborn["death_age"] = lifespan_for(next_person_id)
-            people.append(newborn)
-            next_person_id += 1
-            announce("A child was born. The next generation is growing.")
+            var candidates: Array = []
+            for person in people:
+                if person.age >= 18 and person.age < 45 and not is_pregnant(person) and not on_birth_leave(person) and int(person.id) not in military_ids() and int(person.id) not in scouting_units() and person.training.is_empty(): candidates.append(person)
+            if not candidates.is_empty():
+                # Rotate opportunities through adults instead of repeatedly choosing the first person.
+                candidates.sort_custom(func(a, b): return float(a.get("last_birth_day", -10000.0)) < float(b.get("last_birth_day", -10000.0)))
+                candidates[0]["pregnancy_due"] = day + PREGNANCY_DAYS
+                birth_progress -= 1.0
+                announce("A settler is expecting a child. Leave begins during the final 90 days.")
+            else: birth_progress = minf(birth_progress, 1.0)
     population = people.size()
     advance_armies(0)
     if automatic_workforce: apply_targets()
     else: clamp_assignments()
+    prepare_roster(effective_assignments())
 
 func capacity() -> float:
-    return 180.0 + completed("Storehouse") * 200.0
+    return (180.0 if camp_object_present("cache") else 0.0) + completed("Storehouse") * 200.0
 
 func housing() -> int:
-    return 30 + completed("House") * (15 if "Masonry" in technologies else 10) + military_housed()
+    return (15 if camp_object_present("tent_east") else 0) + (15 if camp_object_present("tent_west") else 0) + completed("House") * (15 if "Masonry" in technologies else 10) + military_housed()
 
 func completed(kind: String) -> int:
     var count := 0
@@ -584,7 +709,7 @@ func assign(job: String, count: int) -> void:
     var available := workforce_capacity() - workers_used() + int(assignments[job])
     var assigned := clampi(count, 0, available)
     # An explicit order to add builders or quarry workers overrides their food diversion.
-    if emergency_food and job in ["Construction", "Quarrying"] and assigned > int(assignments[job]):
+    if emergency_food and job in government.food_groups and assigned > int(assignments[job]):
         emergency_food = false
         announce("Manual workforce order: food-shortage diversion disabled.")
     assignments[job] = assigned
@@ -594,12 +719,26 @@ func announce(message: String) -> void:
     events.push_front(message)
     if events.size() > 24: events.resize(24)
 
+func camp_object_present(id: String) -> bool:
+    return STARTING_OBJECTS.has(id) and float(camp_dismantling.get(id, 0.0)) < 1.0
+
+func order_dismantle(id: String) -> String:
+    if not STARTING_OBJECTS.has(id): return "Unknown starting object."
+    if not job_unlocked("Construction"): return "Requires Shelter Building."
+    if not camp_object_present(id): return "Already dismantled."
+    if camp_dismantling.has(id): return "Already queued for dismantling."
+    camp_dismantling[id] = 0.0
+    announce("%s queued for dismantling. Assign construction workers." % STARTING_OBJECTS[id].kind)
+    return "Dismantling queued. Assign construction workers and let time advance."
+
 func order_build(kind: String, q: int, r: int) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     var center := Vector2(3.0 * q, sqrt(3.0) * 2.0 * (r + q * 0.5))
-    if center.distance_to(Vector2(-4, 0)) > CAMP_RADIUS or center.x > 4: return "Choose land inside the starting clearing."
-    if center.distance_to(Vector2(-6, 0)) < 3 or center.distance_to(Vector2(-2, 5)) < 2 or center.distance_to(Vector2(-11, 5.7)) < 2:
-        return "The starting camp occupies this site."
+    if center.distance_to(Vector2(-4, 0)) > build_radius() or center.x > (8 if completed("Town Hall") > 0 else 4): return "Choose land inside your buildable clearing."
+    for id in STARTING_OBJECTS:
+        var item: Dictionary = STARTING_OBJECTS[id]
+        if camp_object_present(id) and center.distance_to(Vector2(item.point[0], item.point[1])) < float(item.radius) + 2.0:
+            return "A %s occupies this site. Dismantle it first." % item.kind
     for b in buildings:
         if b.q == q and b.r == r: return "This hex already has a building."
     if kind == "Field" and not "Planting" in technologies: return "Research Planting first."
@@ -644,10 +783,30 @@ func effective_assignments() -> Dictionary:
     var work := assignments.duplicate()
     for job in JOBS:
         if not job_unlocked(job): work[job] = 0
-    if emergency_food and resources.food < population * 0.5:
-        work.Gathering += work.Construction + work.Quarrying
-        work.Construction = 0
-        work.Quarrying = 0
+    var reserve := float(resources.food) / maxf(food_need(), 0.001)
+    var winter_order := civic_active("Winter Preparedness") and int(day / 90) % 4 in [2, 3]
+    var start := maxf(float(government.food_start), 60.0 if winter_order else 0.0)
+    var stop := maxf(float(government.food_stop), 75.0 if winter_order else 0.0)
+    if not emergency_food: government.food_active = false
+    elif reserve < start: government.food_active = true
+    elif reserve >= stop: government.food_active = false
+    if bool(government.food_active) and wildlife > 0:
+        var season := int(day / 90) % 4
+        var efficiency: float = (1.0 + (happiness - 50) * 0.005) * (1.15 if civic_active("Extended Workdays") else 1.0) * (0.9 if civic_active("Rest Days") else 1.0)
+        var gather_rate: float = 0.11 * [1.05, 1.15, 1.0, 0.5][season] * efficiency * (1.2 if "Basketry" in technologies else 1.0) * (1.25 if "Hunting" in technologies else 1.0) * (0.85 if civic_active("Conservation") else 1.0)
+        var fish_rate: float = 0.14 * [1.0, 1.15, 0.9, 0.55][season] * efficiency
+        var spoilage_rate: float = (0.0004 if "Preservation" in technologies else 0.002) * [1.0, 1.35, 0.9, 0.55][season]
+        # Cover consumption/spoilage and rebuild reserves over roughly 30 days.
+        var needed := maxi(0, ceili((food_need() + float(resources.food) * spoilage_rate + maxf(0, stop * food_need() - float(resources.food)) / 30.0 - int(work.Fishing) * fish_rate) / maxf(gather_rate, 0.001)) - int(work.Gathering))
+        var idle := workforce_capacity()
+        for job in JOBS: idle -= int(work[job])
+        for group in government.food_groups:
+            var available := maxi(0, idle) if group == "Idle" else int(work[group])
+            var diverted := mini(needed, available)
+            work.Gathering += diverted
+            if group != "Idle": work[group] -= diverted
+            needed -= diverted
+            if needed <= 0: break
     return work
 
 func advance(days: float, interrupt: bool = false) -> float:
@@ -675,6 +834,7 @@ func tick(dt: float) -> void:
     if new_season != old_season:
         announce("%s arrived. %s" % [["Spring", "Summer", "Autumn", "Winter"][new_season], season_description()])
         report_revision += 1
+    advance_government(dt)
     advance_armies(dt)
     update_exploration(dt)
     if automatic_workforce: apply_targets()
@@ -684,14 +844,16 @@ func tick(dt: float) -> void:
     # Rates include travel and rest; nobody contributes a full day of labor.
     var season := int(day / 90.0) % 4
     var gathered := minf(wildlife, labor("Gathering") * dt * (0.11 * [1.05, 1.15, 1.0, 0.5][season]) * (1.2 if "Basketry" in technologies else 1.0) * (1.25 if "Hunting" in technologies else 1.0))
-    wildlife = minf(300, wildlife - gathered + [0.30, 0.24, 0.18, 0.08][season] * dt)
+    wildlife = minf(300, wildlife - gathered + [0.30, 0.24, 0.18, 0.08][season] * dt * (1.5 if civic_active("Conservation") else 1.0))
     var food_produced: float = gathered + labor("Fishing") * dt * (0.14 * [1.0, 1.15, 0.9, 0.55][season])
     resources.food += food_produced
-    var timber := minf(forest, labor("Logging") * dt * 0.12 * (0.8 if season == 3 else 1.0))
+    var wood_unharvested := discovered_resource_remaining("wood", forest)
+    var timber := minf(wood_unharvested, labor("Logging") * dt * 0.12 * (0.8 if season == 3 else 1.0))
     forest -= timber
-    if "Forestry" in technologies: forest = minf(1200, forest + labor("Logging") * dt * 0.04 * (0.0 if season == 3 else 1.25 if season == 0 else 1.0))
+    if "Forestry" in technologies: forest = minf(1200, forest + labor("Logging") * dt * 0.04 * (1.5 if civic_active("Conservation") else 1.0) * (0.0 if season == 3 else 1.25 if season == 0 else 1.0))
     resources.wood += timber
-    var stone := minf(quarry, labor("Quarrying") * dt * 0.09 * (0.75 if season == 3 else 1.0) * (1.25 if "Stoneworking" in technologies else 1.0))
+    var stone_unharvested := discovered_resource_remaining("stone", quarry)
+    var stone := minf(stone_unharvested, labor("Quarrying") * dt * 0.09 * (0.75 if season == 3 else 1.0) * (1.25 if "Stoneworking" in technologies else 1.0))
     quarry -= stone
     resources.stone += stone
     var fields := completed("Field")
@@ -704,18 +866,36 @@ func tick(dt: float) -> void:
                     resources.food += 70
                     food_produced += 70
                     announce("A field harvest delivered 70 food.")
-    var budget := labor("Construction") * dt * 0.35 * (0.75 if season == 3 else 1.0) * (1.25 if "Carpentry" in technologies else 1.0)
-    for b in buildings:
-        if b.progress < 1 and budget > 0:
+    var builder_labor := labor("Construction")
+    var construction_rate := 0.35 * (0.75 if season == 3 else 1.0) * (1.25 if "Carpentry" in technologies else 1.0)
+    # Dismantling takes priority, sharing the same labor pool with construction.
+    for id in camp_dismantling:
+        if float(camp_dismantling[id]) >= 1.0 or builder_labor <= 0: continue
+        var item: Dictionary = STARTING_OBJECTS[id]
+        var assigned: float = minf(builder_labor, 3.0)
+        camp_dismantling[id] = minf(1.0, float(camp_dismantling[id]) + assigned * dt * construction_rate / float(item.work))
+        builder_labor -= assigned
+        if float(camp_dismantling[id]) >= 1.0:
+            resources.wood += float(item.wood)
+            resources.stone += float(item.stone)
+            revision += 1
+            announce("%s dismantled; recovered %.0f wood and %.0f stone. Its space is now clear." % [item.kind, item.wood, item.stone])
+    var build_queue: Array = buildings.duplicate()
+    if civic_active("Winter Preparedness") and season in [2, 3]:
+        build_queue.sort_custom(func(a, b): return int(a.kind in ["House", "Well"]) > int(b.kind in ["House", "Well"]))
+    for b in build_queue:
+        if b.progress < 1 and builder_labor > 0:
+            var assigned_labor: float = minf(builder_labor, float(BUILDING_WORKER_CAPS.get(b.kind, 4.0)))
+            var budget := assigned_labor * dt * construction_rate
             var needed: float = (1 - b.progress) * BUILDINGS[b.kind].work
             var used := minf(budget, needed)
             b.progress = minf(1, b.progress + used / BUILDINGS[b.kind].work)
-            budget -= used
+            builder_labor -= assigned_labor
             if b.progress >= 1:
                 revision += 1
                 announce("%s completed." % b.kind)
     if not research.is_empty() and research_block(research).is_empty():
-        research_progress += dt / 90.0 * (1.25 if completed("School") > 0 else 1.0)
+        research_progress += dt * BASE_RESEARCH_POINTS_PER_DAY * (1.25 if completed("School") > 0 else 1.0)
         if research_progress >= TECHNOLOGIES[research]:
             technologies.append(research)
             announce("%s learned." % research)
@@ -773,7 +953,7 @@ func tick(dt: float) -> void:
         announce("Settlement condition: %s." % " · ".join(conditions))
 
 func snapshot() -> Dictionary:
-    return {"version": 1, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
+    return {"happiness": happiness, "government": government, "camp_dismantling": camp_dismantling, "version": 1, "research_points_version": research_points_version, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "owned_commanders": owned_commanders, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
 
 func save_game() -> void:
     if save_path.is_empty(): return
@@ -786,6 +966,9 @@ func restore_snapshot(data: Dictionary) -> void:
     var old_explored := JSON.stringify(explored)
     for key in snapshot():
         if key not in ["version", "saved_at"] and data.has(key): set(key, data[key])
+    camp_dismantling = data.get("camp_dismantling", {}).duplicate(true)
+    migrate_government(data)
+    migrate_research_points(data)
     if scout_missions.is_empty() and not scout_mission.is_empty(): scout_missions = [scout_mission]
     scout_mission = scout_missions[0] if not scout_missions.is_empty() else {}
     unlock_starting_scouting()
@@ -803,7 +986,9 @@ func load_game() -> void:
     var data = JSON.parse_string(FileAccess.get_file_as_string(save_path))
     if not data is Dictionary or data.get("version", 0) != 1: return
     for key in data:
-        if key not in ["version", "saved_at"]: set(key, data[key])
+        if key not in ["version", "saved_at"] and key in snapshot(): set(key, data[key])
+    migrate_government(data)
+    migrate_research_points(data)
     if scout_missions.is_empty() and not scout_mission.is_empty(): scout_missions = [scout_mission]
     scout_mission = scout_missions[0] if not scout_missions.is_empty() else {}
     unlock_starting_scouting()
@@ -816,6 +1001,16 @@ func load_game() -> void:
     advance(absent / 86400.0 * days_per_real_day)
     revision += 1
     if absent > 60: announce("Essential work continued during your absence (%.1f game days)." % (absent / 86400 * days_per_real_day))
+
+func migrate_research_points(data: Dictionary) -> void:
+    # Preserve completion percentage as the point-cost scale changes.
+    var saved_version := int(data.get("research_points_version", 1))
+    var progress_scale := 100.0 if saved_version < 2 else 50.0 if saved_version < 3 else 10.0 if saved_version < 4 else 1.0
+    if progress_scale != 1.0:
+        research_progress *= progress_scale
+        for tech in research_saved:
+            research_saved[tech] = float(research_saved[tech]) * progress_scale
+    research_points_version = 4
 
 func sanitize_army_intel() -> void:
     var sanitized: Dictionary = {}
@@ -846,6 +1041,8 @@ func military_ids() -> Array:
     return ids
 
 func advance_armies(days: float) -> void:
+    for army in armies:
+        if army.commander != "None" and army.commander in Warfare.COMMANDERS and army.commander not in owned_commanders: owned_commanders.append(army.commander)
     var adults_by_id: Dictionary = {}
     for person in people:
         if person.age >= 16 and person.age < 65: adults_by_id[int(person.id)] = true
@@ -863,7 +1060,7 @@ func advance_armies(days: float) -> void:
             army.training += days * training_rate
             if army.training >= Warfare.UNITS[army.unit].days:
                 army.status = "Ready"
-                announce("%s's %s completed training." % [army.commander, army.unit.to_lower()])
+                announce("%d %s completed training%s." % [army.soldiers.size(), army.unit.to_lower(), " and are available to form armies" if army.get("reserve", false) else ""])
         if army.status in ["Ready", "Training", "Recovering"]:
             army.morale = minf(100, float(army.morale) + days * (2.0 if resources.food > 0 else 0.0))
             if army.status == "Recovering" and army.morale >= 60: army.status = "Ready"
@@ -927,3 +1124,104 @@ func is_night() -> bool:
 func time_of_day() -> String:
     var minutes := int(day_phase() * 1440.0)
     return "%02d:%02d" % [minutes / 60, minutes % 60]
+
+
+func build_radius() -> float:
+    return CAMP_RADIUS + (4.0 if completed("Town Hall") > 0 else 0.0)
+
+func civic_active(name: String) -> bool:
+    return completed("Town Hall") > 0 and bool(government.active.get(name, false)) and (name != "Education Priority" or completed("School") > 0)
+
+func enact_civic(name: String, value: Variant) -> String:
+    if completed("Town Hall") == 0: return "Complete a Town Hall first."
+    if name == "Food response":
+        if not value is Dictionary: return "Invalid food response."
+        if not value.get("start") is float and not value.get("start") is int: return "Invalid threshold."
+        if not value.get("stop") is float and not value.get("stop") is int: return "Invalid threshold."
+        if not value.get("groups") is Array: return "Invalid worker priority."
+        var start := float(value.get("start", -1))
+        var stop := float(value.get("stop", -1))
+        var groups: Array = value.get("groups", [])
+        if not is_finite(start) or not is_finite(stop) or start < 1 or stop <= start or stop > 360: return "Use thresholds from 1 to 360 days; recovery must exceed activation."
+        var seen: Array = []
+        for group in groups:
+            if group not in ["Idle", "Quarrying", "Construction", "Logging"] or group in seen: return "Invalid worker priority."
+            seen.append(group)
+        government.food_start = start
+        government.food_stop = stop
+        government.food_groups = groups.duplicate()
+        return "Food response saved."
+    var cost := 0.0
+    if name == "Births":
+        if value not in ["Encouraged", "Allowed", "Forbidden"]: return "Invalid birth policy."
+        if government.births == value: return "Already selected."
+        cost = {"Encouraged": 2.0, "Allowed": 1.0, "Forbidden": 3.0}[value]
+    elif CIVIC_POLICIES.has(name):
+        if not value is bool: return "Invalid policy choice."
+        if name == "Education Priority" and completed("School") == 0: return "Complete a School first."
+        if name == "Community Feast":
+            if float(government.feast_until) > day: return "A feast is already in effect."
+            if resources.food < 10: return "A feast requires 10 food."
+        elif bool(government.active.get(name, false)) == value: return "Already selected."
+        cost = float(CIVIC_POLICIES[name].cost) if value else 0.0
+    else: return "Unknown policy."
+    if float(government.influence) < cost: return "Not enough influence."
+    government.influence = float(government.influence) - cost
+    if name == "Births":
+        government.births = value
+        allow_births = value != "Forbidden"
+    elif name == "Community Feast":
+        resources.food -= 10
+        government.feast_until = day + 15
+    else:
+        government.active[name] = value
+        if value and name == "Extended Workdays": government.active["Rest Days"] = false
+        if value and name == "Rest Days": government.active["Extended Workdays"] = false
+    announce("Town Hall: %s changed." % name)
+    return "Policy enacted. Happiness will adjust gradually."
+
+func advance_government(dt: float) -> void:
+    if completed("Town Hall") == 0: return
+    government.influence = minf(10.0, float(government.influence) + dt * (0.05 + 0.001 * happiness))
+    for name in CIVIC_POLICIES:
+        if not civic_active(name): continue
+        var upkeep := float(CIVIC_POLICIES[name].upkeep) * dt
+        if float(government.influence) + 0.000001 < upkeep:
+            government.active[name] = false
+            announce("%s suspended: insufficient influence. Re-enact it at the Town Hall." % name)
+        else: government.influence = maxf(0.0, float(government.influence) - upkeep)
+
+func migrate_government(data: Dictionary) -> void:
+    var defaults: Dictionary = {"influence": 0.0, "births": "Allowed" if allow_births else "Forbidden", "active": {}, "feast_until": 0.0, "food_start": 30.0, "food_stop": 45.0, "food_groups": ["Idle", "Quarrying", "Construction"], "food_active": false}
+    var saved: Dictionary = data.get("government", {})
+    for key in defaults:
+        if saved.has(key): defaults[key] = saved[key]
+    government = defaults
+
+
+func is_pregnant(person: Dictionary) -> bool:
+    return float(person.get("pregnancy_due", -1.0)) >= 0.0
+
+func on_birth_leave(person: Dictionary) -> bool:
+    var due := float(person.get("pregnancy_due", -1.0))
+    return (due >= 0.0 and day >= due - LATE_PREGNANCY_DAYS) or float(person.get("birth_recovery_until", -1.0)) > day
+
+func birth_leave_count() -> int:
+    var count := 0
+    for person in people:
+        if person.age >= 16 and person.age < 65 and on_birth_leave(person): count += 1
+    return count
+
+func advance_pregnancies(dt: float) -> void:
+    if dt <= 0: return
+    for person in people.duplicate():
+        var due := float(person.get("pregnancy_due", -1.0))
+        if due < 0.0 or day < due: continue
+        person.erase("pregnancy_due")
+        person["last_birth_day"] = due
+        person["birth_recovery_until"] = due + BIRTH_RECOVERY_DAYS
+        var newborn := {"id": next_person_id, "age": maxf(0.0, day - due) / 360.0, "profession": "General", "skill": 0.0, "training": "", "training_progress": 0.0, "career": next_career(), "parent_id": int(person.id)}
+        newborn["death_age"] = lifespan_for(next_person_id)
+        people.append(newborn)
+        next_person_id += 1
+        announce("A child was born. Settler %d is recovering for 60 days." % int(person.id))

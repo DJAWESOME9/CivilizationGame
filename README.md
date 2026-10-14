@@ -3,7 +3,7 @@
 Build an ancient settlement from its first tents into a growing civilization.
 Gather food, manage a changing population, research technologies, build homes
 and farms, explore the surrounding land, and keep your people healthy through
-the seasons. You can also host a shared world for up to eight civilizations,
+the seasons. You can also host a shared world for up to sixteen civilizations,
 trade resources, and raise armies to defend your settlement or raid rivals.
 
 This is an actively developed strategy prototype. Its economy, combat and
@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.13 / build 15**, fixing the Build tab layout and improving river and tree visuals. Download the ZIP for your computer from
+The latest public release is **0.2.14 / build 16**, adding Town Hall policies, army messengers, pregnancy leave, research points and expanded multiplayer. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.13 / build 15** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.13).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.13/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.13/Civilization-Windows.zip).
+Version **0.2.14 / build 16** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.14).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.14/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.14/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -135,8 +135,12 @@ asks before replacing your local progress.
    zone. Materials are reserved upfront; builders complete it over time.
 4. Planting unlocks farming/fields. Assign farmers after a field is completed.
    Crops grow outside winter and deliver harvests. Sanitation unlocks wells.
-5. Select a technology card to see prerequisites/effects, then start it or queue
-   one next technology. Switching preserves prior progress. Esc returns to the map.
+5. Select a technology card to see prerequisites/effects and its research-point
+   cost. Research generates 1 point per in-game day; foundational technologies
+   cost 40–60 points. Each completed School increases research output by 25%,
+   to 1.25 points per day with one School.
+   Start a technology or queue one next technology. Switching preserves prior
+   progress. Esc returns to the map.
    Learned technologies have green checkmarked badges; the queued technology has
    a blue arrow badge. The tree header shows the queue and total learned count.
    Scroll sideways through the tree with the mouse wheel, trackpad, or bottom
@@ -177,6 +181,12 @@ Click a building, field, construction site, tent, supply cache, cart, campfire,
 tree, stone deposit, or riverbank object to open its details. Building benefits, construction
 progress, and field growth update while the game runs. Close or Esc returns
 to the map; clicking empty land still selects a scouting destination.
+Starting tents, the supply cache, carts and campfire block building placement until
+removed. After learning Shelter Building, click an object and choose **Dismantle**.
+Assign Construction workers and advance time; up to three workers per object
+recover a few materials and clear its space when finished. Dismantling has priority
+over construction. Each removed tent loses 15 beds; the cache loses 180 storage
+capacity, so build replacement housing/storage first if needed. Progress is saved.
 Click one of your soldiers at home, or an expedition's soldiers or banner, to
 inspect the army. Your armies show troop count/type, commander, morale,
 experience, training, supplies, formation, tactics and retreat orders.
@@ -216,8 +226,8 @@ Starting tents provide shelter but not permanent beds; houses include bedding.
 At normal rations each adult consumes 1 food per 90-day season; children consume
 half. Half rations consume 50% as much, with −15 happiness; generous rations use
 125%, with +5 happiness. Food spoils too. Production can exceed consumption, so a
-rising stockpile does not mean food use has stopped. The top bar shows +food/day
-under Food for gross production before consumption and spoilage, alongside daily
+rising stockpile does not mean food use has stopped. The top bar shows Food's net
+stock change per game day after consumption, spoilage and overflow, alongside daily
 Wood and Stone rates. The happiness panel separates actual production, consumption,
 spoilage and overflow from the latest simulation interval. Harvests cause spikes.
 Pause stops live game time, while elapsed offline work follows the world clock.
@@ -294,7 +304,7 @@ indicators visible. Full-screen management views retain their own headings.
 ## Command panel
 
 The main map's collapsible Command panel groups actions into Overview, Build,
-People, Explore, and Military tabs. Overview shows settlement status and the
+People, Explore, and Armies tabs. Overview shows settlement status and the
 first-steps guide. Build contains Housing, Resources, Services, and Military
 building categories. People shows child, adult and elder counts, worker assignments, and a shortcut to
 population priorities. Explore contains scouting controls. Military opens army
@@ -313,13 +323,13 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.13 / build 15; see the release notes for its changes.
+fast-forward. The current published version is 0.2.14 / build 16; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
 
 Open **Multiplayer** in the top bar. This first multiplayer foundation supports
-up to eight independent civilizations, player-to-player barter, and raids. Zoom out
+up to sixteen independent civilizations, player-to-player barter, and raids. Zoom out
 on the main map to see the wider shared world; send scouts to discover other
 settlements. Known settlements and expeditions appear on this map, with dated
 information outside current sight. Detailed battlefield movement and territorial
@@ -336,8 +346,9 @@ conquest remain future work.
    choose the one reachable from their computers. For Internet play, enter your
    reachable public IP or hostname and forward the chosen UDP port on your router.
    Keep the host game open while people play.
-5. AI opponents default to **zero**, leaving seven slots for other real players.
-   Optional AI opponents share the eight civilization slots with humans.
+5. AI opponents default to **zero**, leaving fifteen slots for other real players.
+   Choose separate **Easy**, **Medium**, and **Hard** AI counts for a fresh world.
+   Their combined total can be at most 15; AI shares the sixteen slots with humans.
 
 ### Join
 
@@ -353,12 +364,22 @@ On this Mac, [Multiplayer Guest.command](Multiplayer%20Guest.command) opens a
 second player profile; join **127.0.0.1**, port **24567**. That guest profile has
 its own persistent identity and separate single-player save. Closing and reopening
 the same profile reconnects to its civilization. A different device/profile creates
-a new civilization, subject to the eight-civilization limit.
+a new civilization, subject to the sixteen-civilization limit.
 
 LAN play requires the host's UDP port to be reachable. Direct Internet connections
 require a reachable host address and router/firewall configuration for that UDP
 port. There is no relay, matchmaking, account service, or dedicated server yet.
 The networking uses [Godot's ENet high-level multiplayer API](https://docs.godotengine.org/en/4.7/tutorials/networking/high_level_multiplayer.html).
+
+### Joining after play starts
+
+Friends can join at any time while the host is running and a civilization slot is free,
+including after resuming a saved world. Use the same invitation and Join world.
+New players start with the normal fresh settlement at the current shared date;
+existing profiles recover their saved civilization. The world continues running.
+Disconnected civilizations and AI still occupy slots; there are 16 total, including
+the host. Hosting uses the existing direct connection with no paid service, subscription,
+or relay. Larger worlds increase work and network traffic on the host computer.
 
 ### If connecting fails
 
@@ -406,7 +427,7 @@ Transfers are immediate in this prototype; trade routes, transport costs, carava
 and diplomatic-contact requirements remain future work.
 
 The original native World and Barter screens have been rendered and inspected.
-The eight-slot expansion and invitation controls were inspected in source only;
+The sixteen-slot expansion and invitation controls were inspected in source only;
 no tests or renders were run for this update, per project instructions. Two-machine
 connection, reconnect, synchronization, and multiplayer gameplay have not yet been
 exercised; this is an initial multiplayer implementation, not a verified online release.
@@ -426,12 +447,14 @@ accelerate training. Each completed training ground supports **six trainees at
 full speed**; larger simultaneous intakes share throughput and take longer.
 Military beds count toward comfort only while occupied by soldiers.
 
-Click a **Training Grounds** on the map, then choose **Armies & commanders**
-in its details panel. You can also open it from the Settlement panel, or
-Multiplayer → **Warfare**. Recruitment uses actual adults, reserves them from
-civilian labor and scouting/training assignments, pays equipment costs up front,
-and preserves at least three available civilians. Training grounds and barracks
-must both be completed before recruitment.
+Open the **Armies** command tab for **Training**, **Armies**, or **Create / edit
+armies**. Clicking a **Training Grounds** and choosing **Open training** opens the
+same Training page. Train actual adults into unassigned reserves, then create a
+named army using only fully trained soldiers. Training reserves still occupy
+barracks and leave civilian work. Keep at least three available civilians.
+The Create & edit page lets you rename the selected home army, change its size
+using trained reserves of the same type, or return it to reserves to reorganize.
+Armies currently contain one unit type.
 
 | Unit | Required technology | Equipment per soldier | Base training | Attack / defense |
 | --- | --- | --- | --- | --- |
@@ -439,31 +462,42 @@ must both be completed before recruitment.
 | Spearmen | Stoneworking | 2 wood, 1 stone | 20 game days | 1.5 / 1.8 |
 | Archers | Hunting | 3 wood, 1 stone | 30 game days | 1.8 / 0.9 |
 
-Aren is a steadfast defensive commander; Mira favors fast marches and attacking;
-Tovan has balanced bonuses and loses less morale on withdrawal. Each commander
-leads one group. Appoint commanders to existing groups at home, choose tactics
-(Advance, Hold ground, Flank, Skirmish), formations (Line, Shield wall, Loose),
-a morale retreat threshold, and whether commanders may choose tactics themselves.
-Orders can change while a battle is ongoing. Units, commanders, morale, experience,
-tactics, formations, food and fortifications influence combat strength.
+Fresh civilizations start with **no commanders and no commander abilities**.
+Existing commanders in older saves are preserved. Without a commander, armies
+receive no commander bonuses or discretion. Acquiring new commanders remains a
+future system. Choose tactics, formations and retreat thresholds on the Armies
+page; changes to field armies travel by messenger.
 
-A trained army with at least 60 morale can raid another civilization in a
-shared world after the target settlement is discovered. Scouting is available from the start. Food for the expedition is reserved at
-launch. Marching time depends on regional distance; fighting resolves one round
-per game day, for at most eight rounds. Armies can be recalled. They return over
-time, deliver plunder/unspent provisions up to available storage space, and recover
-morale at home. Combat casualties remove real people from the civilization.
+Hover a discovered civilization's map caption to highlight it; click it to open
+army selection with that destination selected. Choose a ready home army and
+**Attack** or **Raid**. Attack uses the existing aggregate battle system without
+plunder; successful raids take stores. Both require a shared world and carried
+food, and neither conquers territory.
+
+Click a marching army's soldiers, banner or caption for its popup. Send a
+messenger to **hold position**, **return home**, or use **Army orders** to send a
+new destination or battle plan. Messengers visibly pursue the army from home at
+**9 map units per game day**, versus an ordinary army's **3** (seasonal slowdowns
+apply to both). The army continues its orders until delivery. Only one messenger
+can be pending per army. Held armies consume supplies; retargeting does not add
+food, so long detours can exhaust provisions. Pending messages and held positions
+persist with the shared-world campaigns.
+
+Use **Defend this location** on the Armies page to assign a home army to defense,
+or **Release from defense** to remove the assignment. New armies require this
+assignment; older saved armies retain their previous home-defense behavior.
+An army leaves that assignment when dispatched.
 
 Standing defense orders apply while the owner is offline:
 
-- **Hold settlement:** ready armies defend; without a ready army, up to eight
+- **Hold settlement:** assigned ready armies defend; without a ready army, up to eight
   available civilians temporarily rally as weak, untrained emergency militia.
   This is self-defense, not training or a recruitable standing army.
 - **Counterattack:** the same mobilization, with +10% defensive strength.
 - **Preserve people:** no emergency civilian levy, earlier defensive withdrawals,
   and less of the settlement's stores exposed to plunder.
 
-Ready reinforcements can join a battle. Low-morale defenders withdraw and recover;
+Assigned ready reinforcements can join a battle. Low-morale defenders withdraw and recover;
 palisades improve defense. An army away on expedition cannot defend its home.
 Offline defenders have exactly the same resolution rules as online players. The
 host must be running, or resume its save, for time to advance. Agreed fast-forward
@@ -540,21 +574,22 @@ seasonal foliage, daylight, shadows and exploration visibility follow the world.
 ## AI opponents
 
 Open **World / Multiplayer → World**, uncheck **Resume saved multiplayer world**
-to create a fresh world, and select **0–7 AI opponents** and **Easy**, **Normal**,
-or **Hard** difficulty before choosing **Host world**. You can play alone; friends
-can join any remaining slots within the eight-civilization limit. A fresh world
+to create a fresh world, and set separate counts of **Easy**, **Medium**, and
+**Hard** AI before choosing **Host world** (for example, 2 Easy, 3 Medium, 1 Hard).
+The combined maximum is 15 AI, leaving one slot for the host. You can play alone; friends
+can join any remaining slots within the sixteen-civilization limit. A fresh world
 replaces the shared-world save after confirmation; your solo settlement stays separate.
 
 AI settlements research, allocate workers, construct buildings, scout rivals,
 train armies, defend, raid discovered civilizations, and respond to barter. They
 pay the same costs and use the same production and combat rules as human players.
-Easy makes decisions every 12 game days and begins raiding after day 720; Normal
+Easy makes decisions every 12 game days and begins raiding after day 720; Medium
 acts every 6 days and may raid after day 540; Hard acts every 2 days and may raid
 after day 360, maintaining larger armies. Raids still require discoveries, trained
 soldiers, and provisions. Fair, affordable barter offers are accepted; other offers
 are declined. AI currently responds to offers rather than initiating trade.
 
-AI difficulty, decision schedules, civilizations, and campaigns persist in the
+Each AI’s difficulty (Medium retains the existing Normal behavior), decision schedules, civilizations, and campaigns persist in the
 shared-world save. Resume retains saved opponents; creation controls are disabled
 while resuming an existing save. Only human owners vote to advance time. The AI
 and save/resume flows have been checked with automated local hosting tests; remote
@@ -563,8 +598,61 @@ multiplayer remains subject to the prototype limits above.
 ## Release 0.2.9 / build 11
 
 Published as Latest with a daily Food production rate beneath the Food stock in
-the top bar. The rate shows gross production before consumption and spoilage. See [release notes](distribution/RELEASE-NOTES.txt).
+the top bar. Food's displayed daily rate now reflects net stock change after
+consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.13 / build 15
+## Release 0.2.14 / build 16
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
+
+## Town Hall, policies, and influence
+
+Research **Community Organization** after Shelter Building (60 research points),
+then build one **Town Hall** under Build → Services (28 wood, 10 stone).
+Completion immediately expands the local buildable radius from 12 to 16 and
+extends the eastern placement limit from x=4 to x=8. Click the completed hall,
+then **Policies & standing orders**; completion never opens the screen automatically.
+
+Influence starts at zero, has a cap of 10, and recharges once the hall is complete.
+At happiness 50 it regenerates 0.1/day before policy upkeep; happier civilizations
+regenerate faster. Policies show influence costs and their benefits/tradeoffs.
+Community Feast costs food too. Extended Workdays and Rest Days exclude each other.
+Education Priority requires a completed School. Open Doors is not included.
+
+Birth policy offers Encouraged (+50% new pregnancies, +3 happiness; 2 influence), Allowed
+(normal new pregnancies; 1 influence to switch), and Forbidden (no new pregnancies, -12 happiness;
+3 influence). New pregnancies require spare housing, food and happiness of at least 50. Existing pregnancies continue after a policy change.
+Existing children are unaffected. The old population-growth checkbox now displays
+this choice; edit it at the Town Hall.
+
+Happiness 50 means normal civilian work; each point changes efficiency by 0.5%.
+Happiness adjusts gradually to living conditions and policies with small mood
+variation. This affects civilian production/construction, not passive research,
+army combat or travel. Water and bedding penalties have been reduced for this baseline.
+
+Enable the emergency food response in People and configure it at the Town Hall.
+Set activation/recovery thresholds in days of food at current rations, choose
+which groups may divert (idle adults, quarry workers, builders, loggers), and
+put them in priority order. Select None to omit a group. Recovery must exceed
+activation. Diversion is temporary; regular assignments are preserved.
+Winter Preparedness raises the effective thresholds to at least 60/75 days in
+autumn/winter and prioritizes houses/wells in the construction queue. Gathering
+still depends on available wildlife; the Town Hall warns when reserves keep falling.
+
+These changes are local source only; no gameplay/runtime verification or release
+publication has been performed for the Town Hall update.
+
+### Pregnancy and birth recovery
+
+Pregnancy now lasts a provisional 270 game days. The final 90 days and first
+60 days after giving birth remove that person from the available civilian
+workforce, including emergency food diversion. They remain population members
+and continue consuming food. Pregnancy/recovery leave appears in Population and
+the People workforce summary; citizen figures on leave rest rather than work.
+Pregnant people and recovering parents cannot start scouting, recruitment or
+new apprenticeships. Existing apprenticeships pause during leave.
+Birth policies govern new pregnancies; existing pregnancies complete regardless
+of later policy changes, housing shortages or food conditions. Pregnancy and
+recovery dates are saved with individual people; older saves start without
+pregnancies, preserving existing people and aggregate progress toward the next
+pregnancy. No runtime or gameplay checks have been performed for this change.

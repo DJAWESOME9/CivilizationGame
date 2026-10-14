@@ -22,6 +22,10 @@ func refresh_obstacles() -> void:
         if node is Node3D and node.has_meta("explorable") and node.is_visible_in_tree():
             var tree := node as Node3D
             obstacles.append({"point": Vector2(tree.position.x, tree.position.z), "radius": maxf(tree.scale.x * 1.35, 0.9)})
+    for id in world.sim.STARTING_OBJECTS:
+        if world.sim.camp_object_present(id):
+            var item: Dictionary = world.sim.STARTING_OBJECTS[id]
+            obstacles.append({"point": Vector2(item.point[0], item.point[1]), "radius": float(item.radius)})
     # Building footprints use the same hex centers as the rendered structures.
     for b in world.sim.buildings:
         var center := Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5))
@@ -204,6 +208,13 @@ func target_for(p: Dictionary) -> Vector2:
         "Quarrying": return world.resource_deposits.work_point("stone") + spread
         "Gathering": return Vector2(-13.0, 9.0) + spread
         "Construction", "Farming":
+            if p.job == "Construction":
+                var jobs: Array = []
+                for id in world.sim.camp_dismantling:
+                    if world.sim.camp_object_present(id): jobs.append(id)
+                if not jobs.is_empty():
+                    var item: Dictionary = world.sim.STARTING_OBJECTS[jobs[int(index / 3) % jobs.size()]]
+                    return Vector2(item.point[0], item.point[1]) + spread
             var sites: Array = []
             for b in world.sim.buildings:
                 if (p.job == "Construction" and b.progress < 1) or (p.job == "Farming" and b.kind == "Field" and b.progress >= 1):
@@ -220,6 +231,9 @@ func has_task(p: Dictionary) -> bool:
     if p.job == "Quarrying" and world.sim.quarry <= 0: return false
     if p.job == "Gathering" and world.sim.wildlife <= 0: return false
     if p.job == "Farming" and int(world.sim.day / 90) % 4 == 3: return false
+    if p.job == "Construction":
+        for id in world.sim.camp_dismantling:
+            if world.sim.camp_object_present(id): return true
     if p.job in ["Construction", "Farming"]:
         for b in world.sim.buildings:
             if p.job == "Construction" and b.progress < 1: return true
@@ -249,7 +263,7 @@ func update_people(_delta: float) -> void:
         var deployed := false
         var person_id: int = world.sim.people[p.index].id
         for army in world.sim.armies:
-            if person_id in army.soldiers and army.status in ["Marching", "Fighting", "Returning"]: deployed = true
+            if person_id in army.soldiers and army.status in ["Marching", "Fighting", "Returning", "Holding"]: deployed = true
         p.node.visible = not deployed
         if deployed: continue
         var phase := fmod(clock / 24.0 + p.index * 0.137, 1.0)

@@ -1,42 +1,13 @@
-Build options visibility
-Fixed a nested tab layout issue that hid building options in the Build panel, even when construction was unlocked. Existing saves need no migration.
+Civilization 0.2.14 / build 16
 
-River and tree visuals
-Improved procedural tree crowns and added more visible river banks, shoreline shallows, and animated highlights.
+- Town Hall, Community Organization research, influence, policies, birth policies and configurable emergency food orders.
+- Happiness affects civilian work efficiency; per-building construction labor caps.
+- Individual pregnancy and recovery exclude people from available workforce.
+- Research points with 40–60 point foundational technologies and School daily-output bonuses.
+- Starting camp objects block placement until builders dismantle them.
+- Army training reserves, army creation/editing, assigned home defense and messenger-delivered field orders.
+- Up to 16 civilizations, late joining and mixed Easy/Medium/Hard AI counts.
+- Terrain-following connected fields, scoutable dry riverbanks and clearer winter daylight hex lines.
+- Food HUD rate reflects net stock change after consumption and spoilage.
 
-Startup crash fix
-Fixed three GDScript type-inference errors that prevented the settlement scene from loading in the 0.2.11 content pack. Existing 0.2.11 users receive the fix through the automatic content update on relaunch.
-
-Build availability guidance
-The Build tab explains the initial research needed to unlock construction and how to place buildings once available.
-
-
-Food production rate
-The top bar now shows +X/day beneath Food, using gross production before
-consumption and spoilage, matching the daily rates shown for Wood and Stone.
-
-Object inspection click fix
-Fixed map clicks failing to open details for some objects, including armies and
-other inspectables outside the settlement scene branch. Depleted resource meshes
-no longer intercept clicks, and panel overlap uses the click's actual position.
-
-Playtest speeds
-Added solo playtest options for one game day per 10 seconds and per 30 seconds.
-
-People tab population counts
-The People tab now shows how many children, adults and elders are in the settlement.
-
-Scrollable Command panels
-Overview, Build, People, Explore and Military contents now scroll vertically
-when they exceed the panel. Building categories and their options scroll too,
-while tab headers stay visible.
-
-Bug fix: Command tabs retain selection
-Fixed Command tabs briefly opening and then switching away during HUD updates.
-Overview, Build, People, Explore and Military now keep the selected page visible.
-
-Update queued during multiplayer
-Settings now lets players download updates while a shared world continues, then
-queue the restart for after leaving. The game saves before restarting. A host
-chooses when to leave and disconnect guests.
-
+Mac and Windows packages and signed content updates. Gameplay, live updater installation and cross-machine multiplayer have not been tested for this release.
