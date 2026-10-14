@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-Prepared **0.2.20 / build 22** adds mixed armies, individual combat, Attack/Raid/Raze, pursuit, surrender with resource handover, physical fortifications, Arrow Slits and Fight back. Publication is in progress. The latest confirmed public release is **0.2.19 / build 21**. Download the ZIP for your computer from
+The latest public release is **0.2.20 / build 22**, adding mixed armies, individual combat, Attack/Raid/Raze, pursuit, surrender resource handover, physical fortifications, Arrow Slits and Fight back. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.19 / build 21** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.19).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Windows.zip).
+Version **0.2.20 / build 22** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.20).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.20/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.20/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -221,8 +221,7 @@ visible trees and building footprints.
 
 Visible battles use individual movement, health, melee strikes and arrows resolved by the host.
 Casualties remove actual residents. Raid troops load at the stores and carry loot
-home; Fight back lets willing, happy civilians rally against Raid/Raze. These local
-source changes have not been launched or gameplay tested.
+home; Fight back lets willing, happy civilians rally against Raid/Raze. These changes are included in 0.2.20/build 22; gameplay remains untested.
 
 Currently observed rival settlements show civilian work routines and home troops
 (up to 48 civilians and 24 troop representatives per settlement). Outside live
@@ -341,7 +340,7 @@ continues if it was running. Three original gentle instrumental tracks cycle wit
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.19 / build 21; see the release notes for its changes.
+fast-forward. The current published version is 0.2.20 / build 22; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -571,7 +570,7 @@ injury, supply caravans and full military skill trees remain future work.
 The warfare scripts and main scene script passed Godot **--check-only** parsing.
 Three existing type-inference blockers in exploration/army-popup declarations were
 corrected. No tests, gameplay launch, rendering or multiplayer runtime verification
-was performed, per AGENTS.md. These local changes are not packaged or published.
+was performed, per AGENTS.md. These changes are included in published 0.2.20 / build 22.
 Numerical tuning is provisional.
 
 Successful hosting/joining now opens your civilization's main view automatically.
@@ -673,7 +672,7 @@ Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. Food's displayed daily rate now reflects net stock change after
 consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.19 / build 21
+## Release 0.2.20 / build 22
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
 
