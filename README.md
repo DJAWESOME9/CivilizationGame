@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.19 / build 21**, adding smoother seasons, rotating peaceful/battle music, clearer research and army labels, policy tiles, AI trade relationships and updated training costs. Download the ZIP for your computer from
+The latest public release is **0.2.18 / build 20**, adding visible battles, resource raids and rival workers/troops, plus settlement trade/scout actions and a dismantle-button fix. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.19 / build 21** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.19).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Windows.zip).
+Version **0.2.18 / build 20** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.18).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -343,7 +343,7 @@ continues if it was running. Three original gentle instrumental tracks cycle wit
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.19 / build 21; see the release notes for its changes.
+fast-forward. The current published version is 0.2.18 / build 20; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -634,7 +634,7 @@ Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. Food's displayed daily rate now reflects net stock change after
 consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.19 / build 21
+## Release 0.2.18 / build 20
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
 
@@ -734,3 +734,7 @@ Waterworks unlocks the Bathhouse in Build → Services; a completed Well is also
 required to commission it and supply its benefit. It costs 24 wood/32 stone and
 55 construction work. A supplied completed Bathhouse adds 6 happiness, shown in
 the happiness breakdown. Extra bathhouses do not stack.
+
+## Prepared 0.2.19 / build 21
+
+All current source changes are committed locally and Mac/Windows packages and signed updater assets are prepared in `dist/`. Publication awaits explicit approval to upload the six release files to DJAWESOME9/CivilizationGame. The latest published release remains 0.2.18 / build 20. Packaging completed; signature, PCK sizes/hashes and ZIP checksums checked. No gameplay, live updater or multiplayer tests performed.
