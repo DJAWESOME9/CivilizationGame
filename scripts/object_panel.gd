@@ -87,8 +87,12 @@ func setup(scene: Node3D) -> void:
     trade_action.hide()
     field_actions = HBoxContainer.new()
     column.add_child(field_actions)
-    world.game_button(field_actions, "Messenger: hold position", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
-    world.game_button(field_actions, "Messenger: return home", func(): field_response.text = world.order("recall", [int(selected.get("army", -1))]); refresh())
+    var hold_action := world.game_button(field_actions, "Ⅱ", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
+    var return_action := world.game_button(field_actions, "↩", func(): field_response.text = world.order("recall", [int(selected.get("army", -1))]); refresh())
+    hold_action.tooltip_text = "Send messenger: hold position"
+    return_action.tooltip_text = "Send messenger: return home"
+    hold_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    return_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     field_actions.hide()
     field_response = world.label("", 13, Color("e2c789"))
     field_response.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

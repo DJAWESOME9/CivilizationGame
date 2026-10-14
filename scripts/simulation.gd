@@ -6,6 +6,8 @@ const Warfare = preload("res://scripts/warfare.gd")
 # advances faster; the three-day survey still follows the seasonal world clock.
 const SCOUT_TRAVEL_RATE := 3.0
 const BASE_RESEARCH_POINTS_PER_DAY := 1.0
+const APPRENTICESHIP_FOOD_COST := 2
+const APPRENTICESHIP_WOOD_COST := 4
 const CAMP_RADIUS := 12.0
 const PREGNANCY_DAYS := 270.0
 const LATE_PREGNANCY_DAYS := 90.0
@@ -636,15 +638,25 @@ func prepare_roster(work: Dictionary) -> void:
         while job_roster[job].size() < int(work[job]) and not available.is_empty():
             job_roster[job].append(available.pop_front())
 
-func labor(job: String) -> float:
-    var amount := 0.0
-    for person in job_roster.get(job, []):
-        amount += (1.0 + float(person.skill) if person.profession == job else 1.0) * ((0.5 if civic_active("Education Priority") else 0.75) if not person.training.is_empty() else 1.0)
+func person_labor(person: Dictionary, job: String) -> float:
+    var amount: float = (1.0 + float(person.skill) if person.profession == job else 1.0) * ((0.5 if civic_active("Education Priority") else 0.75) if not person.training.is_empty() else 1.0)
     amount *= 1.0 + (happiness - 50.0) * 0.005
     if civic_active("Extended Workdays"): amount *= 1.15
     if civic_active("Rest Days"): amount *= 0.9
     if civic_active("Conservation") and job in ["Gathering", "Logging"]: amount *= 0.85
     return amount
+
+func labor(job: String) -> float:
+    var amount := 0.0
+    for person in job_roster.get(job, []):
+        amount += person_labor(person, job)
+    return amount
+
+func construction_queue() -> Array:
+    var queue: Array = buildings.duplicate()
+    if civic_active("Winter Preparedness") and int(day / 90.0) % 4 in [2, 3]:
+        queue.sort_custom(func(a, b): return int(a.kind in ["House", "Well"]) > int(b.kind in ["House", "Well"]))
+    return queue
 
 func start_training(job: String) -> String:
     if not job_unlocked(job): return "Requires " + JOB_TECH[job] + "."
@@ -653,7 +665,7 @@ func start_training(job: String) -> String:
         if not person.training.is_empty(): enrolled += 1
     var slots := 4 if completed("School") > 0 else 2
     if enrolled >= slots: return "All %d training places are occupied." % slots
-    if resources.food < 1 or resources.wood < 2: return "Training requires 1 food and 2 wood."
+    if resources.food < APPRENTICESHIP_FOOD_COST or resources.wood < APPRENTICESHIP_WOOD_COST: return "Training requires %d food and %d wood." % [APPRENTICESHIP_FOOD_COST, APPRENTICESHIP_WOOD_COST]
     var candidates: Array = []
     for person in people:
         if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and person.profession != job and int(person.id) not in scouting_units() and int(person.id) not in military_ids():
@@ -663,8 +675,8 @@ func start_training(job: String) -> String:
     var person: Dictionary = candidates[0]
     person.training = job
     person.training_progress = 0.0
-    resources.food -= 1
-    resources.wood -= 2
+    resources.food -= APPRENTICESHIP_FOOD_COST
+    resources.wood -= APPRENTICESHIP_WOOD_COST
     announce("Settler %d began %s training." % [person.id, job.to_lower()])
     return "Training started: 60 game days, 25% less work while learning."
 
@@ -933,9 +945,7 @@ func tick(dt: float) -> void:
             resources.stone += float(item.stone)
             revision += 1
             announce("%s dismantled; recovered %.0f wood and %.0f stone. Its space is now clear." % [item.kind, item.wood, item.stone])
-    var build_queue: Array = buildings.duplicate()
-    if civic_active("Winter Preparedness") and season in [2, 3]:
-        build_queue.sort_custom(func(a, b): return int(a.kind in ["House", "Well"]) > int(b.kind in ["House", "Well"]))
+    var build_queue: Array = construction_queue()
     for b in build_queue:
         if b.progress < 1 and builder_labor > 0:
             var assigned_labor: float = minf(builder_labor, float(BUILDING_WORKER_CAPS.get(b.kind, 4.0)))
@@ -1166,8 +1176,17 @@ func travel_factor() -> float:
 func day_phase() -> float:
     return fposmod(day + 1.0 / 3.0, 1.0)
 
+# Thirty game days centered on each boundary; a new world's first spring starts green.
+func seasonal_blend() -> Vector3:
+    if day < 15.0: return Vector3(0, 1, 0)
+    var shifted := day - 15.0
+    var season := int(shifted / 90.0) % 4
+    return Vector3(season, (season + 1) % 4, smoothstep(60.0, 90.0, fmod(shifted, 90.0)))
+
 func daylight_hours() -> Vector2:
-    return [Vector2(6, 18), Vector2(5, 19), Vector2(6.5, 17.5), Vector2(7.5, 16.5)][int(day / 90) % 4]
+    var blend := seasonal_blend()
+    var hours := [Vector2(6, 18), Vector2(5, 19), Vector2(6.5, 17.5), Vector2(7.5, 16.5)]
+    return hours[int(blend.x)].lerp(hours[int(blend.y)], blend.z)
 
 func daylight_strength() -> float:
     var hour := day_phase() * 24.0

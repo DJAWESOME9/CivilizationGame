@@ -13,6 +13,7 @@ var clothes: Array[Material] = []
 var leather: Material
 var refresh_timer := 1.0
 var obstacles: Array[Dictionary] = []
+var construction_targets: Dictionary = {}
 
 func refresh_obstacles() -> void:
     obstacles.clear()
@@ -139,6 +140,7 @@ func sync_people() -> void:
     for army in world.sim.armies:
         for id in army.soldiers: roles[int(id)] = army.unit
     for id in world.sim.emergency_defenders: roles[int(id)] = "Militia"
+    sync_construction_targets()
     for i in range(people.size()):
         var p: Dictionary = people[i]
         var person: Dictionary = world.sim.people[i]
@@ -155,6 +157,29 @@ func sync_people() -> void:
         if p.job != role:
             p.job = role
             equip(p)
+
+func sync_construction_targets() -> void:
+    construction_targets.clear()
+    var tasks: Array[Dictionary] = []
+    for id in world.sim.camp_dismantling:
+        if world.sim.camp_object_present(id):
+            var item: Dictionary = world.sim.STARTING_OBJECTS[id]
+            tasks.append({"point": Vector2(item.point[0], item.point[1]), "cap": 3.0})
+    for b in world.sim.construction_queue():
+        if b.progress < 1:
+            tasks.append({"point": Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5)), "cap": float(world.sim.BUILDING_WORKER_CAPS.get(b.kind, 4.0))})
+    var task_index := 0
+    var used := 0.0
+    for person in world.sim.job_roster.get("Construction", []):
+        if task_index >= tasks.size(): break
+        # A figure represents a whole person, while caps measure effective labor.
+        # Use the start of their labor share; boundary-spanning workers stay at
+        # the earlier site, and subsequent workers follow the remaining labor.
+        construction_targets[int(person.id)] = tasks[task_index].point
+        used += float(world.sim.person_labor(person, "Construction"))
+        while task_index < tasks.size() and used >= float(tasks[task_index].cap):
+            used -= float(tasks[task_index].cap)
+            task_index += 1
 
 func equip(p: Dictionary) -> void:
     p.tool.reparent(p.la.get_meta("joint") if p.job == "Archers" else p.ra.get_meta("joint"), false)
@@ -207,19 +232,13 @@ func target_for(p: Dictionary) -> Vector2:
         "Logging": return world.resource_deposits.work_point("wood") + spread
         "Quarrying": return world.resource_deposits.work_point("stone") + spread
         "Gathering": return Vector2(-13.0, 9.0) + spread
-        "Construction", "Farming":
-            if p.job == "Construction":
-                var jobs: Array = []
-                for id in world.sim.camp_dismantling:
-                    if world.sim.camp_object_present(id): jobs.append(id)
-                if not jobs.is_empty():
-                    var item: Dictionary = world.sim.STARTING_OBJECTS[jobs[int(index / 3) % jobs.size()]]
-                    return Vector2(item.point[0], item.point[1]) + spread
+        "Construction":
+            var person_id: int = world.sim.people[index].id
+            return construction_targets.get(person_id, Vector2(-4, 3)) + spread
+        "Farming":
             var sites: Array = []
             for b in world.sim.buildings:
-                if (p.job == "Construction" and b.progress < 1) or (p.job == "Farming" and b.kind == "Field" and b.progress >= 1):
-                    sites.append(b)
-                    if p.job == "Construction": break
+                if b.kind == "Field" and b.progress >= 1: sites.append(b)
             if not sites.is_empty():
                 var b: Dictionary = sites[index % sites.size()]
                 return Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5)) + spread
@@ -232,12 +251,10 @@ func has_task(p: Dictionary) -> bool:
     if p.job == "Gathering" and world.sim.wildlife <= 0: return false
     if p.job == "Farming" and int(world.sim.day / 90) % 4 == 3: return false
     if p.job == "Construction":
-        for id in world.sim.camp_dismantling:
-            if world.sim.camp_object_present(id): return true
-    if p.job in ["Construction", "Farming"]:
+        return construction_targets.has(int(world.sim.people[p.index].id))
+    if p.job == "Farming":
         for b in world.sim.buildings:
-            if p.job == "Construction" and b.progress < 1: return true
-            if p.job == "Farming" and b.kind == "Field" and b.progress >= 1: return true
+            if b.kind == "Field" and b.progress >= 1: return true
         return false
     return true
 

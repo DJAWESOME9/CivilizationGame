@@ -109,7 +109,7 @@ func setup(scene: Node3D) -> void:
         action.pressed.connect(func(): response.text = world.order("train", [job]); refresh())
         add_child(action)
         training_buttons[job] = action
-    heading("60 days · 1 food + 2 wood per trainee\nTwo camp places; a school provides four places,\nfaster training, child education, and +25% research.", Vector2(1005, 578), 13)
+    heading("60 days · %d food + %d wood per trainee\nTwo camp places; a school provides four places,\nfaster training, child education, and +25%% research." % [world.sim.APPRENTICESHIP_FOOD_COST, world.sim.APPRENTICESHIP_WOOD_COST], Vector2(1005, 578), 13)
     panel(Vector2(40, 680), Vector2(1360, 190))
     heading("APPRENTICESHIPS", Vector2(60, 700), 14)
     apprentices = heading("", Vector2(60, 730), 15)

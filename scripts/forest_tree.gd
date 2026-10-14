@@ -90,6 +90,9 @@ func set_live_sight(live: bool) -> void:
     trunk.material_override = bark[0 if live else 1]
     canopy.material_override = leaves[palette + (0 if live else 8)]
 
-static func set_season(season: int) -> void:
+static func set_season(season: int, next_season: int, blend: float) -> void:
     prepare_models()
-    for material in leaves: material.set_shader_parameter("season", season)
+    for material in leaves:
+        material.set_shader_parameter("season", season)
+        material.set_shader_parameter("next_season", next_season)
+        material.set_shader_parameter("season_blend", blend)

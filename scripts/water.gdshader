@@ -2,6 +2,11 @@ shader_type spatial;
 render_mode cull_disabled;
 varying vec3 world_pos;
 uniform int season = 0;
+uniform int next_season = 1;
+uniform float season_blend = 0.0;
+float winter_amount() {
+    return mix(season == 3 ? 1.0 : 0.0, next_season == 3 ? 1.0 : 0.0, season_blend);
+}
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
@@ -9,7 +14,7 @@ float hash21(vec2 p) {
 }
 void vertex() {
     world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-    VERTEX.y += sin(world_pos.z * 1.9 + TIME * 0.75) * (season == 3 ? 0.004 : 0.025);
+    VERTEX.y += sin(world_pos.z * 1.9 + TIME * 0.75) * mix(0.025, 0.004, winter_amount());
 }
 void fragment() {
     vec2 p = world_pos.xz;
@@ -23,9 +28,9 @@ void fragment() {
     vec3 bright = vec3(0.10, 0.31, 0.32);
     vec3 color = mix(deep, bright, 0.48 + wave * 0.2 + fleck * 0.1);
     color = mix(color, vec3(0.55, 0.78, 0.73), glint * 0.32);
-    if (season == 3) color = mix(color, vec3(0.58, 0.72, 0.76), 0.68);
+    color = mix(color, vec3(0.58, 0.72, 0.76), 0.68 * winter_amount());
     ALBEDO = color;
-    ROUGHNESS = season == 3 ? 0.48 : 0.22;
+    ROUGHNESS = mix(0.22, 0.48, winter_amount());
     METALLIC = 0.08;
     SPECULAR = 0.72;
     NORMAL_MAP = vec3(0.5 + wave * 0.055, 0.5 + cross_wave * 0.035, 1.0);

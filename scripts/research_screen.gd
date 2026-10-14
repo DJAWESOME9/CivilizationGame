@@ -1,16 +1,18 @@
 extends Control
 
+# Columns are prerequisite depth; rows keep related subjects together.
 const POSITIONS = {
-    "Joinery": Vector2(1670, 460),
-    "Pottery": Vector2(1400, 180), "Boatbuilding": Vector2(1400, 320), "Archery": Vector2(1400, 460), "Military Organization": Vector2(1400, 600),
-    "River Navigation": Vector2(1670, 320), "Writing": Vector2(1670, 600),
-    "Scouting": Vector2(1130, 180), "Community Organization": Vector2(1130, 320),
-    "Basketry": Vector2(50, 180), "Planting": Vector2(50, 320), "Toolmaking": Vector2(50, 460),
-    "Hunting": Vector2(320, 180), "Fishing": Vector2(320, 320), "Shelter Building": Vector2(320, 460), "Stoneworking": Vector2(320, 600),
-    "Woodcutting": Vector2(590, 180), "Preservation": Vector2(590, 320), "Storage": Vector2(590, 460), "Sanitation": Vector2(590, 600),
-    "Forestry": Vector2(860, 180), "Crop Rotation": Vector2(860, 320), "Carpentry": Vector2(860, 460), "Waterworks": Vector2(860, 600),
-    "Masonry": Vector2(1130, 460), "Education": Vector2(1130, 600)
+    "Basketry": Vector2(0, 0), "Hunting": Vector2(1, 0), "Archery": Vector2(3, 0),
+    "Planting": Vector2(0, 1), "Preservation": Vector2(1, 1), "Crop Rotation": Vector2(2, 1),
+    "Toolmaking": Vector2(0, 2), "Woodcutting": Vector2(1, 2), "Forestry": Vector2(2, 2),
+    "Stoneworking": Vector2(1, 3), "Carpentry": Vector2(2, 3), "Joinery": Vector2(3, 3),
+    "Shelter Building": Vector2(1, 4), "Storage": Vector2(2, 4), "Pottery": Vector2(3, 4), "Masonry": Vector2(3, 2),
+    "Sanitation": Vector2(2, 5), "Waterworks": Vector2(3, 5),
+    "Scouting": Vector2(0, 6), "Fishing": Vector2(1, 6), "Boatbuilding": Vector2(3, 6), "River Navigation": Vector2(4, 6),
+    "Community Organization": Vector2(2, 7), "Military Organization": Vector2(3, 7),
+    "Education": Vector2(3, 8), "Writing": Vector2(4, 8)
 }
+const SUBJECTS = ["FOOD & HUNTING", "CROPS & PRESERVATION", "TOOLS & WOODLAND", "CRAFTS & WORKSHOPS", "HOUSING & STORAGE", "WATER & HEALTH", "EXPLORATION & RIVERS", "GOVERNMENT & MILITARY", "EDUCATION & WRITING"]
 const TITLES = {"Joinery": "TIMBER WORKSHOPS", "Pottery": "CERAMIC STORAGE", "Boatbuilding": "RIVER CROSSINGS", "River Navigation": "LONG EXPEDITIONS", "Archery": "RANGED WARFARE", "Military Organization": "MILITARY TRAINING", "Writing": "RECORDED KNOWLEDGE","Community Organization": "LOCAL GOVERNMENT","Scouting": "EXPLORATION","Basketry": "WOVEN CARRIERS", "Planting": "CULTIVATION", "Toolmaking": "EARLY TOOLS", "Hunting": "TRACKING", "Fishing": "RIVER FOOD", "Shelter Building": "SETTLEMENT", "Stoneworking": "EXTRACTION", "Woodcutting": "TIMBER", "Preservation": "FOOD STORAGE", "Storage": "SUPPLY NETWORK", "Sanitation": "PUBLIC HEALTH", "Forestry": "REPLANTING", "Crop Rotation": "FERTILITY", "Carpentry": "CRAFTSMANSHIP", "Waterworks": "IRRIGATION", "Masonry": "STONE BUILDING", "Education": "THE NEXT GENERATION"}
 
 var world: Node3D
@@ -83,7 +85,7 @@ func setup(scene: Node3D) -> void:
     add_child(grain)
     text_label("KNOWLEDGE OF THE ANCIENT WORLD", 13, Color("baa674"), Vector2(55, 32))
     text_label("The technology tree", 32, Color("f1e6cc"), Vector2(55, 54))
-    text_label("Scroll sideways · wheel, trackpad or bottom scrollbar", 13, Color("96ac93"), Vector2(650, 70))
+    text_label("Scroll to explore · gold: requires · blue: unlocks", 13, Color("96ac93"), Vector2(650, 70))
     button("Return to settlement · Esc", Vector2(1140, 45), func(): hide())
     summary = text_label("", 16, Color("c3d1bf"), Vector2(55, 107))
     queue_summary = text_label("", 16, Color("a9d8ff"), Vector2(650, 107))
@@ -98,20 +100,22 @@ func setup(scene: Node3D) -> void:
     tree_scroll.position = Vector2(40, 158)
     tree_scroll.size = Vector2(1360, 576)
     tree_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
-    tree_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    tree_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     add_child(tree_scroll)
     tree_content = Control.new()
-    tree_content.custom_minimum_size = Vector2(2200, 560)
+    tree_content.custom_minimum_size = Vector2(1830, 1320)
     tree_content.mouse_filter = Control.MOUSE_FILTER_PASS
     tree_scroll.add_child(tree_content)
     tree_content.add_child(links)
-    for i in range(7):
-        var heading := text_label(["FOUNDATIONS", "EARLY PROFESSIONS", "SETTLEMENT SYSTEMS", "SPECIALIZATION", "CIVIC DEVELOPMENT", "NEW CRAFTS", "KNOWLEDGE & TRAVEL"][i], 11, Color("96ac93"), Vector2(10 + i * 320, 2))
+    for i in range(5):
+        var heading := text_label(["FOUNDATIONS", "FIRST ADVANCES", "DEVELOPMENT", "SPECIALIZATION", "LATER ADVANCES"][i], 12, Color("baa674"), Vector2(230 + i * 320, 8))
         heading.reparent(tree_content, false)
+    for i in range(SUBJECTS.size()):
+        var subject := text_label(SUBJECTS[i], 11, Color("96ac93"), Vector2(10, 62 + i * 140))
+        subject.reparent(tree_content, false)
     for tech in POSITIONS:
         var card := Button.new()
-        card.position = POSITIONS[tech] - Vector2(40, 158)
-        card.position.x = 10 + (POSITIONS[tech].x - 50) / 270.0 * 320
+        card.position = Vector2(230 + POSITIONS[tech].x * 320, 42 + POSITIONS[tech].y * 140)
         card.size = Vector2(215, 104)
         card.focus_mode = Control.FOCUS_NONE
         card.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -158,7 +162,8 @@ func setup(scene: Node3D) -> void:
         if visible:
             world.dragging = false
             world.orbiting = false
-            refresh())
+            refresh()
+            tree_scroll.ensure_control_visible.call_deferred(cards[selected]))
     hide()
     refresh()
 
@@ -166,15 +171,19 @@ func _input(event: InputEvent) -> void:
     if not visible or not is_instance_valid(tree_scroll): return
     if not tree_scroll.get_global_rect().has_point(get_global_mouse_position()): return
     if event is InputEventPanGesture:
-        var movement: float = event.delta.x if absf(event.delta.x) >= absf(event.delta.y) else event.delta.y
-        tree_scroll.scroll_horizontal += roundi(movement * 30)
+        tree_scroll.scroll_horizontal += roundi(event.delta.x * 30)
+        tree_scroll.scroll_vertical += roundi(event.delta.y * 30)
         get_viewport().set_input_as_handled()
     if event is InputEventMouseButton and event.pressed:
         var direction := 0
         if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_LEFT]: direction = -1
         if event.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_RIGHT]: direction = 1
         if direction != 0:
-            tree_scroll.scroll_horizontal += roundi(direction * 70 * (event.factor if event.factor > 0 else 1.0))
+            var amount := roundi(direction * 70 * (event.factor if event.factor > 0 else 1.0))
+            if event.shift_pressed or event.button_index in [MOUSE_BUTTON_WHEEL_LEFT, MOUSE_BUTTON_WHEEL_RIGHT]:
+                tree_scroll.scroll_horizontal += amount
+            else:
+                tree_scroll.scroll_vertical += amount
             get_viewport().set_input_as_handled()
 
 func refresh() -> void:
@@ -224,7 +233,7 @@ func refresh() -> void:
         badge_style.set_content_margin_all(0)
         states[tech].add_theme_stylebox_override("normal", badge_style)
         labels[tech].add_theme_color_override("font_color", Color("f0e5cb") if state != "LOCKED" else Color("a9b4a8"))
-        cards[tech].tooltip_text = sim.TECH_DETAILS[tech] + "\n" + sim.research_block(tech)
+        cards[tech].tooltip_text = sim.TECH_DETAILS[tech] + "\nRequires all: " + (", ".join(sim.PREREQUISITES[tech]) if not sim.PREREQUISITES[tech].is_empty() else "None") + "\n" + sim.research_block(tech)
         var card_style := style(color, border)
         card_style.set_border_width_all(3 if tech == selected else 2 if tech in sim.technologies or tech == sim.queued_research or tech == sim.research else 1)
         cards[tech].add_theme_stylebox_override("normal", card_style)
@@ -233,7 +242,7 @@ func refresh() -> void:
         cards[tech].add_theme_color_override("font_color", Color("eee4cb") if state != "LOCKED" else Color("a4b1a5"))
     var prerequisites: String = ", ".join(sim.PREREQUISITES[selected])
     var blocked: String = sim.research_block(selected)
-    detail.text = "%s · %s · %.0f research points\n%s\n%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], blocked if not blocked.is_empty() else ("Prerequisites: " + prerequisites if not prerequisites.is_empty() else "Foundational technology · no technology prerequisites.")]
+    detail.text = "%s · %s · %.0f research points\n%s\nRequires all: %s%s" % [selected, states[selected].text, sim.TECHNOLOGIES[selected], sim.TECH_DETAILS[selected], prerequisites if not prerequisites.is_empty() else "None", " · " + blocked if not blocked.is_empty() else ""]
     start.disabled = selected in sim.technologies or selected == sim.research or not blocked.is_empty()
     queue_button.disabled = selected in sim.technologies or selected == sim.research or selected == sim.queued_research or not sim.research_block(selected, true).is_empty() or sim.research.is_empty()
     start.text = "Learned" if selected in sim.technologies else "Researching" if selected == sim.research else "Start research"
@@ -272,124 +281,43 @@ func add_connection_path(points: PackedVector2Array, source: String, targets: Ar
         links.add_child(tip)
     connection_nodes[connection_nodes.size()] = {"from": source, "targets": targets, "line": line, "arrow": tip}
 
-func build_shared_routes(source: String, routes: Array) -> void:
-    # Split collinear routes at every branch, then draw each shared segment once.
-    # Keep networks from different prerequisites separate: a crossing is not a dependency.
-    var vertices: Array[Vector2] = []
-    for route in routes:
-        for point in route.points:
-            if point not in vertices: vertices.append(point)
-    var edges: Dictionary = {}
-    var adjacency: Dictionary = {}
-    for route in routes:
-        var points: PackedVector2Array = route.points
-        for i in range(points.size() - 1):
-            var a := points[i]
-            var b := points[i + 1]
-            if a.is_equal_approx(b): continue
-            var cuts: Array[Vector2] = []
-            for point in vertices:
-                if Geometry2D.get_closest_point_to_segment(point, a, b).distance_to(point) < 0.01:
-                    cuts.append(point)
-            cuts.sort_custom(func(left: Vector2, right: Vector2): return left.distance_squared_to(a) < right.distance_squared_to(a))
-            for j in range(cuts.size() - 1):
-                var first := vertices.find(cuts[j])
-                var second := vertices.find(cuts[j + 1])
-                var key := "%d:%d" % [mini(first, second), maxi(first, second)]
-                if not edges.has(key):
-                    edges[key] = {"a": first, "b": second, "targets": []}
-                    if not adjacency.has(first): adjacency[first] = []
-                    if not adjacency.has(second): adjacency[second] = []
-                    adjacency[first].append(key)
-                    adjacency[second].append(key)
-                if route.target not in edges[key].targets: edges[key].targets.append(route.target)
-    var visited: Dictionary = {}
-    # Stop at forks; round uninterrupted runs through their intermediate corners.
-    for vertex in adjacency:
-        for key in adjacency[vertex]:
-            if visited.has(key): continue
-            if adjacency[vertex].size() == 2:
-                var other_key: String = adjacency[vertex][0] if adjacency[vertex][1] == key else adjacency[vertex][1]
-                if edges[other_key].targets == edges[key].targets: continue
-            var chain := PackedVector2Array([vertices[vertex]])
-            var current: int = vertex
-            var edge_key: String = key
-            var targets: Array = edges[key].targets
-            while true:
-                visited[edge_key] = true
-                var edge: Dictionary = edges[edge_key]
-                current = edge.b if edge.a == current else edge.a
-                chain.append(vertices[current])
-                if adjacency[current].size() != 2: break
-                var next_key: String = adjacency[current][0] if adjacency[current][1] == edge_key else adjacency[current][1]
-                if visited.has(next_key) or edges[next_key].targets != targets: break
-                edge_key = next_key
-            var has_arrow := false
-            for route in routes:
-                if chain[chain.size() - 1].is_equal_approx(route.points[route.points.size() - 1]): has_arrow = true
-            # Chains may be traversed back toward the source; arrows still point into cards.
-            for route in routes:
-                if chain[0].is_equal_approx(route.points[route.points.size() - 1]):
-                    chain.reverse()
-                    has_arrow = true
-                    break
-            add_connection_path(chain, source, targets, has_arrow)
-
 func refresh_connections() -> void:
-    var sim = world.sim
-    var layout: Array = []
+    # Show a local dependency view, with one independent arrow per relationship.
+    # Long routes stay in the empty row gutters instead of crossing intervening cards.
+    var layout: Array = [selected]
     for tech in cards: layout.append([tech, cards[tech].position, cards[tech].size])
     var next_layout := str(layout)
-    if next_layout != connection_layout:
-        connection_layout = next_layout
-        for child in links.get_children():
-            links.remove_child(child)
-            child.queue_free()
-        connection_nodes.clear()
-        var outgoing: Dictionary = {}
-        for tech in cards: outgoing[tech] = []
-        for tech in cards:
-            for prerequisite in sim.PREREQUISITES[tech]: outgoing[prerequisite].append(tech)
-        var lanes: Dictionary = {}
-        for source in outgoing:
-            var children: Array = outgoing[source]
-            if children.is_empty(): continue
+    if next_layout == connection_layout: return
+    connection_layout = next_layout
+    for child in links.get_children():
+        links.remove_child(child)
+        child.queue_free()
+    connection_nodes.clear()
+    var route_index := 0
+    for tech in cards:
+        for source in world.sim.PREREQUISITES[tech]:
+            if tech != selected and source != selected: continue
             var parent: Button = cards[source]
+            var target: Button = cards[tech]
+            var incoming: Array = world.sim.PREREQUISITES[tech]
+            var offset := (incoming.find(source) - (incoming.size() - 1) * 0.5) * 14.0
             var from := parent.position + Vector2(parent.size.x, parent.size.y * 0.5)
-            # Separate trunks belonging to different technologies in the same column.
-            var exit_x := from.x + 14.0 + roundi((parent.position.y - 22) / 140) * 5.0
-            var band := roundi((parent.position.y - 22) / 140)
-            for tech in children: band = mini(band, roundi((cards[tech].position.y - 22) / 140))
-            var has_long_route := false
-            for tech in children:
-                if cards[tech].position.x - parent.position.x >= 350: has_long_route = true
-            var route_y := 22.0 + band * 140.0 + 115.0
-            if has_long_route:
-                route_y += int(lanes.get(band, 0)) * 5.0
-                lanes[band] = int(lanes.get(band, 0)) + 1
-            var routes: Array = []
-            for tech in children:
-                var target: Button = cards[tech]
-                var incoming: Array = sim.PREREQUISITES[tech]
-                var in_index := incoming.find(source)
-                var in_offset := (in_index - (incoming.size() - 1) * 0.5) * 10.0
-                var to := target.position + Vector2(0, target.size.y * 0.5 + in_offset)
-                var points := PackedVector2Array([from, Vector2(exit_x, from.y)])
-                if target.position.x - parent.position.x < 300:
-                    points.append(Vector2(exit_x, to.y))
-                else:
-                    var enter_x := to.x - 18.0 - in_index * 4.0
-                    points.append(Vector2(exit_x, route_y))
-                    points.append(Vector2(enter_x, route_y))
-                    points.append(Vector2(enter_x, to.y))
-                points.append(to)
-                routes.append({"target": tech, "points": points})
-            build_shared_routes(source, routes)
-    for connection in connection_nodes.values():
-        var active: bool = connection.from == selected or selected in connection.targets
-        var color := Color("d6bb7d") if active else Color("9ab87d") if connection.from in sim.technologies else Color("4b6556")
-        connection.line.default_color = color
-        connection.line.z_index = 1 if active else 0
-        if is_instance_valid(connection.arrow):
+            var to := target.position + Vector2(0, target.size.y * 0.5 + offset)
+            var exit_x := from.x + 18.0 + route_index * 5.0
+            var enter_x := to.x - 18.0 - incoming.find(source) * 6.0
+            var points := PackedVector2Array([from, Vector2(exit_x, from.y)])
+            if target.position.x - parent.position.x > 330.0:
+                var gutter_y := parent.position.y + parent.size.y + 10.0 + route_index * 3.0
+                points.append(Vector2(exit_x, gutter_y))
+                points.append(Vector2(enter_x, gutter_y))
+                points.append(Vector2(enter_x, to.y))
+            else:
+                points.append(Vector2(exit_x, to.y))
+            points.append(to)
+            add_connection_path(points, source, [tech], true)
+            var connection: Dictionary = connection_nodes[connection_nodes.size() - 1]
+            var color := Color("efd08b") if tech == selected else Color("83c9ed")
+            connection.line.default_color = color
+            connection.line.width = 3.0
             connection.arrow.color = color
-            connection.arrow.z_index = 2 if active else 0
+            route_index += 1

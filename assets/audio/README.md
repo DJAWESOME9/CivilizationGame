@@ -9,6 +9,6 @@ Rebuild them with `python3 scripts/generate_audio.py` (standard library only).
 - Remaining WAVs: button, construction, completion/harvest, research, scouting,
   warning and season cues.
 
-The runtime duplicates the two background streams and enables full-length loops.
+River and hearth pieces expand the peaceful playlist to three tracks; battle drums and battle march provide two combat tracks. Battle clash, impact and arrow WAVs provide synthesized combat cues. Music cycles with four-second equal-power crossfades, switches for Fighting campaigns involving your army or home settlement, and returns afterward. Woodland ambience loops independently. Combat effects are intermittent presentation cues, not synchronized individual hits.
 Separate Music, Ambience and Effects buses feed Master. Levels persist in local
 settings. These sounds are a first audio pass; playback/listening has not been checked.

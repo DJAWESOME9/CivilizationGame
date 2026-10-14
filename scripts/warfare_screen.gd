@@ -106,8 +106,10 @@ func setup(scene: Node3D) -> void:
     attack_button = world.game_button(attack_row, "Attack", func(): dispatch("Attack"))
     raid_button = world.game_button(attack_row, "Raid", func(): dispatch("Raid"))
     var messenger_row := row(column)
-    hold_button = world.game_button(messenger_row, "Messenger: hold position", func(): command("messenger", [selected_army, "Hold", []]))
-    recall_button = world.game_button(messenger_row, "Messenger: return home", func(): command("recall", [selected_army]))
+    hold_button = world.game_button(messenger_row, "Ⅱ", func(): command("messenger", [selected_army, "Hold", []]))
+    recall_button = world.game_button(messenger_row, "↩", func(): command("recall", [selected_army]))
+    hold_button.tooltip_text = "Send messenger: hold position"
+    recall_button.tooltip_text = "Send messenger: return home"
     text(column, "At home, Attack or Raid dispatches immediately. In the field, destination and plan changes travel by messenger. The army continues its current orders until delivery. Messengers travel three times faster than ordinary armies; one pending messenger per army. Held armies still consume provisions. Attack fights without plunder; Raid takes stores after victory.", 12)
     text(column, "Battle plan", 17)
     var orders := row(column)

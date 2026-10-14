@@ -73,3 +73,44 @@ for name, notes, length in [
     for note in notes:
         tone(samples, *note)
     write(name, samples)
+
+# Additional original pieces share a tonal palette for gentle crossfades.
+def percussion(samples, start, gain, metallic=False):
+    offset = int(start * RATE)
+    duration = 0.38 if metallic else 0.28
+    for j in range(int(duration * RATE)):
+        if offset + j >= len(samples): break
+        t = j / RATE
+        envelope = min(1, t / 0.004) * math.exp(-t * (15 if metallic else 20))
+        value = (rng.uniform(-1, 1) * 0.45 + math.sin(2 * math.pi * (930 if metallic else 85) * t)
+                 + 0.3 * math.sin(2 * math.pi * (1433 if metallic else 53) * t))
+        samples[offset + j] += value * gain * envelope
+
+for name, battle, variant in [('river_music', False, 1), ('hearth_music', False, 2),
+                              ('battle_drums', True, 0), ('battle_march', True, 1)]:
+    samples = array('f', [0]) * (RATE * 64)
+    for bar in range(16):
+        chord = progression[(bar // 2 + variant) % 4]
+        tone(samples, bar * 4, 3.9, chord[0] / 2, 0.085, 'soft')
+        for beat in range(4):
+            tone(samples, bar * 4 + beat, 1.8, chord[(beat + variant) % 3], 0.08)
+            if battle:
+                percussion(samples, bar * 4 + beat, 0.16 if beat % 2 == 0 else 0.09)
+                tone(samples, bar * 4 + beat + 0.5, 0.65, chord[beat % 3], 0.06)
+        tone(samples, bar * 4 + 0.5, 2.5, melody[(bar * (3 if variant == 2 else 1) + variant * 4) % 16],
+             0.065 if battle else 0.085, 'soft' if variant == 1 else 'pluck')
+    for i in range(int(RATE * 0.05)):
+        samples[i] *= i / (RATE * 0.05)
+        samples[-1-i] *= i / (RATE * 0.05)
+    write(name, samples)
+
+for name, metallic in [('battle_clash', True), ('battle_impact', False)]:
+    samples = array('f', [0]) * int(RATE * 0.5)
+    percussion(samples, 0, 0.3, metallic)
+    write(name, samples)
+samples = array('f', [0]) * int(RATE * 0.65)
+for i in range(int(RATE * 0.35)):
+    t = i / RATE
+    samples[i] = rng.uniform(-1, 1) * 0.13 * math.sin(math.pi * t / 0.35) ** 2
+percussion(samples, 0.38, 0.18)
+write('battle_arrow', samples)

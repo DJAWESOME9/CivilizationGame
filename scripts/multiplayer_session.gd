@@ -113,7 +113,7 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
                 simulation.shared_region = true
                 var site: Vector2 = Warfare.SITES[int(record.slot)]
                 simulation.world_origin = [site.x + 4.0, site.y]
-                civilizations[token] = {"name": record.name, "sim": simulation, "slot": record.slot, "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day + 90)}
+                civilizations[token] = {"name": record.name, "sim": simulation, "slot": record.slot, "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day + 90), "relationships": record.get("relationships", {})}
             var elapsed := maxf(0, Time.get_unix_time_from_system() - float(data.saved_at)) / 86400.0 * clock_days
             # Accelerated testing runs only while the host is open.
             # Do not simulate months of unintended catch-up after closing.
@@ -391,6 +391,7 @@ func publish() -> void:
         state["slot"] = civilizations[token].slot
         state["civilization_name"] = civilizations[token].name
         state["trade_offers"] = offers_for(token)
+        state["relationships"] = relationships_for(token)
         state["campaigns"] = warfare.public_campaigns(self, token)
         state["food_ledger"] = civilizations[token].sim.food_ledger
         state["daily_food_change"] = civilizations[token].sim.daily_food_change
@@ -438,7 +439,7 @@ func persist() -> void:
     var records: Dictionary = {}
     for token in civilizations:
         var record: Dictionary = civilizations[token]
-        records[token] = {"name": record.name, "slot": record.slot, "state": record.sim.snapshot(), "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day)}
+        records[token] = {"name": record.name, "slot": record.slot, "state": record.sim.snapshot(), "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day), "relationships": record.get("relationships", {})}
     var file := FileAccess.open(world_save_path, FileAccess.WRITE)
     if file: file.store_string(JSON.stringify({"version": 1, "world_id": world_id, "day": world_day, "clock": clock_days, "civilizations": records, "trade_offers": trade_offers, "next_offer": next_offer, "campaigns": warfare.campaigns, "next_campaign": warfare.next_campaign, "saved_at": Time.get_unix_time_from_system()}))
 
@@ -498,6 +499,47 @@ func _process(delta: float) -> void:
     if persist_timer >= 15:
         persist_timer = 0
         persist()
+
+# Relationships are each AI's opinion of a specific civilization, never global reputation.
+func relationship(ai_token: String, other: String) -> Dictionary:
+    var records: Dictionary = civilizations[ai_token].get("relationships", {})
+    var score := int(records.get(other, {}).get("score", 0))
+    var label := "Neutral"
+    var chance := 60
+    if score <= -60:
+        label = "Hostile"
+        chance = 15
+    elif score <= -20:
+        label = "Unfriendly"
+        chance = 35
+    elif score >= 60:
+        label = "Trusted"
+        chance = 95
+    elif score >= 20:
+        label = "Friendly"
+        chance = 80
+    return {"score": score, "status": label, "chance": chance}
+
+func relationships_for(token: String) -> Dictionary:
+    var result: Dictionary = {}
+    var known: Dictionary = civilizations[token].sim.known_civilizations
+    for other in civilizations:
+        var record: Dictionary = civilizations[other]
+        if record.get("ai", false) and other != token and known.has(str(int(record.slot))):
+            result[str(int(record.slot))] = relationship(other, token)
+    return result
+
+func change_relationship(ai_token: String, other: String, amount: int, trade: bool = false) -> void:
+    if not civilizations[ai_token].get("ai", false): return
+    var records: Dictionary = civilizations[ai_token].get("relationships", {})
+    var entry: Dictionary = records.get(other, {"score": 0, "last_trade_day": -1})
+    # Several tiny offers in one day cannot build unlimited trust.
+    if trade:
+        if int(entry.get("last_trade_day", -1)) == floori(world_day): return
+        entry["last_trade_day"] = floori(world_day)
+    entry["score"] = clampi(int(entry.get("score", 0)) + amount, -100, 100)
+    records[other] = entry
+    civilizations[ai_token]["relationships"] = records
 
 func offers_for(token: String) -> Array:
     var offers: Array = []
@@ -565,6 +607,9 @@ func player_command(token: String, action: String, args: Array) -> String:
             receiver_sim.resources[offer.give] += offer.give_amount
             receiver_sim.resources[offer.ask] -= offer.ask_amount
             sender_sim.resources[offer.ask] += offer.ask_amount
+            if offer.give != offer.ask:
+                change_relationship(offer.to, offer.from, 5, true)
+                change_relationship(offer.from, offer.to, 5, true)
             sender_sim.announce("Barter completed with " + civilizations[offer.to].name + ".")
             receiver_sim.announce("Barter completed with " + civilizations[offer.from].name + ".")
             sender_sim.tick(0)

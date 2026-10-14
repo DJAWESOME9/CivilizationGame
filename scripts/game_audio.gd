@@ -2,6 +2,9 @@ extends Node
 
 # Original project audio; presentation only, never sent over the network.
 const SOUNDS = {
+    "battle_clash": preload("res://assets/audio/battle_clash.wav"),
+    "battle_impact": preload("res://assets/audio/battle_impact.wav"),
+    "battle_arrow": preload("res://assets/audio/battle_arrow.wav"),
     "click": preload("res://assets/audio/click.wav"),
     "build": preload("res://assets/audio/build.wav"),
     "complete": preload("res://assets/audio/complete.wav"),
@@ -11,7 +14,16 @@ const SOUNDS = {
     "season": preload("res://assets/audio/season.wav")
 }
 var world: Node3D
+const PEACE_TRACKS = [preload("res://assets/audio/settlement_music.wav"), preload("res://assets/audio/river_music.wav"), preload("res://assets/audio/hearth_music.wav")]
+const BATTLE_TRACKS = [preload("res://assets/audio/battle_drums.wav"), preload("res://assets/audio/battle_march.wav")]
+const CROSSFADE := 4.0
 var music: AudioStreamPlayer
+var incoming_music: AudioStreamPlayer
+var fade_time := -1.0
+var battle_active := false
+var peace_index := 0
+var battle_index := -1
+var battle_sound_time := 0.0
 var ambience: AudioStreamPlayer
 var voices: Array[AudioStreamPlayer] = []
 var previous_events: Array = []
@@ -28,7 +40,13 @@ func setup(scene: Node3D) -> void:
             var index := AudioServer.bus_count - 1
             AudioServer.set_bus_name(index, bus_name)
             AudioServer.set_bus_send(index, "Master")
-    music = loop_player(preload("res://assets/audio/settlement_music.wav"), "Music")
+    music = AudioStreamPlayer.new()
+    music.bus = "Music"
+    music.stream = PEACE_TRACKS[0]
+    add_child(music)
+    incoming_music = AudioStreamPlayer.new()
+    incoming_music.bus = "Music"
+    add_child(incoming_music)
     ambience = loop_player(preload("res://assets/audio/woodland_ambience.wav"), "Ambience")
     for i in range(6):
         var voice := AudioStreamPlayer.new()
@@ -87,7 +105,58 @@ func event_sound(message: String) -> String:
     if "arrived." in text: return "season"
     return ""
 
+func update_music(delta: float) -> void:
+    var fighting := false
+    var archers := false
+    if is_instance_valid(world.session) and world.session.active:
+        for campaign in world.session.visible_campaigns:
+            var scene: Dictionary = campaign.get("scene", {})
+            if campaign.get("phase", "") != "Fighting": continue
+            if not campaign.get("own", false) and not scene.get("at_home", false): continue
+            fighting = true
+            if campaign.get("unit", "") == "Archers": archers = true
+            for defender in scene.get("defenders", []):
+                if defender.get("unit", "") == "Archers": archers = true
+    var changed := fighting != battle_active
+    battle_active = fighting
+    if changed or (fade_time < 0 and (not music.playing or music.get_playback_position() >= music.stream.get_length() - CROSSFADE)):
+        # A rapid battle transition keeps the louder current stream as the outgoing side.
+        if fade_time >= 0:
+            if fade_time > CROSSFADE * 0.5:
+                var swap := music
+                music = incoming_music
+                incoming_music = swap
+            incoming_music.stop()
+        if battle_active:
+            battle_index = (battle_index + 1) % BATTLE_TRACKS.size()
+            incoming_music.stream = BATTLE_TRACKS[battle_index]
+        else:
+            peace_index = (peace_index + 1) % PEACE_TRACKS.size()
+            incoming_music.stream = PEACE_TRACKS[peace_index]
+        incoming_music.volume_db = -60.0
+        incoming_music.play()
+        fade_time = 0.0
+    if fade_time >= 0:
+        fade_time = minf(CROSSFADE, fade_time + delta)
+        var blend := fade_time / CROSSFADE
+        music.volume_db = linear_to_db(maxf(0.001, cos(blend * PI * 0.5)))
+        incoming_music.volume_db = linear_to_db(maxf(0.001, sin(blend * PI * 0.5)))
+        if fade_time >= CROSSFADE:
+            music.stop()
+            var swap := music
+            music = incoming_music
+            incoming_music = swap
+            music.volume_db = 0.0
+            fade_time = -1.0
+    battle_sound_time = maxf(0.0, battle_sound_time - delta)
+    if battle_active and battle_sound_time <= 0:
+        var cues := ["battle_clash", "battle_impact"]
+        if archers: cues.append("battle_arrow")
+        play_effect(cues.pick_random())
+        battle_sound_time = randf_range(0.7, 1.6)
+
 func _process(delta: float) -> void:
+    if is_instance_valid(world): update_music(delta)
     click_cooldown = maxf(0, click_cooldown - delta)
     effect_cooldown = maxf(0, effect_cooldown - delta)
     poll_time += delta

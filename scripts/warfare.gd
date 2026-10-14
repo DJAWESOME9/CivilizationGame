@@ -1,9 +1,9 @@
 extends RefCounted
 
 const UNITS = {
-    "Militia": {"attack": 1.0, "defense": 0.8, "wood": 1.0, "stone": 0.0, "days": 10.0, "tech": "Toolmaking"},
-    "Spearmen": {"attack": 1.5, "defense": 1.8, "wood": 2.0, "stone": 1.0, "days": 20.0, "tech": "Stoneworking"},
-    "Archers": {"attack": 1.8, "defense": 0.9, "wood": 3.0, "stone": 1.0, "days": 30.0, "tech": "Archery"}
+    "Militia": {"attack": 1.0, "defense": 0.8, "wood": 2.0, "stone": 0.0, "days": 10.0, "tech": "Toolmaking"},
+    "Spearmen": {"attack": 1.5, "defense": 1.8, "wood": 4.0, "stone": 2.0, "days": 20.0, "tech": "Stoneworking"},
+    "Archers": {"attack": 1.8, "defense": 0.9, "wood": 6.0, "stone": 2.0, "days": 30.0, "tech": "Archery"}
 }
 const COMMANDERS = {
     "None": {"style": "None", "attack": 1.0, "defense": 1.0, "description": "No commander · no abilities or command bonuses."},
@@ -340,6 +340,8 @@ func advance_step(session, days: float) -> void:
             revision += 1
 
 func begin_battle(session, campaign: Dictionary) -> void:
+    session.change_relationship(str(campaign.defender), str(campaign.attacker), -40)
+    session.change_relationship(str(campaign.attacker), str(campaign.defender), -40)
     campaign.phase = "Fighting"
     campaign.elapsed = 0.0
     var attacker = session.civilizations[campaign.attacker].sim

@@ -43,10 +43,13 @@ static func decide(session, token: String) -> void:
         if offer.to != token: continue
         # Accept fair exchanges only when payment leaves a food reserve.
         var reserve: float = sim.population * 0.5 if offer.ask == "food" else 0.0
-        var fair: bool = offer.give_amount >= offer.ask_amount and sim.resources[offer.ask] - offer.ask_amount >= reserve
-        session.player_command(token, "accept_trade" if fair else "decline_trade", [int(offer.id)])
+        var fair: bool = offer.give != offer.ask and offer.give_amount >= offer.ask_amount and sim.resources[offer.ask] - offer.ask_amount >= reserve
+        var willing: bool = randi_range(1, 100) <= int(session.relationship(token, str(offer.from)).chance)
+        session.player_command(token, "accept_trade" if fair and willing else "decline_trade", [int(offer.id)])
         # If capacity or the sender's stock changed, dismiss the failed offer.
         if offer in session.trade_offers: session.player_command(token, "decline_trade", [int(offer.id)])
+        if offer not in session.trade_offers and (not fair or not willing):
+            session.civilizations[offer.from].sim.announce("%s declined your barter offer. Relationship: %s; fair offers still require stock and storage." % [record.name, session.relationship(token, str(offer.from)).status])
     if session.world_day >= float(record.get("next_raid", spec.peace_days)) and sim.resources.food > sim.population:
         for army in sim.armies:
             if army.status != "Ready" or army.morale < 80: continue

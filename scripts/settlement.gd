@@ -75,7 +75,7 @@ var resource_deposits = preload("res://scripts/resource_deposits.gd").new()
 var region_origin := Vector2.ZERO
 var region_shared := false
 var world_entities: Node3D
-var season_seen := -1
+var season_seen := Vector3(-1, -1, -1)
 var day_clock: Control
 var sky_environment: Environment
 var moonlight: DirectionalLight3D
@@ -853,6 +853,7 @@ func _process(delta: float) -> void:
         focus += (right * direction.x + Vector3(-right.z, 0, right.x) * direction.y) * delta * camera_size * 0.3
         clamp_focus()
     update_camera()
+    update_season_visuals()
     update_daylight()
     frame_count += 1
     if frame_count == 1 and "--close" in OS.get_cmdline_user_args():
@@ -1626,20 +1627,25 @@ func configure_world_map() -> void:
     make_hex_grid()
     refresh_hex_grid()
     exploration.replace_land()
-    season_seen = -1
+    season_seen = Vector3(-1, -1, -1)
     if is_instance_valid(world_entities): world_entities.invalidate()
     reset_camera()
 
 func update_season_visuals() -> void:
-    var season := int(sim.day / 90) % 4
-    if season == season_seen: return
-    season_seen = season
-    mats.grass.set_shader_parameter("season", season)
-    if is_instance_valid(water_material): water_material.set_shader_parameter("season", season)
-    ForestTree.set_season(season)
-    mats.thatch.albedo_color = Color("b8b5ad") if season == 3 else Color("92764f")
-    update_daylight()
-    if is_instance_valid(exploration): exploration.redraw()
+    var blend: Vector3 = sim.seasonal_blend()
+    if blend == season_seen: return
+    season_seen = blend
+    for material in [mats.grass, water_material]:
+        if not is_instance_valid(material): continue
+        material.set_shader_parameter("season", int(blend.x))
+        material.set_shader_parameter("next_season", int(blend.y))
+        material.set_shader_parameter("season_blend", blend.z)
+    ForestTree.set_season(int(blend.x), int(blend.y), blend.z)
+    var winter := seasonal_value([0.0, 0.0, 0.0, 1.0], blend)
+    mats.thatch.albedo_color = Color("92764f").lerp(Color("b8b5ad"), winter)
+
+func seasonal_value(values: Array, blend: Vector3) -> float:
+    return lerpf(values[int(blend.x)], values[int(blend.y)], blend.z)
 
 func make_hearth() -> void:
     var root := Node3D.new()
@@ -1665,15 +1671,17 @@ func update_daylight() -> void:
     var hours: Vector2 = sim.daylight_hours()
     var progress := clampf((hour - hours.x) / (hours.y - hours.x), 0, 1)
     var altitude := sin(progress * PI)
-    var season := int(sim.day / 90) % 4
-    var noon_color: Color = [Color("fff0d5"), Color("fff2cc"), Color("ffd3a0"), Color("cdddeb")][season]
+    var blend: Vector3 = sim.seasonal_blend()
+    var colors := [Color("fff0d5"), Color("fff2cc"), Color("ffd3a0"), Color("cdddeb")]
+    var noon_color: Color = colors[int(blend.x)].lerp(colors[int(blend.y)], blend.z)
+    var winter := seasonal_value([0.0, 0.0, 0.0, 1.0], blend)
     if is_instance_valid(hex_grid_material):
         # Dark lines contrast with sunlit snow; retain pale lines after dark.
-        var winter_day: float = smoothstep(0.15, 0.65, strength) if season == 3 else 0.0
+        var winter_day: float = smoothstep(0.15, 0.65, strength) * winter
         hex_grid_material.albedo_color = Color(0.89, 0.84, 0.65, 0.38).lerp(Color(0.20, 0.27, 0.34, 0.78), winter_day)
     sunlight.light_color = Color("ffab72").lerp(noon_color, smoothstep(0, 0.55, altitude))
-    sunlight.light_energy = strength * [0.85, 0.95, 0.8, 0.65][season]
-    sunlight.rotation_degrees = Vector3(-maxf(8, altitude * (38 if season == 3 else 62)), lerpf(-105, 75, progress), 0)
+    sunlight.light_energy = strength * seasonal_value([0.85, 0.95, 0.8, 0.65], blend)
+    sunlight.rotation_degrees = Vector3(-maxf(8, altitude * lerpf(62, 38, winter)), lerpf(-105, 75, progress), 0)
     moonlight.light_energy = (1 - strength) * 0.26
     sky_environment.background_color = Color("17263f").lerp(Color("cc9780").lerp(Color("9eafa1"), altitude), strength)
     sky_environment.ambient_light_color = Color("748db7").lerp(Color("b5c6cc"), strength)

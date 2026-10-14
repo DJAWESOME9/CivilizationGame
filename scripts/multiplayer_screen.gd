@@ -25,6 +25,7 @@ var offered_amount: SpinBox
 var wanted_amount: SpinBox
 var offers_list: ItemList
 var trade_result: Label
+var relationship_label: Label
 var send_offer: Button
 var accept_offer: Button
 var decline_offer: Button
@@ -304,6 +305,9 @@ func make_trade_page(tabs: TabContainer) -> void:
     trade_partner = OptionButton.new()
     trade_partner.custom_minimum_size.x = 280
     partner_row.add_child(trade_partner)
+    relationship_label = world.label("", 14, Color("d9c59c"))
+    relationship_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    page.add_child(relationship_label)
     var give_row := HBoxContainer.new()
     page.add_child(give_row)
     give_row.add_child(world.label("You offer", 16, Color("ddd2b5")))
@@ -349,6 +353,9 @@ func refresh_trades() -> void:
             if player.slot != own_slot and world.sim.known_civilizations.has(str(int(player.slot))): trade_partner.add_item(player.name, player.slot)
         var previous := trade_partner.get_item_index(selected_id)
         if previous >= 0: trade_partner.select(previous)
+    var relations: Dictionary = session.cached_own.get("relationships", {})
+    var relation: Dictionary = relations.get(str(trade_partner.get_selected_id()), {})
+    relationship_label.text = "Relationship: %s (%d) · %d%% chance to accept a fair, affordable offer.\nCompleted trades improve relations; attacks and raids damage them." % [relation.status, int(relation.score), int(relation.chance)] if not relation.is_empty() else ("Human civilization · the player decides whether to accept." if trade_partner.item_count > 0 else "Discover an AI civilization to see its relationship with you.")
     var next_trades := str(session.visible_trades)
     if trade_signature != next_trades:
         trade_signature = next_trades

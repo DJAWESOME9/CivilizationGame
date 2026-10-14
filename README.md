@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.18 / build 20**, adding visible battles, resource raids and rival workers/troops, plus settlement trade/scout actions and a dismantle-button fix. Download the ZIP for your computer from
+The latest public release is **0.2.19 / build 21**, adding smoother seasons, rotating peaceful/battle music, clearer research and army labels, policy tiles, AI trade relationships and updated training costs. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.18 / build 20** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.18).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Windows.zip).
+Version **0.2.19 / build 21** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.19).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.19/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -143,13 +143,16 @@ asks before replacing your local progress.
    progress. Esc returns to the map.
    Learned technologies have green checkmarked badges; the queued technology has
    a blue arrow badge. The tree header shows the queue and total learned count.
-   Scroll sideways through the tree with the mouse wheel, trackpad, or bottom
-   scrollbar. The header and selected technology controls stay in place.
+   The tree groups subjects into rows and prerequisite stages into columns. Select
+   a card to show its immediate prerequisites (gold arrows) and next unlocks (blue
+   arrows); all required technologies are listed in its details and tooltip.
+   Scroll vertically with the wheel, sideways with Shift + wheel, or in either
+   direction with a trackpad or scrollbars. The header and selected controls stay in place.
 6. Open **Population & workforce priorities**. Set current percentages and enable
    automatic allocation to maintain them as the adult workforce changes. Manual
    worker changes disable that automation. Reduce an allocation before increasing
    another; percentage totals cannot exceed 100. Locked current jobs stay unavailable.
-7. Train adults in an unlocked profession. Apprenticeships cost 1 food/2 wood,
+7. Train adults in an unlocked profession. Apprenticeships cost 2 food/4 wood,
    last 60 game days, and reduce work by 25% while learning. Specialists are allocated
    to matching jobs first and work more efficiently. School training is faster.
 8. Build extra housing and maintain food/happiness to attract migrants. Births
@@ -190,6 +193,12 @@ capacity, so build replacement housing/storage first if needed. Progress is save
 Click one of your soldiers at home, or an expedition's soldiers or banner, to
 inspect the army. Your armies show troop count/type, commander, morale,
 experience, training, supplies, formation, tactics and retreat orders.
+Map army badges show symbols side by side: ⚔ militia/combat, ↑ spearmen, ➶ archers,
+→ marching, ↩ returning, Ⅱ holding, ▣ raiding, ✉ messenger, ◷ sighting age
+and ◉ scouting age (days). Numbers show troop counts; ? means unknown. Raid
+cargo uses ● food, ≋ wood and ◆ stone. Nearby badges shift horizontally to avoid
+overlap. Click a badge for full army details. Hold (Ⅱ) and Return (↩) buttons
+explain their messenger orders on hover.
 Enemy armies show basic sightings; send scouts within sight to learn troop
 count/type, formation and commander. Scout details retain their observation
 date and may become outdated. Enemy morale, supplies, experience, destinations
@@ -330,11 +339,11 @@ fullscreen, zoom sensitivity, expanding HUD panels, and resetting the camera.
 Changes apply immediately and persist locally. H toggles the same hex-line
 preference; building placement temporarily shows the grid and restores the
 preference afterward. Esc or clicking outside closes Settings. The simulation
-continues if it was running. Original gentle instrumental music and woodland ambience loop in the background.
+continues if it was running. Three original gentle instrumental tracks cycle with four-second crossfades over woodland ambience. During an active battle involving your army or settlement, two rhythmic battle tracks take over with weapon impacts and arrow cues, then blend back to peaceful music afterward.
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.18 / build 20; see the release notes for its changes.
+fast-forward. The current published version is 0.2.19 / build 21; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -469,9 +478,9 @@ Armies currently contain one unit type.
 
 | Unit | Required technology | Equipment per soldier | Base training | Attack / defense |
 | --- | --- | --- | --- | --- |
-| Militia | Toolmaking | 1 wood | 10 game days | 1.0 / 0.8 |
-| Spearmen | Stoneworking | 2 wood, 1 stone | 20 game days | 1.5 / 1.8 |
-| Archers | Hunting | 3 wood, 1 stone | 30 game days | 1.8 / 0.9 |
+| Militia | Toolmaking | 2 wood | 10 game days | 1.0 / 0.8 |
+| Spearmen | Stoneworking | 4 wood, 2 stone | 20 game days | 1.5 / 1.8 |
+| Archers | Archery | 6 wood, 2 stone | 30 game days | 1.8 / 0.9 |
 
 Fresh civilizations start with **no commanders and no commander abilities**.
 Existing commanders in older saves are preserved. Without a commander, armies
@@ -538,7 +547,10 @@ Military costs, capacities, timings and combat multipliers are provisional.
 
 Spring, summer, autumn and winter each last 90 game days. The selected world
 clock applies to every player. Hover over the date for the current seasonal effects.
-Season changes announce themselves and interrupt agreed fast-forwarding.
+Season changes announce themselves and interrupt agreed fast-forwarding. Terrain,
+foliage, snow, river ice, roofs and lighting blend over 30 game days centered on
+each boundary; sunrise and sunset also shift gradually. Economic effects still
+change at the named season boundary.
 
 | Season | Changes |
 | --- | --- |
@@ -600,8 +612,15 @@ pay the same costs and use the same production and combat rules as human players
 Easy makes decisions every 12 game days and begins raiding after day 720; Medium
 acts every 6 days and may raid after day 540; Hard acts every 2 days and may raid
 after day 360, maintaining larger armies. Raids still require discoveries, trained
-soldiers, and provisions. Fair, affordable barter offers are accepted; other offers
-are declined. AI currently responds to offers rather than initiating trade.
+soldiers, and provisions. Local source adds saved relationships with each AI:
+Hostile (15%), Unfriendly (35%), Neutral (60%), Friendly (80%), and Trusted (95%).
+Multiplayer → Barter shows the selected AI’s status, score and acceptance chance.
+These chances apply only to fair offers of different resources, with sufficient
+stock, storage and the AI’s food reserve. AI starts Neutral. Completed trades add
+5 relationship points, at most once per pair per game day; attacks/raids subtract
+40 when fighting begins. Scores range from -100 to 100; tier boundaries are -60,
+-20, 20 and 60. Older worlds start Neutral without losing progress. These values
+are provisional. AI currently responds to offers rather than initiating trade.
 
 Each AI’s difficulty (Medium retains the existing Normal behavior), decision schedules, civilizations, and campaigns persist in the
 shared-world save. Resume retains saved opponents; creation controls are disabled
@@ -615,7 +634,7 @@ Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. Food's displayed daily rate now reflects net stock change after
 consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.18 / build 20
+## Release 0.2.19 / build 21
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
 
@@ -629,7 +648,10 @@ then **Policies & standing orders**; completion never opens the screen automatic
 
 Influence starts at zero, has a cap of 10, and recharges once the hall is complete.
 At happiness 50 it regenerates 0.1/day before policy upkeep; happier civilizations
-regenerate faster. Policies show influence costs and their benefits/tradeoffs.
+regenerate faster. Policies appear as clickable square tiles in a responsive grid,
+with green lighting and an Active label while in effect. Click an inactive tile
+to enact it or an active ongoing policy to revoke it. Tiles show influence costs
+and their benefits/tradeoffs.
 Community Feast costs food too. Extended Workdays and Rest Days exclude each other.
 Education Priority requires a completed School. Open Doors is not included.
 

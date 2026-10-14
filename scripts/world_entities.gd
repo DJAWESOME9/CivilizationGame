@@ -118,12 +118,15 @@ func refresh_forces() -> void:
             forces[key] = {"node": root, "figures": figures, "label": caption(root), "signature": signature, "info": info, "live": false, "heading": 0.0}
         var at := Vector2(info.point[0], info.point[1])
         var live: bool = info.own or world.sim.has_live_sight(at)
-        var name_text: String = "%s · %d %s" % [info.get("name", info.commander), info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
-        if not info.own and info.get("intel_scouted", false): name_text += " · scouted day %.1f" % info.last_scouted
-        forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen)))
+        var identified: bool = info.own or info.get("intel_scouted", false)
+        var unit_symbol: String = {"Militia": "⚔", "Spearmen": "↑", "Archers": "➶"}.get(info.unit, "◇")
+        var phase_symbol: String = {"Marching": "→", "Moving": "→", "Returning": "↩", "Holding": "Ⅱ", "Fighting": "⚔", "Raiding": "▣", "Ready": "✓", "Recovering": "♥"}.get(info.phase, "◇")
+        var badge := "%s %s  ·  %s" % [unit_symbol, str(info.count) if identified else "?", phase_symbol if live else "◷ %.1f" % maxf(0.0, world.session.world_day - float(info.last_seen))]
+        if not info.own and identified: badge += "  ·  ◉ %.1f" % maxf(0.0, world.session.world_day - float(info.last_scouted))
         if info.phase == "Raiding" and not info.get("scene", {}).is_empty():
             var loot: Dictionary = info.scene.loot
-            forces[key].label.text += " · loading stores\nFood %.1f · Wood %.1f · Stone %.1f" % [loot.get("food", 0), loot.get("wood", 0), loot.get("stone", 0)]
+            badge += "  ·  ● %.1f  ≋ %.1f  ◆ %.1f" % [loot.get("food", 0), loot.get("wood", 0), loot.get("stone", 0)]
+        forces[key].label.text = badge
         forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
         forces[key].info = info
         forces[key].live = live
@@ -189,18 +192,51 @@ func _process(delta: float) -> void:
         battle_visuals.refresh()
     animate_forces(delta)
     battle_visuals.animate(delta)
-    refresh_hover()
     refresh_couriers(delta)
+    arrange_captions()
+    refresh_hover()
+
+# Resolve projected overlaps along the camera's horizontal axis, including couriers
+# and settlement captions. Reset anchors every frame so offsets never accumulate.
+func arrange_captions() -> void:
+    var labels: Array[Label3D] = []
+    for settlement in settlements.values(): labels.append(settlement.label)
+    for force in forces.values(): labels.append(force.label)
+    for courier in couriers.values(): labels.append(courier.label)
+    var occupied: Array[Rect2] = []
+    for label in labels:
+        label.position = Vector3(0, 3.4, 0)
+        if world.camera.is_position_behind(label.global_position): continue
+        var area := caption_rect(label).grow(6.0)
+        var offset := 0.0
+        # Each pass clears at least one earlier badge; repeat for newly met badges.
+        for pass_index in range(occupied.size() + 1):
+            var shifted := false
+            for previous in occupied:
+                if area.intersects(previous):
+                    var step := previous.end.x - area.position.x + 1.0
+                    offset += step
+                    area.position.x += step
+                    shifted = true
+            if not shifted: break
+        if offset > 0:
+            var screen: Vector2 = world.camera.unproject_position(label.global_position)
+            var depth: float = (label.global_position - world.camera.global_position).dot(-world.camera.global_transform.basis.z)
+            label.global_position = world.camera.project_position(screen + Vector2(offset, 0), depth)
+        occupied.append(area)
 
 # Caption hit areas follow the billboard projection as the camera pans or zooms.
 func caption_rect(label: Label3D) -> Rect2:
     if world.camera.is_position_behind(label.global_position): return Rect2()
     var center: Vector2 = world.camera.unproject_position(label.global_position)
     var lines := label.text.split("\n")
-    var length := 1
-    for line in lines: length = maxi(length, line.length())
-    var width: float = label.pixel_size * label.font_size * length * 0.58
+    var font: Font = label.font if label.font != null else ThemeDB.fallback_font
+    var width := 0.0
+    for line in lines: width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x)
+    width = (width + label.outline_size * 2) * label.pixel_size
     var height: float = label.pixel_size * label.font_size * lines.size() * 1.3
+    width *= label.global_transform.basis.x.length()
+    height *= label.global_transform.basis.y.length()
     var right: Vector3 = world.camera.global_transform.basis.x * width * 0.5
     var up: Vector3 = world.camera.global_transform.basis.y * height * 0.5
     var half_width: float = center.distance_to(world.camera.unproject_position(label.global_position + right))
@@ -242,9 +278,9 @@ func refresh_couriers(delta: float) -> void:
             figure.node.reparent(self)
             figure.node.scale *= 1.1
             var title := caption(figure.node)
-            title.text = "Messenger"
+            title.text = "✉ →"
             title.modulate = Color("ffe6a3")
-            couriers[key] = {"figure": figure, "started": false}
+            couriers[key] = {"figure": figure, "label": title, "started": false}
         var courier: Dictionary = couriers[key]
         var point := Vector2(messages[0].point[0], messages[0].point[1]) - origin
         var destination: Vector3 = world.pos(point.x, point.y, 0.04)

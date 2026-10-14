@@ -7,6 +7,9 @@ var start_days: SpinBox
 var stop_days: SpinBox
 var groups: Array = []
 var policy_buttons: Dictionary = {}
+var policy_status: Dictionary = {}
+var policy_grid: GridContainer
+const POLICY_TILE_SIZE = 244.0
 var births: OptionButton
 var refresh_clock := 0.0
 const SOURCES = ["None", "Idle", "Quarrying", "Construction", "Logging"]
@@ -43,14 +46,43 @@ func setup(scene: Node3D) -> void:
     content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     content.add_theme_constant_override("separation", 14)
     scroll.add_child(content)
+    policy_grid = GridContainer.new()
+    policy_grid.add_theme_constant_override("h_separation", 14)
+    policy_grid.add_theme_constant_override("v_separation", 14)
+    content.add_child(policy_grid)
+    scroll.resized.connect(func():
+        policy_grid.columns = maxi(1, mini(3, int((scroll.size.x - 18.0 + 14.0) / (POLICY_TILE_SIZE + 14.0)))))
     for name in world.sim.CIVIC_POLICIES:
         var info: Dictionary = world.sim.CIVIC_POLICIES[name]
-        var line: Label = world.label("%s · %.0f influence%s\n%s" % [name, info.cost, " + %.2f/day" % info.upkeep if info.upkeep > 0 else "", info.detail], 15, Color("c1d0b3"))
-        line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        content.add_child(line)
-        var action: Button = world.game_button(content, "", func():
+        var action := Button.new()
+        action.custom_minimum_size = Vector2(POLICY_TILE_SIZE, POLICY_TILE_SIZE)
+        action.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+        action.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+        action.tooltip_text = info.detail
+        action.pressed.connect(func():
             result.text = world.order("civic", [name, true if name == "Community Feast" else not bool(world.sim.government.active.get(name, false))])
             refresh())
+        policy_grid.add_child(action)
+        var inset := MarginContainer.new()
+        inset.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        for edge in ["left", "right", "top", "bottom"]: inset.add_theme_constant_override("margin_" + edge, 16)
+        action.add_child(inset)
+        var tile := VBoxContainer.new()
+        tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        tile.add_theme_constant_override("separation", 8)
+        inset.add_child(tile)
+        var heading: Label = world.label(name, 18, Color("eee2c6"))
+        heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        tile.add_child(heading)
+        tile.add_child(world.label("%.0f influence%s" % [info.cost, " + %.2f/day" % info.upkeep if info.upkeep > 0 else ""], 13, Color("dec58f")))
+        var detail: Label = world.label(info.detail, 14, Color("c1d0b3"))
+        detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        tile.add_child(detail)
+        var status: Label = world.label("", 14, Color("c1d0b3"))
+        tile.add_child(status)
+        policy_status[name] = status
         policy_buttons[name] = action
     var birth_info: Label = world.label("BIRTH POLICY\nEncouraged · 2 influence: +50% new pregnancies, +3 happiness.\nAllowed · 1 influence to switch: normal new pregnancies, neutral happiness.\nForbidden · 3 influence: no new pregnancies, -12 happiness.\nNew pregnancies need food, spare housing and happiness of at least 50. Existing pregnancies continue. Final 90 pregnancy days and 60 days after birth are leave; population/food needs remain.", 15, Color("c1d0b3"))
     birth_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -106,9 +138,34 @@ func refresh() -> void:
     summary.text = "Influence %.2f / 10 · regeneration %.3f/day before upkeep · happiness %.1f · happiness work modifier %.0f%%\nBirths: %s · Emergency response: %s" % [sim.government.influence, 0.05 + 0.001 * sim.happiness, sim.happiness, (1.0 + (sim.happiness - 50) * 0.005) * 100, sim.government.births, "active" if sim.government.food_active else "inactive"]
     if sim.government.food_active and (sim.wildlife <= 0 or sim.daily_food_change < 0): summary.text += "\nFood response warning: stocks are still falling or gathering resources are exhausted."
     for name in policy_buttons:
-        var active: bool = sim.civic_active(name)
-        policy_buttons[name].text = ("Feast in effect" if float(sim.government.feast_until) > sim.day else "Hold feast") if name == "Community Feast" else ("Revoke " if active else "Enact ") + name
-        policy_buttons[name].disabled = (name == "Education Priority" and sim.completed("School") == 0) or (name == "Community Feast" and float(sim.government.feast_until) > sim.day)
+        var active: bool = float(sim.government.feast_until) > sim.day if name == "Community Feast" else sim.civic_active(name)
+        var locked: bool = name == "Education Priority" and sim.completed("School") == 0
+        var button: Button = policy_buttons[name]
+        button.disabled = locked or (name == "Community Feast" and active)
+        var status: Label = policy_status[name]
+        status.text = "Requires a School" if locked else ("Active · %.0f days left" % ceil(sim.government.feast_until - sim.day) if name == "Community Feast" and active else "Active · click to revoke" if active else "Hold feast" if name == "Community Feast" else "Inactive · click to enact")
+        status.add_theme_color_override("font_color", Color("baffaa") if active else Color("dec58f") if not locked else Color("889184"))
+        for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+            button.add_theme_stylebox_override(state, policy_tile_style(active, state))
+
+func policy_tile_style(active: bool, state: String) -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("294a30") if active else Color("15241d")
+    style.border_color = Color("9adb7c") if active else Color("52634c")
+    if state == "hover" or state == "focus":
+        style.bg_color = style.bg_color.lightened(0.12)
+        style.border_color = Color("c3e6a0") if active else Color("dec58f")
+    elif state == "pressed":
+        style.bg_color = style.bg_color.lightened(0.06)
+    elif state == "disabled" and not active:
+        style.bg_color = Color("19201b")
+        style.border_color = Color("394239")
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(8)
+    if active:
+        style.shadow_color = Color(0.49, 0.85, 0.35, 0.24)
+        style.shadow_size = 6
+    return style
 
 func _process(delta: float) -> void:
     if not visible: return
