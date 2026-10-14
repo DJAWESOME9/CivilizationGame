@@ -2,4 +2,4 @@ Startup correction — 0.2.22 / build 24
 
 Corrects the missing color argument in the Your armies heading that prevents the main scene loading in 0.2.21. Includes returning scouts restoring eligible former civilian jobs. If the gray window cannot update, close the game and replace the app with the corrected ZIP. Saves and identities are stored separately.
 
-Exports and artifact integrity checks completed; no parser checks, game launch, gameplay or multiplayer tests run. Publication pending explicit upload approval.
+Exports and artifact integrity checks completed; no parser checks, game launch, gameplay or multiplayer tests run. Published as Latest on GitHub; all six public asset sizes/digests verified.
