@@ -257,7 +257,7 @@ func refresh_scouts() -> void:
     if float(mission.get("survey_days", 3.0)) < 0.0: survey_days = 3.0
     var stage := "Traveling to destination"
     var next_event := "Arrival"
-    var stage_days: float = maxf(0.0, travel - age) / sim.SCOUT_TRAVEL_RATE / sim.travel_factor()
+    var stage_days: float = maxf(0.0, travel - age) / sim.mission_travel_rate(mission) / sim.travel_factor()
     var stage_progress := clampf(age / travel, 0.0, 1.0)
     if age >= travel and age < travel + survey_days:
         stage = "Surveying civilization"
@@ -269,7 +269,7 @@ func refresh_scouts() -> void:
         next_event = "Return to camp"
         stage_days = sim.mission_remaining_days(mission)
         stage_progress = clampf((age - travel - survey_days) / maxf(sim.mission_return_travel(mission), 0.001), 0.0, 1.0)
-    status.text = "%d scouts · %s · %d food packed" % [mission.units.size(), stage, int(mission.get("food", 0))]
+    status.text = "%d scouts · %s · %d food packed%s" % [mission.units.size(), stage, int(mission.get("food", 0)), " · boat expedition" if mission.get("boat", false) else ""]
     progress.show()
     progress.value = stage_progress * 100
     progress.tooltip_text = "%s · %.0f%% complete" % [stage, stage_progress * 100]
@@ -329,6 +329,11 @@ func benefit(kind: String) -> String:
         "Field": return "Farmers grow crops here. Each harvest provides 70 food. Growth stops in winter."
         "Well": return "Supplies treated water, removing the untreated-water happiness penalty. With Waterworks, completed wells enable a 25% field-growth bonus."
         "Town Hall": return "Expands the buildable clearing from radius 12 to 16. Click Policies & standing orders to manage government. Influence recharges over time, faster with happier citizens; capacity 10."
+        "Pottery Workshop": return "Adds 100 shared storage capacity. The first completed workshop halves remaining spoilage, stacking with Preservation; further workshops add storage only."
+        "Boatyard": return "Supplies one reusable boat for river scouting. Available boats · %d / %d. Boats return with their expedition; River Navigation improves future expeditions." % [sim.available_scout_boats(), sim.completed("Boatyard")]
+        "Carpenter Workshop": return "First completed workshop: up to +25% construction speed, spending 0.2 wood per extra unit of work. With no wood, construction continues at normal speed. Additional workshops do not stack; dismantling is unchanged. Available wood · %.1f." % sim.resources.wood
+        "Bathhouse": return "Requires Waterworks and a completed Well. Adds 6 happiness while a Well supplies water; additional bathhouses do not stack. Water supply · %s." % ("Available" if sim.completed("Well") > 0 else "Missing")
+        "Archive": return "Adds 0.50 research points per game day per completed archive. Current total · %.2f points/day." % sim.research_points_per_day()
         "School": return "Supports education and adds a 25% settlement research bonus. Schools also accelerate apprenticeships and increase training places."
         "Training Grounds": return "Trains militia, spearmen and archers. Each completed training ground supports six trainees at full speed; larger intakes share training capacity.\n\nOpen training below to train units, then create armies from fully trained reserves. Recruitment also requires completed barracks with room for the soldiers."
         "Barracks": return "Adds room for 12 soldiers and enables trained military units.\nSettlement military capacity · %d soldiers\nOpen Armies & commanders to manage recruitment." % sim.military_capacity()

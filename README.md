@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.16 / build 18**, fixing multiplayer setup, AI count controls and Host world, plus research and policy number formatting. Download the ZIP for your computer from
+The latest public release is **0.2.17 / build 19**, adding new technologies, scouting boats, workshops, archives and bathhouses, and correcting field heights. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.16 / build 18** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.16).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.16/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.16/Civilization-Windows.zip).
+Version **0.2.17 / build 19** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.17).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.17/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.17/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -158,7 +158,7 @@ asks before replacing your local progress.
    profession technologies exist. Adults retire at 65; old-age death varies
    individually from ages 65 to 75.
 
-The expanded tree has 18 functional technologies. Basketry/hunting improve
+The expanded tree has 26 functional technologies. Basketry/hunting improve
 food gathering; woodcutting and stoneworking unlock extraction; carpentry improves
 construction; masonry increases house capacity; forestry enables replanting;
 preservation reduces spoilage; crop rotation/waterworks improve farming; education
@@ -323,7 +323,7 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.16 / build 18; see the release notes for its changes.
+fast-forward. The current published version is 0.2.17 / build 19; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -601,7 +601,7 @@ Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. Food's displayed daily rate now reflects net stock change after
 consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.16 / build 18
+## Release 0.2.17 / build 19
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
 
@@ -656,3 +656,45 @@ of later policy changes, housing shortages or food conditions. Pregnancy and
 recovery dates are saved with individual people; older saves start without
 pregnancies, preserving existing people and aggregate progress toward the next
 pregnancy. No runtime or gameplay checks have been performed for this change.
+
+## Expanded technology paths
+
+Seven additional technologies extend the early tree:
+
+| Technology | Prerequisites | Research points | Effect |
+| --- | --- | ---: | --- |
+| Pottery | Storage, Stoneworking | 100 | Pottery Workshop: +100 shared storage each; the first halves remaining food spoilage, stacking with Preservation. |
+| Boatbuilding | Carpentry, Fishing | 180 | Boatyard: one reusable boat each for scouting across the river, reserved until return. Boat destinations may be up to 60 map units from camp. |
+| River Navigation | Boatbuilding, completed Boatyard | 240 | Future boat expeditions travel 50% faster and may reach the full existing map bounds. |
+| Archery | Hunting, Carpentry | 140 | Unlocks archer training at Training Grounds. |
+| Military Organization | Community Organization, Toolmaking | 100 | Unlocks new Barracks construction and accelerates soldier training by 25%. |
+| Writing | Education, Community Organization | 220 | Archive: +0.50 research points per game day each. |
+| Joinery | Carpentry | 180 | Carpenter Workshop: up to +25% construction speed with wood upkeep; extra workshops do not stack. |
+
+Build Pottery Workshops and Boatyards in Resources; Archives in Services.
+Boatyards can be built on normal settlement land and supply expedition boats;
+there is no separate boat-purchase control. Select a river-crossing destination
+in Explore and dispatch normally. Each party reserves one available boat and
+releases it on return. The boat appears during the water crossing; land portions
+retain the scout figures. Boats currently support scouts, not armies or trade.
+River Navigation applies to newly dispatched parties; trips already away keep
+their saved speed. Food estimates account for the full return trip and current
+season; seasons can still change while a party is away.
+
+Daily research is 1 + 0.25 per completed School + 0.50 per completed Archive.
+Existing troops, barracks, saves, research progress and queue are retained.
+These local additions have been source-inspected only, without runtime or
+multiplayer verification, and have not been published.
+
+### Carpenter Workshop and Bathhouse
+
+Joinery (180 research points, after Carpentry) unlocks the Carpenter Workshop in
+Build → Resources. It costs 30 wood/12 stone and 45 construction work. The first
+completed workshop speeds construction up to 25%, using 0.2 wood per extra unit
+of work actually performed. With insufficient wood the bonus decreases; ordinary
+construction continues. Extra workshops do not stack, and dismantling is unaffected.
+
+Waterworks unlocks the Bathhouse in Build → Services; a completed Well is also
+required to commission it and supply its benefit. It costs 24 wood/32 stone and
+55 construction work. A supplied completed Bathhouse adds 6 happiness, shown in
+the happiness breakdown. Extra bathhouses do not stack.

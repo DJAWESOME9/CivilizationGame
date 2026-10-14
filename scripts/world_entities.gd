@@ -53,9 +53,14 @@ func refresh_settlements() -> void:
             world.get_child(world.get_child_count() - 1).reparent(root)
             for building in info.buildings:
                 var location := point + Vector2(4 + 3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
-                if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks"]:
+                if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks", "Pottery Workshop", "Archive"]:
                     var home: Node3D = world.house(location.x, location.y, 0.15, 0.85)
                     home.reparent(root)
+                elif building.progress >= 1 and building.kind in ["Carpenter Workshop", "Bathhouse"]:
+                    var facility := Node3D.new()
+                    root.add_child(facility)
+                    facility.position = world.pos(location.x, location.y, 0.04)
+                    world.craft_building_model(facility, building.kind)
                 elif building.progress >= 1 and building.kind == "Wall":
                     var wall := Node3D.new()
                     root.add_child(wall)

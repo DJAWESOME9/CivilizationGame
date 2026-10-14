@@ -231,6 +231,9 @@ func make_materials() -> void:
     mats.stone = textured_material(Color("95958a"), 1.4)
     mats.cloth = textured_material(Color("d6c6a6"), 3.0)
     mats.dark = textured_material(Color("302d22"), 1.5)
+    mats.bath_water = StandardMaterial3D.new()
+    mats.bath_water.albedo_color = Color("538c9c")
+    mats.bath_water.roughness = 0.3
     mats.reed = textured_material(Color("92995a"), 3.0)
 
 func make_light() -> void:
@@ -1144,8 +1147,8 @@ func make_ui() -> void:
     build_page.add_child(build_tabs)
     var groups := {
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},
-        "Resources": {"types": ["Storehouse", "Field"], "hint": "Store materials or grow crops with assigned farmers."},
-        "Services": {"types": ["Well", "School", "Town Hall"], "hint": "Improve water quality, training, and education."},
+        "Resources": {"types": ["Storehouse", "Field", "Pottery Workshop", "Boatyard", "Carpenter Workshop"], "hint": "Store materials, grow food, supply boats, or improve construction."},
+        "Services": {"types": ["Well", "School", "Town Hall", "Archive", "Bathhouse"], "hint": "Improve water quality, happiness, training, and education."},
         "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and Masonry walls strengthen defense."}
     }
     var build_guidance := label("", 13, Color("d5c394"))
@@ -1410,7 +1413,7 @@ func refresh_game() -> void:
             build_guidance_label.text = "No buildings are available yet. Research Toolmaking, then Shelter Building, to unlock construction and your first House. Click Research above to begin."
         else:
             build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex in the starting zone. Disabled buildings show their requirements when you hover."
-    research_button.text = "RESEARCH · %.2f / season\n%s · %.0f%%" % [1.25 if sim.completed("School") > 0 else 1.0, sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
+    research_button.text = "RESEARCH · %.2f points / day\n%s · %.0f%%" % [sim.research_points_per_day(), sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
     if is_instance_valid(exploration_label):
         exploration_label.text = sim.land_report(selected_land) if has_selected_land else "Choose destination on map, then click the land you want surveyed."
         var scout_block: String = sim.scouting_block(selected_land) if has_selected_land else "Choose a destination on the map first."
@@ -1466,7 +1469,7 @@ func rebuild_buildings() -> void:
             field_tiles[Vector2i(int(b.q), int(b.r))] = true
     for b in sim.buildings:
         var center := Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5))
-        if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall"]:
+        if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall", "Pottery Workshop", "Archive"]:
             var home := house(center.x, center.y, 0.15, 0.85)
             home.reparent(building_nodes)
             inspectable(home, {"kind": b.kind, "q": b.q, "r": b.r})
@@ -1487,6 +1490,14 @@ func rebuild_buildings() -> void:
                     for zz in [-1.2, 1.2]:
                         beam(site, Vector3(xx, 0, zz), Vector3(xx, 0.8, zz), 0.05, mats.wood)
                 box(site, Vector3(0, 0.1, 0), Vector3(2.4, 0.2, 2.4), mats.stone)
+            elif b.kind in ["Carpenter Workshop", "Bathhouse"]:
+                craft_building_model(site, b.kind)
+            elif b.kind == "Boatyard":
+                box(site, Vector3(0, 0.15, 0), Vector3(2.8, 0.3, 1.2), mats.wood)
+                for side in [-1.0, 1.0]:
+                    box(site, Vector3(0, 0.45, side * 0.55), Vector3(2.8, 0.4, 0.12), mats.wood)
+                for xx in [-0.7, 0.0, 0.7]:
+                    box(site, Vector3(xx, 0.4, 0), Vector3(0.16, 0.12, 1.0), mats.wood)
             elif b.kind == "Training Grounds":
                 box(site, Vector3(0, 0.03, 0), Vector3(2.8, 0.06, 2.8), mats.soil)
                 for xx in [-0.8, 0.0, 0.8]:
@@ -1532,7 +1543,7 @@ func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary)
             var top := local_points[0].lerp(local_points[1], u)
             var bottom := local_points[3].lerp(local_points[2], u)
             var p := top.lerp(bottom, v)
-            row.append(Vector3(p.x, surface_height(center.x + p.x, center.y + p.y) - center.y + 0.035, p.y))
+            row.append(Vector3(p.x, surface_height(center.x + p.x, center.y + p.y) - site.position.y + 0.035, p.y))
         grid.append(row)
     for iz in range(steps):
         for ix in range(steps):
@@ -1556,7 +1567,7 @@ func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary)
                 continue
             var x := -1.18 + col * 0.39
             var z := -1.18 + row * 0.39
-            var y := surface_height(center.x + x, center.y + z) - center.y + 0.14
+            var y := surface_height(center.x + x, center.y + z) - site.position.y + 0.14
             cylinder(site, Vector3(x, y, z), 0.035, 0.015, 0.26, mats.reed, 5)
 
 func stone_wall(parent: Node3D) -> void:
@@ -1671,3 +1682,27 @@ func update_daylight() -> void:
         var flicker := 1.0 + sin(Time.get_ticks_msec() * 0.009) * 0.08
         hearth_light.light_energy = lerpf(1.8, 0.25, strength) * flicker
         hearth_flame.scale.y = flicker
+
+func craft_building_model(site: Node3D, kind: String) -> void:
+    if kind == "Carpenter Workshop":
+        box(site, Vector3(0, 0.12, 0), Vector3(2.6, 0.24, 2.4), mats.stone)
+        for xx in [-1.1, 1.1]:
+            for zz in [-1.0, 1.0]:
+                beam(site, Vector3(xx, 0.2, zz), Vector3(xx, 1.8, zz), 0.08, mats.wood)
+        roof(site, 1.4, 1.3, 1.8, 2.45, mats.thatch)
+        box(site, Vector3(0, 0.85, 0.2), Vector3(1.8, 0.14, 0.7), mats.wood)
+        for xx in [-0.7, 0.7]:
+            box(site, Vector3(xx, 0.5, 0.2), Vector3(0.12, 0.7, 0.55), mats.wood)
+        for i in range(3):
+            box(site, Vector3(-0.3, 0.32 + i * 0.13, -0.7), Vector3(1.5, 0.12, 0.3), mats.wood)
+        box(site, Vector3(0.4, 0.97, 0.2), Vector3(0.55, 0.06, 0.1), mats.stone)
+    elif kind == "Bathhouse":
+        box(site, Vector3(0, 0.12, 0), Vector3(2.7, 0.24, 2.6), mats.stone)
+        box(site, Vector3(0, 0.8, -0.7), Vector3(2.4, 1.4, 1.1), mats.plaster)
+        roof(site, 1.4, 0.8, 1.5, 2.1, mats.thatch)
+        box(site, Vector3(0, 0.7, -0.1), Vector3(0.55, 1.1, 0.06), mats.dark)
+        for xx in [-0.9, 0.9]:
+            box(site, Vector3(xx, 0.45, 0.7), Vector3(0.18, 0.5, 1.0), mats.stone)
+        for zz in [0.2, 1.2]:
+            box(site, Vector3(0, 0.45, zz), Vector3(1.8, 0.5, 0.16), mats.stone)
+        box(site, Vector3(0, 0.44, 0.7), Vector3(1.55, 0.06, 0.8), mats.bath_water)

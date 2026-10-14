@@ -3,7 +3,7 @@ extends RefCounted
 const UNITS = {
     "Militia": {"attack": 1.0, "defense": 0.8, "wood": 1.0, "stone": 0.0, "days": 10.0, "tech": "Toolmaking"},
     "Spearmen": {"attack": 1.5, "defense": 1.8, "wood": 2.0, "stone": 1.0, "days": 20.0, "tech": "Stoneworking"},
-    "Archers": {"attack": 1.8, "defense": 0.9, "wood": 3.0, "stone": 1.0, "days": 30.0, "tech": "Hunting"}
+    "Archers": {"attack": 1.8, "defense": 0.9, "wood": 3.0, "stone": 1.0, "days": 30.0, "tech": "Archery"}
 }
 const COMMANDERS = {
     "None": {"style": "None", "attack": 1.0, "defense": 1.0, "description": "No commander · no abilities or command bonuses."},

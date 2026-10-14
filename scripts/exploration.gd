@@ -10,6 +10,7 @@ var marker := Node3D.new()
 var nodes: Dictionary = {}
 var cover: MeshInstance3D
 var sights: ImageTexture
+var scout_boats: Dictionary = {}
 var river_covers: Array[MeshInstance3D] = []
 
 func setup(scene: Node3D) -> void:
@@ -52,6 +53,7 @@ func _process(delta: float) -> void:
     var party: Vector2 = world.sim.scout_position()
     if seen_revision != world.sim.exploration_revision or party.distance_to(last_party) > 0.4 or not world.sim.scout_missions.is_empty():
         redraw()
+    refresh_scout_boats()
 
 func redraw() -> void:
     if not is_instance_valid(world): return
@@ -98,3 +100,30 @@ func replace_land() -> void:
     for child in world.get_children():
         if child.has_meta("explorable"): objects.append(child)
     invalidate()
+
+func refresh_scout_boats() -> void:
+    var active: Array = []
+    for mission in world.sim.scout_missions:
+        if not mission.get("boat", false): continue
+        var key := str(mission.units[0])
+        active.append(key)
+        if not scout_boats.has(key):
+            var new_hull := Node3D.new()
+            add_child(new_hull)
+            world.box(new_hull, Vector3(0, 0.12, 0), Vector3(1.0, 0.24, 2.0), world.mats.wood)
+            for side in [-1.0, 1.0]:
+                world.box(new_hull, Vector3(side * 0.48, 0.3, 0), Vector3(0.1, 0.35, 2.0), world.mats.wood)
+            for seat in [-0.5, 0.0, 0.5]:
+                world.box(new_hull, Vector3(0, 0.3, seat), Vector3(0.9, 0.1, 0.15), world.mats.wood)
+            world.inspectable(new_hull, {"kind": "Scouting party", "mission_started": mission.started, "mission_units": mission.units.duplicate()})
+            scout_boats[key] = new_hull
+        var hull: Node3D = scout_boats[key]
+        var point: Vector2 = world.sim.mission_position(mission)
+        hull.position = Vector3(point.x, -0.18, point.y)
+        var direction: Vector2 = world.sim.mission_direction(mission)
+        hull.rotation.y = atan2(direction.x, direction.y)
+        hull.visible = world.sim.point_on_river(point)
+    for key in scout_boats.keys():
+        if key not in active:
+            scout_boats[key].queue_free()
+            scout_boats.erase(key)

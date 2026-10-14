@@ -26,6 +26,11 @@ var camp_dismantling: Dictionary = {}
 
 const JOBS = ["Gathering", "Fishing", "Logging", "Quarrying", "Construction", "Farming"]
 const BUILDINGS = {
+    "Carpenter Workshop": {"wood": 30.0, "stone": 12.0, "work": 45.0},
+    "Bathhouse": {"wood": 24.0, "stone": 32.0, "work": 55.0},
+    "Pottery Workshop": {"wood": 20.0, "stone": 16.0, "work": 35.0},
+    "Boatyard": {"wood": 36.0, "stone": 8.0, "work": 45.0},
+    "Archive": {"wood": 32.0, "stone": 24.0, "work": 55.0},
     "Town Hall": {"wood": 28.0, "stone": 10.0, "work": 40.0},
     "House": {"wood": 18.0, "stone": 4.0, "work": 12.0},
     "Storehouse": {"wood": 24.0, "stone": 8.0, "work": 35.0},
@@ -40,11 +45,16 @@ const BUILDINGS = {
 # Maximum effective construction labor assigned to one site. Any remaining
 # builders continue to the next unfinished site in placement order.
 const BUILDING_WORKER_CAPS = {
+    "Carpenter Workshop": 6.0, "Bathhouse": 6.0,
+    "Pottery Workshop": 5.0, "Boatyard": 6.0, "Archive": 6.0,
     "Town Hall": 6.0, "House": 4.0, "Storehouse": 6.0, "Field": 3.0, "Well": 5.0,
     "School": 7.0, "Training Grounds": 5.0, "Barracks": 6.0,
     "Palisade": 5.0, "Wall": 4.0
 }
 const TECHNOLOGIES = {
+    "Joinery": 180.0,
+    "Pottery": 100.0, "Boatbuilding": 180.0, "River Navigation": 240.0,
+    "Archery": 140.0, "Military Organization": 100.0, "Writing": 220.0,
     "Community Organization": 60.0,
     "Scouting": 0.0,
     "Basketry": 40.0, "Hunting": 80.0, "Storage": 60.0, "Education": 160.0,
@@ -54,6 +64,10 @@ const TECHNOLOGIES = {
 }
 const JOB_TECH = {"Gathering": "", "Fishing": "Fishing", "Logging": "Woodcutting", "Quarrying": "Stoneworking", "Construction": "Shelter Building", "Farming": "Planting"}
 const PREREQUISITES = {
+    "Joinery": ["Carpentry"],
+    "Pottery": ["Storage", "Stoneworking"], "Boatbuilding": ["Carpentry", "Fishing"],
+    "River Navigation": ["Boatbuilding"], "Archery": ["Hunting", "Carpentry"],
+    "Military Organization": ["Community Organization", "Toolmaking"], "Writing": ["Education", "Community Organization"],
     "Community Organization": ["Shelter Building"],
     "Scouting": [],
     "Basketry": [], "Hunting": ["Toolmaking"], "Storage": ["Shelter Building"], "Education": ["Carpentry"],
@@ -64,6 +78,13 @@ const PREREQUISITES = {
     "Sanitation": ["Stoneworking"], "Waterworks": ["Planting", "Sanitation"]
 }
 const TECH_DETAILS = {
+    "Joinery": "Unlocks carpenter workshops. The first completed workshop speeds construction up to 25%, spending 0.2 wood per extra unit of construction work. Additional workshops do not stack.",
+    "Pottery": "Unlocks pottery workshops. The first completed workshop adds 100 shared storage and halves remaining food spoilage; additional workshops add storage only.",
+    "Boatbuilding": "Unlocks boatyards. Each completed boatyard supplies one reusable scouting boat; river expeditions reserve a boat until return. Boat expeditions reach 60 map units from camp.",
+    "River Navigation": "Boat expeditions travel 50% faster and reach the full world-view bounds. Requires a completed boatyard. Land travel and survey time are unchanged.",
+    "Archery": "Unlocks archer training at Training Grounds. Existing trained archers are retained.",
+    "Military Organization": "Unlocks barracks and speeds soldier training by 25%. Existing barracks and troops are retained.",
+    "Writing": "Unlocks archives. Each completed archive adds 50% of base daily research output alongside School bonuses.",
     "Community Organization": "Unlocks one Town Hall: more buildable land, policies and standing orders.",
     "Scouting": "Available from the start. Send three settlers to survey distant land and bring back dated resource reports; no research is required.",
     "Basketry": "Woven carrying baskets improve gathering output by 20%.",
@@ -82,7 +103,7 @@ const TECH_DETAILS = {
     "Carpentry": "Improve timber joints and tools. Construction proceeds 25% faster.",
     "Masonry": "Unlock stone walls and build stronger, roomier houses. Each house provides 5 additional beds. Requires a storehouse.",
     "Sanitation": "Learn safe water practices. Unlocks wells and treated water.",
-    "Waterworks": "Develop irrigation from wells. Fields grow another 25% faster. Requires a completed well."
+    "Waterworks": "Develop irrigation from wells. Fields grow another 25% faster and Bathhouses become available. Requires a completed well."
 }
 var day: float = 0
 var population: int = 30
@@ -320,20 +341,49 @@ func mission_remaining_days(mission: Dictionary) -> float:
     var survey := clampf(travel + survey_days - age, 0.0, survey_days)
     var return_travel := mission_return_travel(mission)
     var returning := clampf(travel + return_travel + survey_days - age, 0.0, return_travel)
-    return ((outbound + returning) / SCOUT_TRAVEL_RATE + survey) / travel_factor()
+    return ((outbound + returning) / mission_travel_rate(mission) + survey) / travel_factor()
+
+func research_points_per_day() -> float:
+    return BASE_RESEARCH_POINTS_PER_DAY * (1.0 + completed("School") * 0.25 + completed("Archive") * 0.5)
+
+func food_spoilage_rate() -> float:
+    return (0.0004 if "Preservation" in technologies else 0.002) * (0.5 if completed("Pottery Workshop") > 0 else 1.0)
+
+func point_on_river(local_point: Vector2) -> bool:
+    var point := local_point + Vector2(float(world_origin[0]), float(world_origin[1]))
+    var segment := floorf(point.y)
+    var center := lerpf(10.0 + sin(segment * 0.095) * 3.0, 10.0 + sin((segment + 1.0) * 0.095) * 3.0, point.y - segment)
+    return absf(point.x - center) <= 2.45
+
+func scout_needs_boat(destination: Vector2) -> bool:
+    # Check the entire straight route against the rendered curved water edge.
+    var origin := Vector2(-4, 0)
+    var steps := maxi(1, ceili(origin.distance_to(destination) * 2.0))
+    for i in range(steps + 1):
+        var point := origin.lerp(destination, float(i) / steps) + Vector2(float(world_origin[0]), float(world_origin[1]))
+        var segment := floorf(point.y)
+        var edge := lerpf(10.0 + sin(segment * 0.095) * 3.0, 10.0 + sin((segment + 1.0) * 0.095) * 3.0, point.y - segment) - 2.45
+        if point.x >= edge: return true
+    return false
+
+func available_scout_boats() -> int:
+    var used := 0
+    var missions: Array = scout_missions if not scout_missions.is_empty() else ([scout_mission] if not scout_mission.is_empty() else [])
+    for mission in missions:
+        if bool(mission.get("boat", false)): used += 1
+    return maxi(0, completed("Boatyard") - used)
+
+func mission_travel_rate(mission: Dictionary) -> float:
+    return float(mission.get("travel_rate", SCOUT_TRAVEL_RATE))
 
 func scouting_block(destination: Vector2) -> String:
     if "Scouting" not in technologies: return "Research Scouting first."
     if destination.distance_to(Vector2(-4, 0)) <= CAMP_RADIUS: return "Choose a destination outside the civilization's camp area."
     if absf(destination.x) > 88 or absf(destination.y) > 88: return "Destination lies beyond this world view."
-    # Match the water mesh's one-unit segments and 2.45-unit half-width.
-    # The surrounding sloped banks are dry land and remain scoutable.
-    var global_z := destination.y + float(world_origin[1])
-    var segment_z := floorf(global_z)
-    var river_start := 10.0 + sin(segment_z * 0.095) * 3.0
-    var river_end := 10.0 + sin((segment_z + 1.0) * 0.095) * 3.0
-    var river := lerpf(river_start, river_end, global_z - segment_z)
-    if destination.x + float(world_origin[0]) >= river - 2.45: return "Crossing the river requires transport; survey the western bank for now."
+    if scout_needs_boat(destination):
+        if "Boatbuilding" not in technologies: return "Research Boatbuilding and complete a boatyard to cross the river."
+        if available_scout_boats() <= 0: return "No boat available. Complete a boatyard or wait for a boat expedition to return."
+        if "River Navigation" not in technologies and destination.distance_to(Vector2(-4, 0)) > 60.0: return "Boat expeditions beyond 60 map units require River Navigation."
     var cost := scout_food_cost(destination)
     if resources.food < cost: return "This trip needs %d food for its distance and duration." % cost
     if adults() < 3: return "Three working-age settlers are needed."
@@ -356,7 +406,7 @@ func send_scouts(destination: Vector2) -> String:
     var cost := scout_food_cost(destination)
     resources.food -= cost
     var origin := Vector2(-4, 0) + (destination - Vector2(-4, 0)).normalized() * CAMP_RADIUS
-    var mission := {"units": units, "origin": [origin.x, origin.y], "destination": [destination.x, destination.y], "started": day, "progress": 0.0, "travel": maxf(0.001, destination.distance_to(origin) / 2), "food": cost, "survey_days": -1.0, "surveyed": false}
+    var mission := {"units": units, "origin": [origin.x, origin.y], "destination": [destination.x, destination.y], "started": day, "progress": 0.0, "travel": maxf(0.001, destination.distance_to(origin) / 2), "food": cost, "survey_days": -1.0, "surveyed": false, "boat": scout_needs_boat(destination), "travel_rate": SCOUT_TRAVEL_RATE * (1.5 if scout_needs_boat(destination) and "River Navigation" in technologies else 1.0)}
     scout_missions.append(mission)
     scout_mission = scout_missions[0]
     clamp_assignments()
@@ -366,9 +416,10 @@ func send_scouts(destination: Vector2) -> String:
 func scout_food_cost(destination: Vector2) -> int:
     var origin := Vector2(-4, 0) + (destination - Vector2(-4, 0)).normalized() * CAMP_RADIUS
     var outbound := maxf(0.001, destination.distance_to(origin) / 2.0)
-    var returning := outbound * clampf(1.0 - CAMP_RADIUS / maxf(destination.distance_to(Vector2(-4, 0)), 0.001), 0.0, 1.0)
+    var returning := outbound
     # Three adults consume one food per 30 days at normal rations; pack their round-trip needs.
-    var expected_days := (outbound + returning) / SCOUT_TRAVEL_RATE + 3.0
+    var rate := SCOUT_TRAVEL_RATE * (1.5 if scout_needs_boat(destination) and "River Navigation" in technologies else 1.0)
+    var expected_days := ((outbound + returning) / rate + 3.0) / travel_factor()
     return maxi(1, ceili(expected_days / 30.0 * ration_level))
 
 func update_exploration(dt: float = 0.0) -> void:
@@ -386,8 +437,8 @@ func update_exploration(dt: float = 0.0) -> void:
         var survey_days := float(mission.get("survey_days", 3.0))
         # Split at phase boundaries so a large time step does not accelerate surveying.
         if progress < travel:
-            var outbound_time := minf(mission_remaining, (travel - progress) / SCOUT_TRAVEL_RATE)
-            progress += outbound_time * SCOUT_TRAVEL_RATE
+            var outbound_time := minf(mission_remaining, (travel - progress) / mission_travel_rate(mission))
+            progress += outbound_time * mission_travel_rate(mission)
             mission_remaining -= outbound_time
         if progress >= travel and survey_days < 0.0:
             survey_days = 3.0 if has_civilization_near(Vector2(mission.destination[0], mission.destination[1])) else 0.0
@@ -397,7 +448,7 @@ func update_exploration(dt: float = 0.0) -> void:
             progress += survey_time
             mission_remaining -= survey_time
         if progress >= travel + survey_days:
-            progress = minf(travel + survey_days + returning_travel, progress + mission_remaining * SCOUT_TRAVEL_RATE)
+            progress = minf(travel + survey_days + returning_travel, progress + mission_remaining * mission_travel_rate(mission))
         mission.progress = progress
         reveal_land(mission_position(mission), 7)
         var age: float = float(mission.get("progress", day - mission.started))
@@ -505,6 +556,7 @@ func happiness_influences() -> Array:
     factors.append({"name": "Living conditions", "value": -8.0 * missing_beds / maxf(1, population) if winter else 0.0, "detail": "Winter exposes temporary shelters to cold." if winter else "No seasonal shelter penalty."})
     factors.append({"name": "Prolonged hardship", "value": -minf(15.0, starvation * 0.5), "detail": "Starvation leaves lasting strain; recovering food gradually relieves it."})
     factors.append({"name": "Education", "value": 5.0 if completed("School") > 0 else 0.0, "detail": "A school supports the community and prepares the next generation."})
+    factors.append({"name": "Public bathing", "value": 6.0 if completed("Bathhouse") > 0 and completed("Well") > 0 else 0.0, "detail": "A supplied bathhouse adds 6 happiness; additional bathhouses do not stack." if completed("Bathhouse") > 0 and completed("Well") > 0 else "Requires a completed Bathhouse and Well."})
     var policy_happiness := (8.0 if float(government.feast_until) > day else 0.0) + (-8.0 if civic_active("Extended Workdays") else 0.0) + (6.0 if civic_active("Rest Days") else 0.0)
     policy_happiness += 3.0 if government.births == "Encouraged" else -12.0 if government.births == "Forbidden" else 0.0
     factors.append({"name": "Town Hall policies", "value": policy_happiness, "detail": "Feasts, working time and birth policy affect community happiness."})
@@ -533,8 +585,9 @@ func job_unlocked(job: String) -> bool:
 func building_block(kind: String) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     if not job_unlocked("Construction"): return "Requires Shelter Building."
-    var required: String = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Shelter Building", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization"}.get(kind, "")
+    var required: String = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Military Organization", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization", "Pottery Workshop": "Pottery", "Boatyard": "Boatbuilding", "Archive": "Writing", "Carpenter Workshop": "Joinery", "Bathhouse": "Waterworks"}.get(kind, "")
     if not required.is_empty() and required not in technologies: return "Requires " + required + "."
+    if kind == "Bathhouse" and completed("Well") == 0: return "Requires a completed Well."
     if kind == "Town Hall":
         for building in buildings:
             if building.kind == "Town Hall": return "Only one Town Hall per settlement."
@@ -687,7 +740,7 @@ func update_population(dt: float) -> void:
     prepare_roster(effective_assignments())
 
 func capacity() -> float:
-    return (180.0 if camp_object_present("cache") else 0.0) + completed("Storehouse") * 200.0
+    return (180.0 if camp_object_present("cache") else 0.0) + completed("Storehouse") * 200.0 + completed("Pottery Workshop") * 100.0
 
 func housing() -> int:
     return (15 if camp_object_present("tent_east") else 0) + (15 if camp_object_present("tent_west") else 0) + completed("House") * (15 if "Masonry" in technologies else 10) + military_housed()
@@ -761,7 +814,7 @@ func research_block(tech: String, allow_current: bool = false) -> String:
         if prerequisite not in technologies and not (allow_current and prerequisite == research):
             missing.append(prerequisite)
     if not missing.is_empty(): return "Requires: " + ", ".join(missing)
-    var facility: String = {"Crop Rotation": "Field", "Masonry": "Storehouse", "Waterworks": "Well"}.get(tech, "")
+    var facility: String = {"Crop Rotation": "Field", "Masonry": "Storehouse", "Waterworks": "Well", "River Navigation": "Boatyard"}.get(tech, "")
     if not facility.is_empty() and completed(facility) == 0: return "Requires a completed " + facility + "."
     return ""
 
@@ -795,7 +848,7 @@ func effective_assignments() -> Dictionary:
         var efficiency: float = (1.0 + (happiness - 50) * 0.005) * (1.15 if civic_active("Extended Workdays") else 1.0) * (0.9 if civic_active("Rest Days") else 1.0)
         var gather_rate: float = 0.11 * [1.05, 1.15, 1.0, 0.5][season] * efficiency * (1.2 if "Basketry" in technologies else 1.0) * (1.25 if "Hunting" in technologies else 1.0) * (0.85 if civic_active("Conservation") else 1.0)
         var fish_rate: float = 0.14 * [1.0, 1.15, 0.9, 0.55][season] * efficiency
-        var spoilage_rate: float = (0.0004 if "Preservation" in technologies else 0.002) * [1.0, 1.35, 0.9, 0.55][season]
+        var spoilage_rate: float = food_spoilage_rate() * [1.0, 1.35, 0.9, 0.55][season]
         # Cover consumption/spoilage and rebuild reserves over roughly 30 days.
         var needed := maxi(0, ceili((food_need() + float(resources.food) * spoilage_rate + maxf(0, stop * food_need() - float(resources.food)) / 30.0 - int(work.Fishing) * fish_rate) / maxf(gather_rate, 0.001)) - int(work.Gathering))
         var idle := workforce_capacity()
@@ -888,14 +941,19 @@ func tick(dt: float) -> void:
             var assigned_labor: float = minf(builder_labor, float(BUILDING_WORKER_CAPS.get(b.kind, 4.0)))
             var budget := assigned_labor * dt * construction_rate
             var needed: float = (1 - b.progress) * BUILDINGS[b.kind].work
-            var used := minf(budget, needed)
+            # Pay only for workshop-assisted work actually used at this site.
+            # Limit the boost to available timber, then continue at normal speed.
+            var extra_work := minf(budget * 0.25, float(resources.wood) / 0.2) if completed("Carpenter Workshop") > 0 else 0.0
+            var used := minf(budget + extra_work, needed)
+            if extra_work > 0.0:
+                resources.wood = maxf(0.0, float(resources.wood) - used * extra_work / (budget + extra_work) * 0.2)
             b.progress = minf(1, b.progress + used / BUILDINGS[b.kind].work)
             builder_labor -= assigned_labor
             if b.progress >= 1:
                 revision += 1
                 announce("%s completed." % b.kind)
     if not research.is_empty() and research_block(research).is_empty():
-        research_progress += dt * BASE_RESEARCH_POINTS_PER_DAY * (1.25 if completed("School") > 0 else 1.0)
+        research_progress += dt * research_points_per_day()
         if research_progress >= TECHNOLOGIES[research]:
             technologies.append(research)
             announce("%s learned." % research)
@@ -909,7 +967,7 @@ func tick(dt: float) -> void:
     var consumed := minf(float(resources.food), food_need() * dt)
     resources.food -= consumed
     var before_spoilage: float = resources.food
-    resources.food *= pow(0.9996 if "Preservation" in technologies else 0.998, dt * [1.0, 1.35, 0.9, 0.55][season])
+    resources.food *= pow(1.0 - food_spoilage_rate(), dt * [1.0, 1.35, 0.9, 0.55][season])
     var spoiled: float = before_spoilage - resources.food
     var food_overflow := 0.0
     var stored: float = resources.food + resources.wood + resources.stone
@@ -1057,7 +1115,7 @@ func advance_armies(days: float) -> void:
             armies.erase(army)
             continue
         if army.status == "Training":
-            army.training += days * training_rate
+            army.training += days * training_rate * (1.25 if "Military Organization" in technologies else 1.0)
             if army.training >= Warfare.UNITS[army.unit].days:
                 army.status = "Ready"
                 announce("%d %s completed training%s." % [army.soldiers.size(), army.unit.to_lower(), " and are available to form armies" if army.get("reserve", false) else ""])

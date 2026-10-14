@@ -6,7 +6,7 @@ const DIFFICULTIES = {
     "Normal": {"interval": 6.0, "peace_days": 540.0, "raid_interval": 180.0, "soldiers": 6},
     "Hard": {"interval": 2.0, "peace_days": 360.0, "raid_interval": 90.0, "soldiers": 8}
 }
-const RESEARCH = ["Toolmaking", "Fishing", "Woodcutting", "Shelter Building", "Stoneworking", "Storage", "Basketry", "Hunting", "Scouting", "Planting", "Preservation", "Carpentry", "Sanitation", "Forestry", "Education", "Masonry", "Crop Rotation", "Waterworks"]
+const RESEARCH = ["Toolmaking", "Fishing", "Woodcutting", "Shelter Building", "Community Organization", "Military Organization", "Stoneworking", "Storage", "Basketry", "Hunting", "Scouting", "Planting", "Preservation", "Carpentry", "Sanitation", "Forestry", "Education", "Masonry", "Crop Rotation", "Waterworks", "Pottery", "Boatbuilding", "Archery", "Writing", "River Navigation", "Joinery"]
 
 static func decide(session, token: String) -> void:
     var record: Dictionary = session.civilizations[token]
@@ -70,6 +70,11 @@ static func manage_buildings(sim) -> void:
     elif sim.completed("Well") == 0: desired = "Well"
     elif sim.completed("Palisade") == 0: desired = "Palisade"
     elif sim.completed("School") == 0: desired = "School"
+    elif "Pottery" in sim.technologies and sim.completed("Pottery Workshop") == 0: desired = "Pottery Workshop"
+    elif "Boatbuilding" in sim.technologies and sim.completed("Boatyard") == 0: desired = "Boatyard"
+    elif "Writing" in sim.technologies and sim.completed("Archive") == 0: desired = "Archive"
+    elif "Joinery" in sim.technologies and sim.completed("Carpenter Workshop") == 0: desired = "Carpenter Workshop"
+    elif "Waterworks" in sim.technologies and sim.completed("Bathhouse") == 0: desired = "Bathhouse"
     elif "Masonry" in sim.technologies and sim.completed("Wall") == 0: desired = "Wall"
     if desired.is_empty() or not sim.building_block(desired).is_empty(): return
     for q in range(-5, 3):
