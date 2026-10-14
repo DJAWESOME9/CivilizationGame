@@ -217,6 +217,13 @@ func host_now() -> void:
         world.feedback.text = "Shared world opened. Manage your civilization here; Multiplayer opens warfare, barter and world players."
         hide()
 
+func open_barter(slot: int) -> void:
+    refresh_trades()
+    var index := trade_partner.get_item_index(slot)
+    if index >= 0: trade_partner.select(index)
+    pages.current_tab = 1
+    show()
+
 func open_warfare() -> void:
     warfare_page.pages.current_tab = 0
     pages.current_tab = 2

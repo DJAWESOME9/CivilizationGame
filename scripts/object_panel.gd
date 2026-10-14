@@ -7,6 +7,7 @@ var status: Label
 var progress: ProgressBar
 var details: Label
 var dismantle_action: Button
+var trade_action: Button
 var scout_action: Button
 var scout_help: Label
 var armies_action: Button
@@ -68,9 +69,10 @@ func setup(scene: Node3D) -> void:
     civic_action = world.game_button(column, "Policies & standing orders", func(): town_hall.open())
     civic_action.hide()
     dismantle_action = world.game_button(column, "Dismantle", func():
-        world.feedback.text = world.order("dismantle", [selected.get("camp_id", "")])
-        world.refresh_game()
-        refresh())
+        var message: String = world.order("dismantle", [selected.get("camp_id", "")])
+        world.feedback.text = message
+        field_response.text = message
+        world.refresh_game())
     dismantle_action.hide()
     armies_action = world.game_button(column, "Armies & commanders", func():
         hide()
@@ -79,6 +81,10 @@ func setup(scene: Node3D) -> void:
         elif selected.get("kind", "") == "Civilization": world.multiplayer_screen.warfare_page.select_destination(int(selected.slot))
         elif selected.get("kind", "") == "Army": world.multiplayer_screen.warfare_page.select_force(int(selected.get("army", -1))))
     armies_action.hide()
+    trade_action = world.game_button(column, "Trade · Barter", func():
+        world.multiplayer_screen.open_barter(int(selected.slot))
+        hide())
+    trade_action.hide()
     field_actions = HBoxContainer.new()
     column.add_child(field_actions)
     world.game_button(field_actions, "Messenger: hold position", func(): field_response.text = world.order("messenger", [int(selected.get("army", -1)), "Hold", []]); refresh())
@@ -106,11 +112,6 @@ func setup(scene: Node3D) -> void:
 
 func open_object(info: Dictionary) -> void:
     field_response.text = ""
-    if info.get("kind", "") == "Civilization":
-        hide()
-        world.multiplayer_screen.open_warfare()
-        world.multiplayer_screen.warfare_page.select_destination(int(info.slot))
-        return
     selected = info.duplicate(true)
     if selected.get("kind", "") in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds"] and selected.has("point"):
         world.select_scout_land(selected.point)
@@ -122,14 +123,26 @@ func refresh() -> void:
     var sim = world.sim
     var kind: String = selected.get("kind", "")
     heading.text = kind
-    progress.hide()
-    scout_route.hide()
-    armies_action.hide()
-    field_actions.hide()
-    armies_action.text = "Armies"
-    dismantle_action.hide()
-    civic_action.hide()
-    var landscape: bool = kind in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds"] and selected.has("point")
+    # Reset only controls that do not belong to this selection. Toggling a
+    # visible action (or its container) off and on cancels an ongoing click.
+    if kind not in ["Scouting party", "Field", "Oak tree", "Stone deposit", "River stone"] and not selected.has("q") and not selected.has("camp_id"):
+        progress.hide()
+    scout_route.visible = kind == "Scouting party"
+    if kind != "Army" or not selected.get("own", false):
+        armies_action.visible = kind == "Civilization" or kind == "Training Grounds"
+        field_actions.hide()
+    trade_action.visible = kind == "Civilization"
+    trade_action.disabled = not world.session.active or world.session.connecting
+    if kind not in ["Army", "Civilization", "Training Grounds"]: armies_action.text = "Armies"
+    # Keep eligible controls visible during live refreshes: hiding a pressed
+    # button cancels its click before the mouse release can activate it.
+    dismantle_action.visible = selected.has("camp_id") and sim.job_unlocked("Construction")
+    if kind != "Town Hall" or not selected.has("q"): civic_action.hide()
+    if kind == "Civilization":
+        var contact: Dictionary = sim.known_civilizations.get(str(int(selected.slot)), {})
+        if contact.is_empty(): hide(); return
+        selected.point = Vector2(contact.point[0], contact.point[1])
+    var landscape: bool = kind in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds", "Civilization"] and selected.has("point")
     scout_action.visible = landscape
     scout_help.visible = landscape
     if landscape:
@@ -146,8 +159,8 @@ func refresh() -> void:
         var contact: Dictionary = sim.known_civilizations.get(str(int(selected.slot)), {})
         if contact.is_empty(): hide(); return
         heading.text = contact.name
-        status.text = "Discovered civilization"
-        details.text = "%d people at last observation. Select an army you own to attack or raid this civilization." % int(contact.population)
+        status.text = "Currently in sight" if sim.has_live_sight(selected.point) else "Last observed %.1f days ago" % maxf(0.0, sim.day - float(contact.last_seen))
+        details.text = "%d people at last observation. Trade resources, send scouts for a fresh observation, or choose an army to attack or raid." % int(contact.population)
         armies_action.text = "Choose army · Attack / Raid"
         armies_action.show()
         return
@@ -187,6 +200,7 @@ func refresh() -> void:
             if "Waterworks" in sim.technologies and sim.completed("Well") > 0:
                 details.text += "\nWell irrigation improves growth by another 25%."
         else:
+            progress.hide()
             details.text = benefit(kind)
         return
     if selected.has("camp_id"):
@@ -202,6 +216,8 @@ func refresh() -> void:
         if queued:
             progress.show()
             progress.value = float(sim.camp_dismantling[id]) * 100
+        else:
+            progress.hide()
     status.text = "Starting camp"
     match kind:
         "Starting tent":
@@ -246,6 +262,8 @@ func refresh_scouts() -> void:
             mission = candidate
             break
     if mission.is_empty():
+        progress.hide()
+        scout_route.hide()
         status.text = "Expedition ended"
         details.text = "This scouting party is no longer away. Its settlers are available for work again."
         return
@@ -282,21 +300,25 @@ func refresh_army() -> void:
     if selected.get("own", false):
         var army := preload("res://scripts/warfare.gd").find_army(sim, int(selected.get("army", -1)))
         if army.is_empty():
+            armies_action.hide()
+            field_actions.hide()
             status.text = "Army no longer available"
             details.text = "This group has disbanded or lost its remaining soldiers."
             return
         heading.text = preload("res://scripts/warfare.gd").army_name(army)
         armies_action.show()
         armies_action.text = "Army orders · New destination / battle plan"
-        field_actions.visible = army.status in ["Marching", "Returning", "Holding", "Fighting"]
+        field_actions.visible = army.status in ["Marching", "Returning", "Holding", "Fighting", "Raiding"]
         status.text = "Your army · " + str(army.status)
         details.text = "%d %s\nMorale · %.0f / 100\nExperience · %.0f%%\nTraining · %.0f%%\nCarried food · %.1f\n\nFormation · %s\nTactics · %s\nRetreat below · %.0f morale\nCommander discretion · %s" % [army.soldiers.size(), army.unit, army.morale, army.experience * 100, minf(100, army.training / preload("res://scripts/warfare.gd").UNITS[army.unit].days * 100), army.supplies, army.formation, army.tactic, army.retreat, "Enabled" if army.autonomy else "Disabled"]
+        var messenger_pending := false
         for campaign in world.session.visible_campaigns:
             if campaign.own and int(campaign.army) == int(army.id):
                 var messages: Array = campaign.get("messengers", [])
-                for button in field_actions.get_children(): button.disabled = not messages.is_empty()
+                messenger_pending = messenger_pending or not messages.is_empty()
                 if not messages.is_empty(): details.text += "\nMessenger en route: " + str(messages[0].order) + ". Current orders continue until arrival."
                 details.text += "\n\nExpedition · %s → %s\nBattle rounds · %d" % [campaign.attacker, campaign.defender, campaign.rounds]
+        for button in field_actions.get_children(): button.disabled = messenger_pending or world.session.connecting
         details.text += "\n\nUse Army orders for a new destination or battle plan. Orders to field armies travel by messenger."
         return
     var report: Dictionary = {}

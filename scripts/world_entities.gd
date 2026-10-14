@@ -9,14 +9,19 @@ var hovered_settlement := ""
 var couriers: Dictionary = {}
 var campaign_math = Warfare.new()
 var animation_clock := 0.0
+var battle_visuals: Node3D
 
 func setup(scene: Node3D) -> void:
     world = scene
+    battle_visuals = preload("res://scripts/battle_visuals.gd").new()
+    world.add_child(battle_visuals)
+    battle_visuals.setup(world)
 
 func invalidate() -> void:
     for child in get_children():
         remove_child(child)
         child.queue_free()
+    battle_visuals.clear()
     settlements.clear()
     forces.clear()
     couriers.clear()
@@ -79,7 +84,7 @@ func refresh_settlements() -> void:
 func refresh_forces() -> void:
     var visible: Dictionary = {}
     var origin := Vector2(world.sim.world_origin[0], world.sim.world_origin[1])
-    for report in world.sim.known_armies.values(): visible[str(int(report.id))] = report.duplicate(true)
+    for report in world.sim.known_armies.values(): visible[str(int(report.id))] = Warfare.public_enemy_report(report)
     for campaign in world.session.visible_campaigns:
         var info: Dictionary = campaign.duplicate(true)
         var point: Vector2 = campaign_math.campaign_point(info) - origin if info.own else Vector2(info.point[0], info.point[1])
@@ -101,7 +106,7 @@ func refresh_forces() -> void:
             for i in range(mini(12, int(info.count))):
                 var figure: Dictionary = world.citizens.make_person(i)
                 figure.node.reparent(root)
-                figure.job = info.unit
+                figure.job = "Militia" if info.unit == "Unknown" else info.unit
                 world.citizens.equip(figure)
                 figure.tool.show()
                 figure.node.position = formation_position(i, mini(12, int(info.count)), info.get("formation", "Line"))
@@ -116,6 +121,9 @@ func refresh_forces() -> void:
         var name_text: String = "%s · %d %s" % [info.get("name", info.commander), info.count, info.unit] if info.own or info.get("intel_scouted", false) else "Enemy army · troops unknown"
         if not info.own and info.get("intel_scouted", false): name_text += " · scouted day %.1f" % info.last_scouted
         forces[key].label.text = name_text + "\n" + (str(info.phase) if live else "seen %.1f days ago" % maxf(0.0, world.session.world_day - float(info.last_seen)))
+        if info.phase == "Raiding" and not info.get("scene", {}).is_empty():
+            var loot: Dictionary = info.scene.loot
+            forces[key].label.text += " · loading stores\nFood %.1f · Wood %.1f · Stone %.1f" % [loot.get("food", 0), loot.get("wood", 0), loot.get("stone", 0)]
         forces[key].label.modulate = Color("e2c789") if info.own else Color("dca88d") if live else Color("8d9a8b")
         forces[key].info = info
         forces[key].live = live
@@ -142,23 +150,45 @@ func animate_forces(delta: float) -> void:
         var target: Vector3 = world.pos(info.point[0], info.point[1], 0.04)
         force.node.position = force.node.position.lerp(target, blend)
         force.node.rotation.y = lerp_angle(force.node.rotation.y, force.heading, blend)
+        if info.phase == "Fighting": force.node.rotation.y = PI * 0.5
         for figure in force.figures:
             var offset := formation_position(figure.index, force.figures.size(), info.get("formation", "Line"))
+            if info.phase == "Fighting":
+                offset = Vector3((figure.index % 6 - 2.5) * 0.65, 0, -0.75 - float(figure.index / 6) * 0.65 + sin(animation_clock * 2.4 + figure.index * 1.73) * 0.14)
+            var loading := false
+            if info.phase == "Raiding" and not info.get("scene", {}).is_empty():
+                var storage: Array = info.scene.storage
+                var source: Vector3 = world.pos(storage[0], storage[1], 0.04) + Vector3(2.3, 0, (figure.index % 3 - 1) * 0.65)
+                var cycle := fposmod(animation_clock / 4.0 + figure.index * 0.17, 1.0)
+                var fraction := cycle * 2.0 if cycle < 0.5 else (1.0 - cycle) * 2.0
+                offset = force.node.to_local(target.lerp(source, fraction))
+                loading = cycle >= 0.5
+                var facing := target - source if loading else source - target
+                figure.node.rotation.y = atan2(facing.x, facing.z) - force.node.rotation.y
+            else: figure.node.rotation.y = 0.0
             figure.node.position = figure.node.position.lerp(offset, blend)
             var actual: Vector3 = force.node.to_global(figure.node.position)
             figure.node.position.y = world.surface_height(actual.x, actual.z) + 0.04 - force.node.position.y
-            var mode := "Marching" if info.phase in ["Marching", "Returning", "Moving"] else "Fighting" if info.phase == "Fighting" else "Idle"
-            world.citizens.animate_soldier(figure, mode, animation_clock, delta)
+            var mode := "Marching" if info.phase in ["Marching", "Returning", "Moving", "Raiding"] else "Fighting" if info.phase == "Fighting" else "Idle"
+            world.citizens.animate_soldier(figure, mode, animation_clock, delta if world.running or world.session.active else 0.0)
+            if mode == "Fighting" and figure.job == "Archers" and (world.running or world.session.active):
+                battle_visuals.projectile(figure, target + Vector3(0.85, 1.0, figure.node.position.x))
+            var loot: Dictionary = info.get("cargo", info.get("scene", {}).get("loot", {}))
+            var laden: bool = float(loot.get("food", 0)) + float(loot.get("wood", 0)) + float(loot.get("stone", 0)) > 0
+            figure.cargo.visible = laden and (loading or info.phase in ["Returning", "Moving"])
+            if info.phase == "Raiding": figure.tool.hide()
 
 func _process(delta: float) -> void:
     if not is_instance_valid(world): return
-    if world.running: animation_clock += delta
+    if world.running or world.session.active: animation_clock += delta
     timer += delta
     if timer >= 0.25:
         timer = 0
         refresh_settlements()
         refresh_forces()
+        battle_visuals.refresh()
     animate_forces(delta)
+    battle_visuals.animate(delta)
     refresh_hover()
     refresh_couriers(delta)
 

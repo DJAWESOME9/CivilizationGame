@@ -223,7 +223,7 @@ func send_messenger(session, token: String, army_id: int, order: String, payload
     if order == "Plan" and (payload.size() != 4 or payload[0] not in TACTICS or payload[1] not in FORMATIONS or not payload[2] is bool or not payload[3] is int): return "Invalid battle plan."
     for campaign in campaigns:
         if campaign.attacker != token or int(campaign.army) != army_id: continue
-        if campaign.phase not in ["Marching", "Holding", "Returning", "Fighting"]: continue
+        if campaign.phase not in ["Marching", "Holding", "Returning", "Fighting", "Raiding"]: continue
         if not campaign.get("messengers", []).is_empty(): return "A messenger is already carrying orders to this army."
         var origin: Vector2 = SITES[int(session.civilizations[token].slot)]
         campaign.messengers = [{"point": [origin.x, origin.y], "order": order, "payload": payload.duplicate(true)}]
@@ -269,6 +269,9 @@ func deliver_message(session, campaign: Dictionary, message: Dictionary) -> void
         campaign.militia = []
         campaign.defender_start = 0
         campaign.militia_morale = 65.0
+        campaign.attacker_losses = 0
+        campaign.defender_losses = 0
+        campaign.militia_losses = 0
         army.status = "Marching"
     sim.announce("Messenger reached %s: %s orders delivered." % [army_name(army), message.order])
     revision += 1
@@ -318,6 +321,11 @@ func advance_step(session, days: float) -> void:
             while campaign.round_clock >= 1.0 and campaign.phase == "Fighting":
                 campaign.round_clock -= 1.0
                 resolve_round(session, campaign)
+        elif campaign.phase == "Raiding" and campaign.elapsed >= 1.0:
+            campaign.phase = "Returning"
+            campaign.elapsed = 0.0
+            army.status = "Returning"
+            revision += 1
         elif campaign.phase == "Returning" and campaign.elapsed >= campaign.get("return_days", campaign.travel):
             army.status = "Recovering" if army.morale < 60 else "Ready"
             for resource in army.cargo:
@@ -433,7 +441,10 @@ func resolve_round(session, campaign: Dictionary) -> void:
         remaining_losses -= killed
         group.morale = maxf(0, float(group.morale) - 5.0 - killed / maxf(1, defending_before) * 65)
         if group.morale <= maxf(float(group.retreat), 55.0 if defender.defense_order == "Preserve people" else 15.0): group.status = "Recovering"
-    if remaining_losses > 0: campaign.defender_losses += losses(defender, campaign.militia, remaining_losses)
+    if remaining_losses > 0:
+        var fallen := losses(defender, campaign.militia, remaining_losses)
+        campaign.defender_losses += fallen
+        campaign.militia_losses = int(campaign.get("militia_losses", 0)) + fallen
     campaign.militia_morale = maxf(0, float(campaign.militia_morale) - 10.0 - defend_losses / maxf(1, defending_before) * 60)
     army.morale = maxf(0, float(army.morale) - 5.0 - attack_losses / maxf(1, attacking_before) * 65)
     campaign.rounds += 1
@@ -469,7 +480,7 @@ func finish(session, campaign: Dictionary, won: bool, reason: String) -> void:
     var attacker = session.civilizations[campaign.attacker].sim
     var defender = session.civilizations[campaign.defender].sim
     var army := find_army(attacker, int(campaign.army))
-    if campaign.phase == "Returning": return
+    if campaign.phase in ["Returning", "Raiding"]: return
     if not won and campaign.rounds > 0:
         for group in groups_for(session, campaign): group.experience = minf(1.0, float(group.experience) + 0.10)
     release_defenders(session, campaign)
@@ -501,12 +512,15 @@ func finish(session, campaign: Dictionary, won: bool, reason: String) -> void:
     campaign.elapsed = 0.0
     campaign.result = report.outcome
     campaign.loot = loot
+    if won and float(loot.food) + float(loot.wood) + float(loot.stone) > 0:
+        campaign.phase = "Raiding"
+        army.status = "Raiding"
     revision += 1
 
 func campaign_point(campaign: Dictionary) -> Vector2:
     var start: Vector2 = SITES[int(campaign.from_slot)]
     var end: Vector2 = SITES[int(campaign.to_slot)]
-    if campaign.phase == "Fighting": return end + Vector2(-3, 0)
+    if campaign.phase in ["Fighting", "Raiding"]: return end + Vector2(-3, 0)
     if campaign.phase == "Holding": return Vector2(campaign.hold_point[0], campaign.hold_point[1])
     if campaign.phase == "Returning" and campaign.has("return_point"):
         return Vector2(campaign.return_point[0], campaign.return_point[1]).lerp(start, clampf(float(campaign.elapsed) / maxf(0.01, float(campaign.return_days)), 0, 1))
@@ -524,7 +538,7 @@ func campaign_view(session, campaign: Dictionary, token: String) -> Dictionary:
         var observed := public_enemy_report(simulation.known_armies.get(str(int(campaign.id)), {}))
         var previous_point: Array = observed.get("point", [point.x, point.y])
         var movement := point - Vector2(previous_point[0], previous_point[1])
-        observed.merge({"id": campaign.id, "own": false, "attacker": session.civilizations[campaign.attacker].name, "point": [point.x, point.y], "last_seen": session.world_day, "phase": "Fighting" if campaign.phase == "Fighting" else "Moving"}, true)
+        observed.merge({"id": campaign.id, "own": false, "attacker": session.civilizations[campaign.attacker].name, "point": [point.x, point.y], "last_seen": session.world_day, "phase": str(campaign.phase) if campaign.phase in ["Fighting", "Raiding"] else "Moving"}, true)
         if movement.length() > 0.001: observed.heading = atan2(movement.x, movement.y)
         var party_sight := false
         for mission in simulation.scout_missions:
@@ -532,8 +546,32 @@ func campaign_view(session, campaign: Dictionary, token: String) -> Dictionary:
         if simulation.scout_missions.is_empty() and not simulation.scout_mission.is_empty() and point.distance_to(simulation.scout_position()) <= 7: party_sight = true
         if party_sight:
             observed.merge({"intel_scouted": true, "last_scouted": session.world_day, "unit": army.get("unit", "Militia"), "count": army.get("soldiers", []).size(), "formation": army.get("formation", "Line"), "commander": army.get("commander", "")}, true)
+        observed["scene"] = battle_scene(session, campaign, token)
         return observed
-    return {"id": campaign.id, "army": campaign.army, "own": campaign.attacker == token, "attacker": session.civilizations[campaign.attacker].name, "defender": session.civilizations[campaign.defender].name, "from_slot": campaign.from_slot, "to_slot": campaign.to_slot, "phase": campaign.phase, "elapsed": campaign.elapsed, "travel": campaign.travel, "return_start": campaign.get("return_start", 1.0), "return_days": campaign.get("return_days", campaign.travel), "rounds": campaign.rounds, "count": army.get("soldiers", []).size(), "unit": army.get("unit", "Militia"), "formation": army.get("formation", "Line"), "commander": army.get("commander", ""), "morale": army.get("morale", 0), "result": campaign.result, "name": army_name(army) if not army.is_empty() else "Army", "mission": campaign.get("mission", "Raid"), "messengers": campaign.get("messengers", []), "route_start": campaign.get("route_start", [SITES[int(campaign.from_slot)].x, SITES[int(campaign.from_slot)].y]), "return_point": campaign.get("return_point", [SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).x, SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).y]), "hold_point": campaign.get("hold_point", [0, 0])}
+    var view: Dictionary = {"id": campaign.id, "army": campaign.army, "own": campaign.attacker == token, "attacker": session.civilizations[campaign.attacker].name, "defender": session.civilizations[campaign.defender].name, "from_slot": campaign.from_slot, "to_slot": campaign.to_slot, "phase": campaign.phase, "elapsed": campaign.elapsed, "travel": campaign.travel, "return_start": campaign.get("return_start", 1.0), "return_days": campaign.get("return_days", campaign.travel), "rounds": campaign.rounds, "count": army.get("soldiers", []).size(), "unit": army.get("unit", "Militia"), "formation": army.get("formation", "Line"), "commander": army.get("commander", ""), "morale": army.get("morale", 0), "result": campaign.result, "name": army_name(army) if not army.is_empty() else "Army", "mission": campaign.get("mission", "Raid"), "messengers": campaign.get("messengers", []), "route_start": campaign.get("route_start", [SITES[int(campaign.from_slot)].x, SITES[int(campaign.from_slot)].y]), "return_point": campaign.get("return_point", [SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).x, SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).y]), "hold_point": campaign.get("hold_point", [0, 0])}
+
+    view["cargo"] = army.get("cargo", {})
+    view["scene"] = battle_scene(session, campaign, token)
+    return view
+
+func battle_scene(session, campaign: Dictionary, token: String) -> Dictionary:
+    # Sent only with a currently visible campaign; never retained as enemy intelligence.
+    var defender = session.civilizations[campaign.defender].sim
+    var origin := Vector2(session.civilizations[token].sim.world_origin[0], session.civilizations[token].sim.world_origin[1])
+    if not session.civilizations[token].sim.has_live_sight(campaign_point(campaign) - origin): return {}
+    var fighters: Array = []
+    for group in groups_for(session, campaign):
+        for id in group.soldiers:
+            if fighters.size() < 16: fighters.append({"unit": group.unit, "villager": false})
+    for id in campaign.militia:
+        if fighters.size() < 16: fighters.append({"unit": "Militia", "villager": true})
+    var storage := Vector2(-6, 0) if defender.camp_object_present("cache") else Vector2(-4, 0)
+    for building in defender.buildings:
+        if building.kind == "Storehouse" and building.progress >= 1:
+            storage = Vector2(3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
+            break
+    var store_point := Vector2(defender.world_origin[0], defender.world_origin[1]) + storage - origin
+    return {"defenders": fighters, "attacker_losses": campaign.attacker_losses, "defender_losses": campaign.defender_losses, "militia_losses": campaign.get("militia_losses", 0), "storage": [store_point.x, store_point.y], "loot": campaign.get("loot", {}), "at_home": campaign.defender == token}
 
 static func public_enemy_report(report: Dictionary) -> Dictionary:
     # A whitelist also strips private fields from historical saved observations.

@@ -509,7 +509,7 @@ func offers_for(token: String) -> Array:
 func player_command(token: String, action: String, args: Array) -> String:
     if action == "army_plan" and args.size() == 5 and args[0] is int:
         var army := Warfare.find_army(civilizations[token].sim, args[0])
-        if army.get("status", "") in ["Marching", "Holding", "Returning", "Fighting"]:
+        if army.get("status", "") in ["Marching", "Holding", "Returning", "Fighting", "Raiding"]:
             var response := warfare.send_messenger(self, token, args[0], "Plan", args.slice(1))
             persist()
             return response
@@ -595,7 +595,7 @@ func update_world_intel() -> void:
             if not simulation.known_civilizations.has(key):
                 simulation.announce("Scouts discovered " + target_record.name + ". Contact and military targeting are now available.")
                 simulation.report_revision += 1
-            simulation.known_civilizations[key] = {"name": target_record.name, "slot": target_record.slot, "point": [point.x, point.y], "last_seen": world_day, "population": target_record.sim.population, "buildings": target_record.sim.buildings.duplicate(true)}
+            simulation.known_civilizations[key] = {"name": target_record.name, "slot": target_record.slot, "point": [point.x, point.y], "last_seen": world_day, "population": target_record.sim.population, "buildings": target_record.sim.buildings.duplicate(true), "inhabitants": visible_inhabitants(target_record.sim)}
         for campaign in warfare.campaigns:
             var point: Vector2 = warfare.campaign_point(campaign) - origin
             var key := str(int(campaign.id))
@@ -606,6 +606,7 @@ func update_world_intel() -> void:
             if not simulation.known_armies.has(key):
                 simulation.announce("Enemy army spotted near (%.0f, %.0f). Send scouts to identify its troops and commander." % [point.x, point.y])
                 simulation.report_revision += 1
+            observed.erase("scene")
             simulation.known_armies[key] = observed
         # A searched last-known position clears an enemy marker if the army has moved away.
         for key in simulation.known_armies.keys():
@@ -616,3 +617,27 @@ func update_world_intel() -> void:
             for campaign in warfare.campaigns:
                 if int(campaign.id) == int(key) and simulation.has_live_sight(warfare.campaign_point(campaign) - origin): present = true
             if not present: simulation.known_armies.erase(key)
+
+func visible_inhabitants(simulation) -> Array:
+    var result: Array = []
+    simulation.prepare_roster(simulation.effective_assignments())
+    var roles: Dictionary = {}
+    for job in simulation.JOBS:
+        for person in simulation.job_roster[job]: roles[int(person.id)] = job
+    for army in simulation.armies:
+        if army.status not in ["Ready", "Training", "Recovering"]: continue
+        for id in army.soldiers: roles[int(id)] = army.unit
+    var absent: Array = simulation.scouting_units() + simulation.emergency_defenders
+    for army in simulation.armies:
+        if army.status not in ["Ready", "Training", "Recovering"]: absent.append_array(army.soldiers)
+    # Show home troops even in large towns; representatives remain bounded.
+    for person in simulation.people:
+        if int(person.id) in absent or roles.get(int(person.id), "") not in ["Militia", "Spearmen", "Archers"]: continue
+        result.append({"id": int(person.id), "job": roles[int(person.id)], "age": float(person.age)})
+        if result.size() >= 24: break
+    var army_figures := result.size()
+    for person in simulation.people:
+        if int(person.id) in absent or roles.get(int(person.id), "") in ["Militia", "Spearmen", "Archers"]: continue
+        result.append({"id": int(person.id), "job": roles.get(int(person.id), "Resting"), "age": float(person.age)})
+        if result.size() >= army_figures + 48: break
+    return result

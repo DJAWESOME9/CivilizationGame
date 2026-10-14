@@ -21,7 +21,7 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 ## Download and open the game
 
-The latest public release is **0.2.17 / build 19**, adding new technologies, scouting boats, workshops, archives and bathhouses, and correcting field heights. Download the ZIP for your computer from
+The latest public release is **0.2.18 / build 20**, adding visible battles, resource raids and rival workers/troops, plus settlement trade/scout actions and a dismantle-button fix. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -89,9 +89,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.17 / build 19** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.17).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.17/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.17/Civilization-Windows.zip).
+Version **0.2.18 / build 20** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.18).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.18/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -210,6 +210,17 @@ adult size at birth to full size at age 16, following their simulated age. Their
 individual trips do not control deliveries; walking routes now detour around
 visible trees and building footprints.
 
+Visible battles now show opposing fighters, civilian militia, weapon strikes,
+archer projectiles and falls driven by actual battle casualties. Successful raids
+spend one game day loading at a storehouse or supply cache, show the stolen
+resource amounts, and carry sacks on return. Standing defense orders still decide
+whether villagers rally. These animations illustrate the existing daily combat
+rounds and shared resource totals.
+
+Currently observed rival settlements show civilian work routines and home troops
+(up to 48 civilians and 24 troop representatives per settlement). Outside live
+sight their last observed figures freeze; fresh activity requires seeing them again.
+
 Always-online servers, diplomacy, territorial conquest, detailed battlefield movement, disease/disasters, detailed logistics,
 device notifications and nested regional maps remain future work. Buildings still
 share prototype models. Trees use original generated cutouts; terrain/buildings,
@@ -323,7 +334,7 @@ continues if it was running. Original gentle instrumental music and woodland amb
 Buttons, building orders/completion, research, scouting, harvests, seasonal changes
 and urgent food/combat events have sound cues. Audio continues while game time is
 paused; set any slider to zero to mute that category. Event cues are limited during
-fast-forward. The current published version is 0.2.17 / build 19; see the release notes for its changes.
+fast-forward. The current published version is 0.2.18 / build 20; see the release notes for its changes.
 
 
 ## Multiplayer: direct hosting and joining
@@ -469,6 +480,9 @@ future system. Choose tactics, formations and retreat thresholds on the Armies
 page; changes to field armies travel by messenger.
 
 Hover a discovered civilization's map caption to highlight it; click it to open
+its settlement panel. **Trade · Barter** opens resource offers with that settlement
+selected. **Send 3 settlers** scouts its location again, showing the food cost and
+any workforce or transport restrictions. **Choose army · Attack / Raid** opens
 army selection with that destination selected. Choose a ready home army and
 **Attack** or **Raid**. Attack uses the existing aggregate battle system without
 plunder; successful raids take stores. Both require a shared world and carried
@@ -601,7 +615,7 @@ Published as Latest with a daily Food production rate beneath the Food stock in
 the top bar. Food's displayed daily rate now reflects net stock change after
 consumption, spoilage and overflow. See [release notes](distribution/RELEASE-NOTES.txt).
 
-## Release 0.2.17 / build 19
+## Release 0.2.18 / build 20
 
 Fixes the Build tab layout so nested building categories show their options, and improves river and tree visuals. Also includes the startup parsing correction and earlier improvements. See [release notes](distribution/RELEASE-NOTES.txt).
 

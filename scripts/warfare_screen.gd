@@ -258,7 +258,7 @@ func refresh() -> void:
         var index := target.get_item_index(previous)
         if index >= 0: target.select(index)
     var home: bool = not army.is_empty() and army.status in ["Ready", "Recovering"]
-    var field: bool = not army.is_empty() and army.status in ["Marching", "Holding", "Returning", "Fighting"]
+    var field: bool = not army.is_empty() and army.status in ["Marching", "Holding", "Returning", "Fighting", "Raiding"]
     var pending := false
     var campaign_lines := PackedStringArray()
     for campaign in world.session.visible_campaigns:

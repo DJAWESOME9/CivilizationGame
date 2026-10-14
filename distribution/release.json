@@ -1,6 +1,6 @@
 {
-  "version": "0.2.17",
-  "build": 19,
+  "version": "0.2.18",
+  "build": 20,
   "runtime": "godot-4.7.2-updater-1",
   "feed_url": "https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/update.json",
   "repository": "DJAWESOME9/CivilizationGame"

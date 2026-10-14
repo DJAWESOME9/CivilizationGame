@@ -1,9 +1,11 @@
-Civilization 0.2.16 / build 18 — Multiplayer setup fix
+Visible battles and living rival settlements
 
-Fixes the multiplayer capacity constant that failed compilation and prevented the World screen from finishing setup. Restores the 16-civilization heading, independent Easy/Medium/Hard AI count controls, and Host world action.
+- Opposing fighters, villager militia, archer projectiles and visible falls tied to actual battle casualties.
+- Successful raiders load stolen stores before returning with carried loot.
+- Currently observed rival settlements show civilian workers and home troops; activity freezes outside live sight.
+- Rival settlement inspection offers barter, scouting and army targeting.
+- Dismantle actions remain reliable during live panel refreshes.
 
-Replaces unsupported number formatting in research and Town Hall policy labels.
+Extract the Mac or Windows ZIP and open the game. Existing updater-enabled copies can download signed content and apply it after reopening. Multiplayer players need the same build.
 
-For a new AI mix, uncheck Resume saved multiplayer world and choose counts for each difficulty. Resuming retains saved opponents. Up to 15 AI plus the host; unused slots remain available for friends.
-
-Diagnosed from the actual game log and inspected source. Existing saves and identities untouched. No game launch or multiplayer runtime test performed.
+Both platform exports completed. Signed feed, pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer runtime tests performed.

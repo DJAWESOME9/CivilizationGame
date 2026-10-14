@@ -135,3 +135,8 @@ User screenshot shows literal %d in capacity heading, only Easy label, missing A
 Also corrected unsupported %g formatting in research costs and Town Hall influence/upkeep labels, matching repeated formatting errors in the log. Source/log inspection only; no launch, gameplay or multiplayer runtime test performed. Saves and identity unchanged.
 
 Published 0.2.16/build 18 as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.16. Mac/Windows exports, signed feed and six assets published; signature and local/remote package sizes/hashes verified. No runtime hosting or UI verification performed.
+
+
+## Published 0.2.18 / build 20 — 2026-10-14
+
+Visible battles/casualties, raid loading/carried loot, live-sight rival inhabitants and home troops, settlement barter/scouting actions and dismantle-button reliability. Release: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.18. Both platform exports completed; signed feed, pack sizes/hashes and ZIP checksums verified. No gameplay, live updater or multiplayer runtime tests performed.

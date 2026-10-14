@@ -538,7 +538,7 @@ func elders() -> int:
 func food_need() -> float:
     var deployed := 0
     for army in armies:
-        if army.status in ["Marching", "Fighting", "Returning", "Holding"]: deployed += army.soldiers.size()
+        if army.status in ["Marching", "Fighting", "Returning", "Holding", "Raiding"]: deployed += army.soldiers.size()
     return maxf(0, population - children() * 0.5 - deployed - scouting_units().size()) / 90.0 * ration_level
 
 func happiness_influences() -> Array:
