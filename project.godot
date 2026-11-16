@@ -2,6 +2,7 @@ config_version=5
 
 [application]
 config/name="Civilization — First Settlement"
+config/icon="res://assets/branding/first-settlement.png"
 run/main_scene="res://bootstrap.tscn"
 
 [display]

@@ -10,17 +10,25 @@ void vertex() {
     world_uv = (VERTEX.xz + vec2(96.0)) / 192.0;
     VERTEX.y = max(VERTEX.y, -0.12) + 0.06;
 }
+vec2 visibility_at(vec2 sample_uv) {
+    // The landscape extends beyond the saved exploration grid. Keep that apron
+    // unknown instead of repeating an explored edge texel across the distance.
+    if (any(lessThan(sample_uv, vec2(0.0))) || any(greaterThan(sample_uv, vec2(1.0)))) {
+        return vec2(0.0);
+    }
+    return texture(visibility_map, sample_uv).rg;
+}
 vec2 softened_visibility(vec2 sample_uv) {
     vec2 step_uv = vec2(edge_softness / 192.0);
-    vec2 sight = texture(visibility_map, sample_uv).rg * 4.0;
-    sight += texture(visibility_map, sample_uv + vec2(step_uv.x, 0.0)).rg * 2.0;
-    sight += texture(visibility_map, sample_uv - vec2(step_uv.x, 0.0)).rg * 2.0;
-    sight += texture(visibility_map, sample_uv + vec2(0.0, step_uv.y)).rg * 2.0;
-    sight += texture(visibility_map, sample_uv - vec2(0.0, step_uv.y)).rg * 2.0;
-    sight += texture(visibility_map, sample_uv + step_uv).rg;
-    sight += texture(visibility_map, sample_uv - step_uv).rg;
-    sight += texture(visibility_map, sample_uv + vec2(step_uv.x, -step_uv.y)).rg;
-    sight += texture(visibility_map, sample_uv + vec2(-step_uv.x, step_uv.y)).rg;
+    vec2 sight = visibility_at(sample_uv) * 4.0;
+    sight += visibility_at(sample_uv + vec2(step_uv.x, 0.0)) * 2.0;
+    sight += visibility_at(sample_uv - vec2(step_uv.x, 0.0)) * 2.0;
+    sight += visibility_at(sample_uv + vec2(0.0, step_uv.y)) * 2.0;
+    sight += visibility_at(sample_uv - vec2(0.0, step_uv.y)) * 2.0;
+    sight += visibility_at(sample_uv + step_uv);
+    sight += visibility_at(sample_uv - step_uv);
+    sight += visibility_at(sample_uv + vec2(step_uv.x, -step_uv.y));
+    sight += visibility_at(sample_uv + vec2(-step_uv.x, step_uv.y));
     return smoothstep(vec2(0.02), vec2(0.98), sight / 16.0);
 }
 void fragment() {

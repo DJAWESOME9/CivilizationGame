@@ -1,5 +1,7 @@
 # Civilization: First Settlement
 
+![First Settlement illustrated thumbnail](assets/branding/first-settlement.png)
+
 Build an ancient settlement from its first tents into a growing civilization.
 Gather food, manage a changing population, research technologies, build homes
 and farms, explore the surrounding land, and keep your people healthy through
@@ -128,8 +130,12 @@ release; editing the project alone does not publish an update.
 A fresh settlement has 30 adults, temporary shelter, a supply cache, and one
 season's food before spoilage. **Gathering is the only initial production job;
 Scouting is already unlocked.** Returning exploration and trade scouts resume their previous jobs where current workforce priorities allow.
-Choose **New settlement** to restart an existing save with these rules; the game
-asks before replacing your local progress.
+At startup, **Your worlds** shows saved solo/hosted worlds and worlds you joined.
+Create a named solo world, create a multiplayer world with an AI mix, or rejoin a host.
+Each new world gets its own slot; existing saves remain available. **Worlds / save slots**
+opens the menu again. Cards show player/AI counts, year/day, your civilization, last
+saved time and multiplayer invitation. Creators can rename their saved worlds.
+Joined-world cards show the last received date; the host must be online to rejoin.
 
 1. Open the technology tree. Toolmaking opens paths to fishing, woodcutting,
    stoneworking, and shelter building. Other foundations include basketry and planting.
@@ -147,6 +153,8 @@ asks before replacing your local progress.
    progress. Esc returns to the map.
    Learned technologies have green checkmarked badges; the queued technology has
    a blue arrow badge. The tree header shows the queue and total learned count.
+   The tree shows learned technologies and one step beyond them: technologies whose
+   research prerequisites are all learned. Later cards and connections stay hidden.
    The tree groups subjects into rows and prerequisite stages into columns. Select
    a card to brighten its prerequisite chain (gold arrows) and all onward unlock
    paths (blue arrows). Other arrows remain faintly visible; all required
@@ -184,6 +192,10 @@ H toggles hexes; R resets the camera; Tab collapses/restores all settlement pane
 Command tab contents and building-category lists scroll vertically when their
 contents exceed the panel; the tab headers stay visible.
 Each panel header has its own collapse/restore button. Panel choices persist locally.
+The interface uses evergreen panels, brass accents, opening fades, subtle panel
+scale-ins, tab transitions and button hover easing. Settings → **Reduce interface
+animation** disables opening/tab/hover motion and saves your preference locally.
+Your worlds uses the illustrated settlement cover behind its cards.
 Left- or right-drag moves the map; a click places a building or inspects land.
 Click a building, field, construction site, tent, supply cache, cart, campfire,
 tree, stone deposit, or riverbank object to open its details. Building benefits, construction
@@ -205,14 +217,17 @@ cargo uses ● food, ≋ wood and ◆ stone. Nearby badges shift horizontally to
 overlap. Click a badge for full army details. Hold (Ⅱ) and Return (↩) buttons
 explain their messenger orders on hover.
 Enemy map badges appear only in current sight. Inside your home influence
-(the current 21-unit home sight radius), troop count/type, formation, commander
+(the population-based home sight radius), troop count/type, formation, commander
 and mission are revealed. Scouts farther away identify troops without revealing
 their mission. Scout details retain their observation
 date and may become outdated. Enemy morale, supplies, experience, destinations
 and private orders stay hidden. Unseen armies retain only their dated sightings.
 Esc closes management screens/cancels placement.
 Close the window to save and exit. Autosave runs every 15 seconds; the local file
-is `settlement.json` in Godot's application user-data directory. Existing version-1
+uses separate files under `worlds/` in Godot's application user-data directory
+(`guest_worlds/` for the guest profile). Original `settlement.json` and
+`multiplayer_world.json` saves remain selectable; joined-world invitations are
+remembered separately and do not contain a playable offline copy of the host world. Existing version-1
 saves are retained; legacy assignments to newly locked jobs are cleared.
 
 ## Prototype limits
@@ -295,6 +310,14 @@ the camp area and return point at its boundary. Estimates
 update while the panel is open and use the current seasonal speed; a season change
 can alter them. Close or Esc returns to the map.
 
+Terrain and the river extend beyond the playable region so zooming out or panning
+near its edges keeps the map view filled with unexplored landscape.
+
+Home influence starts at a 21-unit radius for up to 30 people and grows by one
+map unit per 20 additional residents, up to a 30-unit radius. It follows current
+population; land revealed before a population decline remains explored. This
+extends home sight, enemy identification and visiting-scout interception.
+
 The home region remains visible. Scouts reveal their route; surveyed land stays
 known but fades when outside current sight. Returned reports can identify distant
 woodland, stone ridges and fertile ground. These are potential expansion sites;
@@ -330,7 +353,8 @@ indicators visible. Full-screen management views retain their own headings.
 The main map's collapsible Command panel groups actions into Overview, Build,
 People, Explore, and Armies tabs. Overview shows settlement status and the
 first-steps guide. Build contains Housing, Resources, Services, and Military
-building categories. People shows child, adult and elder counts, worker assignments, and a shortcut to
+building categories. Buildings appear only after their required technologies are learned;
+material and facility requirements can still disable a revealed building. People shows child, adult and elder counts, worker assignments, and a shortcut to
 population priorities. Explore contains scouting controls. Armies lists your formed
 armies with troop composition, status, and home-defense assignment. Click an army
 to manage that specific force: assign defense, choose expedition orders, or use
@@ -808,3 +832,55 @@ trade scouts, removes their actual settlers, damages relations, and seizes cargo
 within town storage. Trade-offer seizure also requires a ready formed army.
 Hostile AI civilizations can use their home armies against your visiting scouts.
 Scout attacks currently resolve immediately; they do not use the tactical battle scene.
+
+
+## Resource outposts, roads and supply routes (local source)
+
+Open **Command → Explore → Outposts & supply routes**. Locate a potential site,
+then send ordinary scouts to survey both the site and the land corridor from town.
+The initial sites are Northern stone ridge (stone), Western woodland (wood), and
+River meadow (food). Founding requires Shelter Building, Storage, the matching
+production job technology, four available adults, 20 wood, 5 stone and 16 food.
+
+Three settlers establish and work the camp; the fourth is its dedicated carrier.
+They leave the home workforce and cannot simultaneously scout, train or enlist.
+The party travels to the site and spends six supplied days building the camp.
+Each outpost holds up to 48 output and has separate food provisions. Stone and
+wood use finite remote reserves; meadow production stops in winter. Stored food
+spoils. These remote reserves are additional to the existing town deposits.
+
+Carriers automatically bring food from town and return with output. A trail carries
+8 output per trip at 1.5 map units per day, adjusted for seasonal travel. **Build
+road** reserves the displayed distance-based materials and diverts the three
+settlers into road work. A completed road doubles carrying capacity to 16 and
+speed to 3 map units per day. Roads appear progressively on the map.
+
+Route panels show provisions, output, remaining reserve, cargo, arrival time and
+cumulative deliveries. **Pause supply route** stops new trips; the current trip
+finishes. Full town storage holds the carrier's remaining cargo until there is room.
+Production pauses when the local store is full or provisions run out. After three
+hungry days, or when the crew loses a working-age member, the outpost recalls.
+**Recall crew** gathers the carrier and brings the surviving settlers home, restoring
+previous civilian duties where workforce rules allow. Remaining camp output is
+abandoned beyond the party's 16-unit return load; homecoming overflow is lost.
+Road progress and depleted reserves persist, so re-founding cannot reset deposits.
+
+Outposts, roads, cargo and travel progress are saved with each world and included
+in host-authoritative multiplayer snapshots. Multiplayer founding rejects sites
+next to another civilization's town or active outpost. This first version has three
+fixed sites per civilization, one carrier per route and direct land corridors; it
+does not add bridges, free-form road placement, escorts/interception, rival-outpost
+rendering, or deliveries between ordinary town buildings. Construction materials
+are reserved upfront, and the party's food is budgeted together while its carrier
+travels. Shortages trigger recall rather than a separate remote starvation system.
+
+User-authorized verification: 55 focused Godot checks passed, including JSON and
+disk save/load, deliveries, roads, recalls, overflow, retirement, winter farming,
+and host command rejection. Native macOS bootstrap and outpost scene rendered
+without script errors after correcting four citizen/world-picker type errors.
+Native shutdown reports four ObjectDB leaks and one resource still in use; the
+headless run reports the known macOS certificate lookup diagnostic. Cross-machine
+multiplayer, long-term balance and live updater installation remain unverified.
+Not packaged or published. Checks are in `tests/outposts_smoke.gd` and the native
+render fixture in `tests/outposts_scene_smoke.gd`; native checks were run from a
+temporary project with the separate Civilization Outpost Checks profile.

@@ -187,8 +187,22 @@ func _input(event: InputEvent) -> void:
                 tree_scroll.scroll_vertical += amount
             get_viewport().set_input_as_handled()
 
+func technology_visible(tech: String) -> bool:
+    if tech in world.sim.technologies: return true
+    for prerequisite in world.sim.PREREQUISITES[tech]:
+        if prerequisite not in world.sim.technologies: return false
+    return true
+
 func refresh() -> void:
     var sim = world.sim
+    for tech in cards:
+        cards[tech].visible = technology_visible(tech)
+    if not cards[selected].visible:
+        selected = "Toolmaking"
+        for tech in cards:
+            if cards[tech].visible and tech not in sim.technologies:
+                selected = tech
+                break
     var current: String = sim.research if not sim.research.is_empty() else "None selected"
     var current_cost: float = sim.TECHNOLOGIES.get(sim.research, 1.0)
     var rate_per_day: float = sim.research_points_per_day()
@@ -283,10 +297,10 @@ func add_connection_path(points: PackedVector2Array, source: String, targets: Ar
     connection_nodes[connection_nodes.size()] = {"from": source, "targets": targets, "line": line, "arrow": tip}
 
 func refresh_connections() -> void:
-    # Keep the whole tree visible, emphasizing the selected prerequisite/future paths.
+    # Connect only revealed technologies, emphasizing selected prerequisite/future paths.
     # Long routes stay in the empty row gutters instead of crossing intervening cards.
     var layout: Array = [selected]
-    for tech in cards: layout.append([tech, cards[tech].position, cards[tech].size])
+    for tech in cards: layout.append([tech, cards[tech].visible, cards[tech].position, cards[tech].size])
     var next_layout := str(layout)
     if next_layout == connection_layout: return
     connection_layout = next_layout
@@ -312,7 +326,9 @@ func refresh_connections() -> void:
                 pending.append(candidate)
     var source_routes: Dictionary = {}
     for tech in cards:
+        if not cards[tech].visible: continue
         for source in world.sim.PREREQUISITES[tech]:
+            if not cards[source].visible: continue
             var route_index: int = source_routes.get(source, 0)
             source_routes[source] = route_index + 1
             var parent: Button = cards[source]

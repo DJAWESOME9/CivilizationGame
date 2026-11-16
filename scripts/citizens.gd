@@ -10,6 +10,7 @@ var people: Array = []
 var clock := 0.0
 var skin: Array[Material] = []
 var clothes: Array[Material] = []
+var hair: Array[Material] = []
 var leather: Material
 var refresh_timer := 1.0
 var obstacles: Array[Dictionary] = []
@@ -82,6 +83,8 @@ func setup(scene: Node3D) -> void:
         skin.append(world.textured_material(color, 3.0))
     for color in [Color("8c7857"), Color("748779"), Color("a08b67"), Color("807a91"), Color("8a6551")]:
         clothes.append(world.textured_material(color, 3.0))
+    for color in [Color("302920"), Color("53402e"), Color("796044"), Color("b6aaa0")]:
+        hair.append(world.textured_material(color, 3.0))
     leather = world.textured_material(Color("504334"), 2.0)
     sync_people()
     update_people(0)
@@ -105,15 +108,34 @@ func make_person(index: int) -> Dictionary:
     root.add_child(body)
     var cloth: Material = clothes[index % clothes.size()]
     var face: Material = skin[index % skin.size()]
-    world.cylinder(body, Vector3(0, 0.79, 0), 0.20, 0.15, 0.51, cloth, 10)
-    world.cylinder(body, Vector3(0, 0.94, 0), 0.16, 0.16, 0.035, leather, 10)
-    world.sphere(body, Vector3(0, 1.25, 0), Vector3(0.13, 0.17, 0.13), face)
-    world.sphere(body, Vector3(0, 1.36, -0.025), Vector3(0.14, 0.09, 0.14), world.mats.dark)
-    world.sphere(body, Vector3(0, 1.24, 0.126), Vector3(0.035, 0.045, 0.035), face)
-    var left_arm := limb(body, Vector3(-0.20, 1.02, 0), 0.46, face)
-    var right_arm := limb(body, Vector3(0.20, 1.02, 0), 0.46, face)
-    var left_leg := limb(body, Vector3(-0.085, 0.57, 0), 0.50, cloth)
-    var right_leg := limb(body, Vector3(0.085, 0.57, 0), 0.50, cloth)
+    # Broad shoulders, a belted waist and a separate tunic hem give a human
+    # silhouette without adding expensive face detail at settlement distance.
+    var build := 0.94 + float(index % 5) * 0.03
+    var torso: MeshInstance3D = world.cylinder(body, Vector3(0, 0.86, 0), 0.145, 0.21, 0.32, cloth, 10)
+    torso.scale = Vector3(build, 1, 0.67)
+    var hem: MeshInstance3D = world.cylinder(body, Vector3(0, 0.64, 0), 0.215, 0.145, 0.19, cloth, 10)
+    hem.scale.z = 0.72
+    var belt: MeshInstance3D = world.cylinder(body, Vector3(0, 0.735, 0), 0.153, 0.153, 0.045, leather, 10)
+    belt.scale = Vector3(build, 1, 0.72)
+    world.box(body, Vector3(0.025, 0.735, 0.112), Vector3(0.05, 0.045, 0.018), world.mats.wood)
+    world.sphere(body, Vector3(0.16, 0.69, 0.015), Vector3(0.06, 0.08, 0.045), leather)
+    world.cylinder(body, Vector3(0, 1.055, 0), 0.055, 0.055, 0.10, face, 8)
+    world.sphere(body, Vector3(0, 1.205, 0), Vector3(0.105, 0.145, 0.105), face)
+    var hair_material: Material = hair[(index * 7 + int(index / 5)) % hair.size()]
+    world.sphere(body, Vector3(0, 1.30, -0.015), Vector3(0.112, 0.065, 0.11), hair_material)
+    world.sphere(body, Vector3(0, 1.235, -0.065), Vector3(0.108, 0.09, 0.055), hair_material)
+    if index % 3 == 0:
+        world.sphere(body, Vector3(0, 1.14, 0.065), Vector3(0.075, 0.06, 0.055), hair_material)
+    elif index % 3 == 1:
+        world.sphere(body, Vector3(0, 1.19, -0.115), Vector3(0.065, 0.08, 0.06), hair_material)
+    world.sphere(body, Vector3(0, 1.20, 0.105), Vector3(0.025, 0.032, 0.03), face)
+    var left_arm := limb(body, Vector3(-0.20, 1.0, 0), 0.46, face)
+    var right_arm := limb(body, Vector3(0.20, 1.0, 0), 0.46, face)
+    for arm in [left_arm, right_arm]:
+        world.sphere(arm, Vector3(0, -0.065, 0), Vector3(0.075, 0.115, 0.073), cloth)
+        world.sphere(arm.get_meta("joint"), Vector3(0, -0.22, 0), Vector3(0.048, 0.065, 0.04), face)
+    var left_leg := limb(body, Vector3(-0.085, 0.57, 0), 0.50, leather)
+    var right_leg := limb(body, Vector3(0.085, 0.57, 0), 0.50, leather)
     world.box(left_leg.get_meta("joint"), Vector3(0, -0.24, 0.04), Vector3(0.13, 0.10, 0.23), leather)
     world.box(right_leg.get_meta("joint"), Vector3(0, -0.24, 0.04), Vector3(0.13, 0.10, 0.23), leather)
     var tool := Node3D.new()
@@ -277,6 +299,7 @@ func update_people(_delta: float) -> void:
         # Reach adult size continuously, without a size jump at adulthood.
         var growth := clampf(float(world.sim.people[p.index].age) / FULL_SIZE_AGE, 0.0, 1.0)
         p.node.scale = Vector3.ONE * lerpf(NEWBORN_SCALE, 1.0, growth)
+        p.node.scale.y *= 0.96 + float(p.index % 5) * 0.02
         var deployed := false
         var person_id: int = world.sim.people[p.index].id
         for army in world.sim.armies:
@@ -286,6 +309,13 @@ func update_people(_delta: float) -> void:
         if not scout_party.is_empty() and scout_party.get("boat", false) and world.sim.point_on_river(world.sim.mission_position(scout_party)): deployed = true
         p.node.visible = not deployed
         if deployed: continue
+        if person_id in world.sim.Outposts.units(world.sim):
+            var remote_point: Vector2 = world.sim.Outposts.person_position(world.sim, person_id)
+            p.node.position = world.pos(remote_point.x, remote_point.y)
+            p.tool.visible = false
+            p.shield.visible = false
+            p.cargo.visible = true
+            continue
         var phase := fmod(clock / 24.0 + p.index * 0.137, 1.0)
         var home := Vector2(-8.0 + (p.index % 6) * 0.7, 1.4 + int(p.index / 6) * 0.75)
         var target := target_for(p)
@@ -336,15 +366,10 @@ func update_people(_delta: float) -> void:
                 var ahead := routed_point(target, home, minf(route_progress + 0.02, 1.0), -1.0 if p.index % 2 == 0 else 1.0)
                 facing = ahead - point
         p.node.position = world.pos(point.x, point.y, 0.04)
-        p.node.rotation.y = atan2(facing.x, facing.y)
+        if not facing.is_zero_approx():
+            p.node.rotation.y = lerp_angle(p.node.rotation.y, atan2(facing.x, facing.y), 1.0 - exp(-_delta * 9.0))
         if p.job not in ["Militia", "Spearmen", "Archers"] or resting_at_night:
-            var swing := sin(clock * 7.0 + p.index) * 0.48 if walking else 0.0
-            p.ll.rotation.x = swing
-            p.rl.rotation.x = -swing
-            p.la.rotation.x = -swing
-            p.ra.rotation.x = swing
-            p.body.position.y = absf(sin(clock * 7 + p.index)) * 0.035 if walking else 0.0
-            p.body.rotation.x = 0
+            animate_civilian(p, walking, working, _delta)
         if resting_at_night:
             p.body.position.y = -0.25
             p.ll.rotation.x = -0.8
@@ -355,17 +380,44 @@ func update_people(_delta: float) -> void:
         p.cargo.visible = active and phase >= 0.72 and phase < 0.94 and p.job in ["Logging", "Gathering", "Quarrying", "Farming"]
         if p.job in ["Militia", "Spearmen", "Archers"] and not resting_at_night:
             animate_soldier(p, "Marching" if walking else "Training" if working else "Idle", clock, _delta)
-        elif working:
-            if p.job == "Fishing":
-                p.ra.rotation.x = -0.9 + sin(clock * 1.5 + p.index) * 0.07
-                p.la.rotation.x = -0.5
-            elif p.job == "Gathering":
-                p.body.rotation.x = 0.42
-                p.ra.rotation.x = -0.65 + sin(clock * 3 + p.index) * 0.2
-            else:
-                p.ra.rotation.x = -1.0 + sin(clock * 4 + p.index) * 0.8
-                p.la.rotation.x = -0.45
-                p.body.rotation.x = 0.1 + sin(clock * 4 + p.index) * 0.08
+
+
+func animate_civilian(p: Dictionary, walking: bool, working: bool, delta: float) -> void:
+    var phase: float = clock * 6.0 + p.index * 1.73
+    var stride := sin(phase) * 0.36 if walking else 0.0
+    var lean := 0.035 if walking else 0.0
+    var right := stride * 0.65 - 0.08
+    var left := -stride * 0.65 - 0.08
+    var elbow := -0.15
+    if working:
+        var effort := sin(clock * 3.2 + p.index * 1.73)
+        match p.job:
+            "Fishing":
+                right = -0.85 + effort * 0.04
+                left = -0.5
+                elbow = -0.35
+            "Gathering", "Farming":
+                lean = 0.35 + effort * 0.1
+                right = -0.7 + effort * 0.25
+                left = -0.3
+                elbow = -0.4
+            _:
+                right = -0.9 + effort * 0.65
+                left = -0.4 + effort * 0.12
+                lean = 0.12 + effort * 0.07
+                elbow = -0.35 - maxf(0, effort) * 0.45
+    var blend := 1.0 - exp(-delta * 12.0)
+    p.la.rotation = p.la.rotation.lerp(Vector3(left, 0, -0.06), blend)
+    p.ra.rotation = p.ra.rotation.lerp(Vector3(right, 0, 0.06), blend)
+    p.ll.rotation = p.ll.rotation.lerp(Vector3(stride, 0, 0), blend)
+    p.rl.rotation = p.rl.rotation.lerp(Vector3(-stride, 0, 0), blend)
+    p.la.get_meta("joint").rotation.x = lerpf(p.la.get_meta("joint").rotation.x, -0.18, blend)
+    p.ra.get_meta("joint").rotation.x = lerpf(p.ra.get_meta("joint").rotation.x, elbow, blend)
+    p.ll.get_meta("joint").rotation.x = lerpf(p.ll.get_meta("joint").rotation.x, maxf(0, sin(phase)) * 0.55 if walking else 0.0, blend)
+    p.rl.get_meta("joint").rotation.x = lerpf(p.rl.get_meta("joint").rotation.x, maxf(0, -sin(phase)) * 0.55 if walking else 0.0, blend)
+    p.body.rotation = p.body.rotation.lerp(Vector3(lean, sin(phase) * 0.02 if walking else 0.0, 0), blend)
+    var rise := absf(sin(phase)) * 0.018 if walking else sin(clock * 1.5 + p.index) * 0.006
+    p.body.position.y = lerpf(p.body.position.y, rise, blend)
 
 
 func animate_soldier(p: Dictionary, mode: String, time: float, delta: float) -> void:

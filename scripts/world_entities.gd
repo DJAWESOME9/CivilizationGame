@@ -60,7 +60,7 @@ func refresh_settlements() -> void:
                 var location := point + Vector2(3.0 * building.q, sqrt(3.0) * 2 * (building.r + building.q * 0.5))
                 if building.progress >= 1 and building.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall", "Pottery Workshop", "Archive"]:
                     var home: Node3D
-                    if building.kind in ["House", "Barracks", "Town Hall"]:
+                    if building.kind in ["House", "Storehouse", "Barracks", "Town Hall"]:
                         home = world.early_building(location.x, location.y, building.kind)
                     else:
                         home = world.house(location.x, location.y, 0.15, 0.85)

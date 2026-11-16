@@ -5,6 +5,7 @@ var fog: ShaderMaterial
 var objects: Array = []
 var timer := 0.0
 var seen_revision := -1
+var seen_home_radius := -1.0
 var last_party := Vector2(INF, INF)
 var marker := Node3D.new()
 var nodes: Dictionary = {}
@@ -51,7 +52,7 @@ func _process(delta: float) -> void:
     if timer < 0.25: return
     timer = 0
     var party: Vector2 = world.sim.scout_position()
-    if seen_revision != world.sim.exploration_revision or party.distance_to(last_party) > 0.4 or not world.sim.scout_missions.is_empty():
+    if not is_equal_approx(seen_home_radius, world.sim.home_influence_radius()) or seen_revision != world.sim.exploration_revision or party.distance_to(last_party) > 0.4 or not world.sim.scout_missions.is_empty() or not world.sim.outposts.is_empty():
         redraw()
     refresh_scout_boats()
 
@@ -60,6 +61,7 @@ func redraw() -> void:
     var sim = world.sim
     var party: Vector2 = sim.scout_position()
     seen_revision = sim.exploration_revision
+    seen_home_radius = sim.home_influence_radius()
     last_party = party
     var mask := Image.create(64, 64, false, Image.FORMAT_RGBA8)
     for x in range(64):

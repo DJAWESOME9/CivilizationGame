@@ -1,5 +1,9 @@
 extends RefCounted
 
+const Outposts = preload("res://scripts/outposts.gd")
+var outposts: Array = []
+var outpost_sites: Dictionary = {}
+
 const Warfare = preload("res://scripts/warfare.gd")
 
 # Saved mission travel/progress retain their original units. Only movement
@@ -65,6 +69,7 @@ const TECHNOLOGIES = {
     "Planting": 60.0, "Preservation": 120.0, "Forestry": 80.0, "Crop Rotation": 160.0,
     "Stoneworking": 80.0, "Carpentry": 120.0, "Masonry": 160.0, "Sanitation": 160.0, "Waterworks": 200.0
 }
+const BUILDING_TECH = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Military Organization", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization", "Pottery Workshop": "Pottery", "Boatyard": "Boatbuilding", "Archive": "Writing", "Carpenter Workshop": "Joinery", "Bathhouse": "Waterworks"}
 const JOB_TECH = {"Gathering": "", "Fishing": "Fishing", "Logging": "Woodcutting", "Quarrying": "Stoneworking", "Construction": "Shelter Building", "Farming": "Planting"}
 const PREREQUISITES = {
     "Arrow Slits": ["Masonry", "Archery"],
@@ -136,6 +141,7 @@ var events: Array = ["Your 30 settlers have arrived. Establish a reliable food s
 var emergency_food: bool = true
 var days_per_real_day: float = 90
 var revision: int = 0
+var world_name := "My world"
 var save_path := "user://settlement.json"
 var has_seen_intro := false
 
@@ -177,9 +183,9 @@ var report_revision := 0
 var food_ledger: Dictionary = {"production": 0.0, "consumption": 0.0, "spoilage": 0.0, "overflow": 0.0}
 var material_production: Dictionary = {"wood": 0.0, "stone": 0.0}
 const LANDMARKS = [
-    {"name": "Northern stone ridge", "point": [-29.0, -22.0], "description": "Exposed stone deposits; potential future quarry site."},
-    {"name": "Western woodland", "point": [-27.0, 19.0], "description": "Dense timber stands; potential future logging ground."},
-    {"name": "River meadow", "point": [1.0, 26.0], "description": "Fertile riverside ground; potential future farming site."}
+    {"name": "Northern stone ridge", "point": [-29.0, -22.0], "description": "Exposed stone deposits; A remote quarry outpost can extract stone here."},
+    {"name": "Western woodland", "point": [-27.0, 19.0], "description": "Dense timber stands; A woodland outpost can harvest timber here."},
+    {"name": "River meadow", "point": [1.0, 26.0], "description": "Fertile riverside ground; A farming outpost can grow food here."}
 ]
 
 func cell_key(point: Vector2) -> String:
@@ -260,7 +266,7 @@ func reveal_land(point: Vector2, radius: float) -> void:
 
 func workforce_capacity() -> int:
     var count := 0
-    var unavailable: Array = scouting_units() + military_ids()
+    var unavailable: Array = scouting_units() + military_ids() + Outposts.units(self)
     for person in people:
         if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and int(person.id) not in unavailable: count += 1
     return count
@@ -397,7 +403,7 @@ func scouting_block(destination: Vector2) -> String:
     if adults() < 3: return "Three working-age settlers are needed."
     var units: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units() and int(person.id) not in Outposts.units(self):
             units.append(int(person.id))
             if units.size() == 3: break
     if units.size() < 3: return "Three adults outside training are needed."
@@ -408,13 +414,23 @@ func send_scouts(destination: Vector2) -> String:
     if not blocked.is_empty(): return blocked
     var units: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and int(person.id) not in military_ids() and int(person.id) not in scouting_units() and int(person.id) not in Outposts.units(self):
             units.append(int(person.id))
             if units.size() == 3: break
+    # Capture ordinary duties before removing these adults from the workforce.
+    prepare_roster(assignments)
+    var previous_jobs: Dictionary = {}
+    for person in people:
+        if int(person.id) in units: person.erase("scout_return_job")
+    for job in JOBS:
+        for person in job_roster.get(job, []):
+            if int(person.id) in units:
+                previous_jobs[str(int(person.id))] = job
+                assignments[job] = maxi(0, int(assignments[job]) - 1)
     var cost := scout_food_cost(destination)
     resources.food -= cost
     var origin := Vector2(-4, 0) + (destination - Vector2(-4, 0)).normalized() * CAMP_RADIUS
-    var mission := {"units": units, "origin": [origin.x, origin.y], "destination": [destination.x, destination.y], "started": day, "progress": 0.0, "travel": maxf(0.001, destination.distance_to(origin) / 2), "food": cost, "survey_days": -1.0, "surveyed": false, "boat": scout_needs_boat(destination), "travel_rate": SCOUT_TRAVEL_RATE * (1.5 if scout_needs_boat(destination) and "River Navigation" in technologies else 1.0)}
+    var mission := {"previous_jobs": previous_jobs, "units": units, "origin": [origin.x, origin.y], "destination": [destination.x, destination.y], "started": day, "progress": 0.0, "travel": maxf(0.001, destination.distance_to(origin) / 2), "food": cost, "survey_days": -1.0, "surveyed": false, "boat": scout_needs_boat(destination), "travel_rate": SCOUT_TRAVEL_RATE * (1.5 if scout_needs_boat(destination) and "River Navigation" in technologies else 1.0)}
     scout_missions.append(mission)
     scout_mission = scout_missions[0]
     clamp_assignments()
@@ -431,7 +447,7 @@ func scout_food_cost(destination: Vector2) -> int:
     return maxi(1, ceili(expected_days / 30.0 * ration_level))
 
 func update_exploration(dt: float = 0.0) -> void:
-    reveal_land(Vector2(-4, 0), 21)
+    reveal_land(Vector2(-4, 0), home_influence_radius())
     for sight in army_sights: reveal_land(Vector2(sight[0], sight[1]), 5)
     if scout_missions.is_empty() and not scout_mission.is_empty(): scout_missions.append(scout_mission)
     if scout_missions.is_empty(): return
@@ -489,15 +505,28 @@ func update_exploration(dt: float = 0.0) -> void:
     for mission in returned: scout_missions.erase(mission)
     scout_mission = scout_missions[0] if not scout_missions.is_empty() else {}
     if not returned.is_empty():
+        for mission in returned:
+            var previous_jobs: Dictionary = mission.get("previous_jobs", {})
+            for person in people:
+                if int(person.id) not in mission.get("units", []): continue
+                var job := str(previous_jobs.get(str(int(person.id)), ""))
+                if job not in JOBS or not job_unlocked(job): continue
+                if person.age < 16 or person.age >= 65 or on_birth_leave(person) or int(person.id) in military_ids(): continue
+                person.scout_return_job = job
+                if not automatic_workforce and workers_used() < workforce_capacity():
+                    assignments[job] = int(assignments[job]) + 1
+        if automatic_workforce: apply_targets()
+        clamp_assignments()
+        prepare_roster(effective_assignments())
         report_revision += 1
         exploration_revision += 1
-        for mission in returned: announce("Scouts returned with their report. Three settlers are available again.")
+        for mission in returned: announce("Scouts returned with their report. Surviving settlers resume their previous jobs where available.")
     for mission in scout_missions: reveal_land(mission_position(mission), 7)
 
 func land_report(point: Vector2) -> String:
     var key := cell_key(point)
     var description := "Unexplored land" if not explored.has(key) else "Known land · last seen day %.0f" % (float(explored[key]) + 1)
-    if point.distance_to(Vector2(-4, 0)) <= 21: description = "Home region · live information"
+    if has_home_influence(point): description = "Home region · live information"
     elif has_live_sight(point): description = "Currently observed by your expedition"
     for contact in known_civilizations.values():
         if point.distance_to(Vector2(contact.point[0], contact.point[1])) <= 10:
@@ -518,7 +547,7 @@ func land_report(point: Vector2) -> String:
 
 func _init() -> void:
     seed_people()
-    reveal_land(Vector2(-4, 0), 21)
+    reveal_land(Vector2(-4, 0), home_influence_radius())
 
 func seed_people() -> void:
     people.clear()
@@ -559,7 +588,7 @@ func food_need() -> float:
     var deployed := 0
     for army in armies:
         if army.status in ["Marching", "Fighting", "Returning", "Holding", "Raiding"]: deployed += army.soldiers.size()
-    return maxf(0, population - children() * 0.5 - deployed - scouting_units().size()) / 90.0 * ration_level
+    return maxf(0, population - children() * 0.5 - deployed - scouting_units().size() - Outposts.units(self).size()) / 90.0 * ration_level
 
 func happiness_influences() -> Array:
     var factors: Array = [{"name": "Community spirit", "value": 50.0, "detail": "The starting baseline for this settlement."}]
@@ -602,10 +631,15 @@ func set_target(job: String, value: int, future: bool = false) -> void:
 func job_unlocked(job: String) -> bool:
     return JOB_TECH[job].is_empty() or JOB_TECH[job] in technologies
 
+func building_unlocked(kind: String) -> bool:
+    if not BUILDINGS.has(kind) or not job_unlocked("Construction"): return false
+    var required: String = BUILDING_TECH.get(kind, "")
+    return required.is_empty() or required in technologies
+
 func building_block(kind: String) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     if not job_unlocked("Construction"): return "Requires Shelter Building."
-    var required: String = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Military Organization", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization", "Pottery Workshop": "Pottery", "Boatyard": "Boatbuilding", "Archive": "Writing", "Carpenter Workshop": "Joinery", "Bathhouse": "Waterworks"}.get(kind, "")
+    var required: String = BUILDING_TECH.get(kind, "")
     if not required.is_empty() and required not in technologies: return "Requires " + required + "."
     if kind == "Bathhouse" and completed("Well") == 0: return "Requires a completed Well."
     if kind == "Town Hall":
@@ -644,10 +678,16 @@ func prepare_roster(work: Dictionary) -> void:
     job_roster.clear()
     var available: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and int(person.id) not in scouting_units() and int(person.id) not in military_ids(): available.append(person)
-    # Reserve specialists for their matching jobs before filling general duties.
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and int(person.id) not in scouting_units() and int(person.id) not in military_ids() and int(person.id) not in Outposts.units(self): available.append(person)
+    # Returning scouts have first claim on their former duties within current quotas.
     for job in JOBS:
         job_roster[job] = []
+        for person in available.duplicate():
+            if str(person.get("scout_return_job", "")) == job and job_roster[job].size() < int(work[job]):
+                job_roster[job].append(person)
+                available.erase(person)
+    # Reserve specialists for their matching jobs before filling general duties.
+    for job in JOBS:
         for person in available.duplicate():
             if person.profession == job and job_roster[job].size() < int(work[job]):
                 job_roster[job].append(person)
@@ -686,7 +726,7 @@ func start_training(job: String) -> String:
     if resources.food < APPRENTICESHIP_FOOD_COST or resources.wood < APPRENTICESHIP_WOOD_COST: return "Training requires %d food and %d wood." % [APPRENTICESHIP_FOOD_COST, APPRENTICESHIP_WOOD_COST]
     var candidates: Array = []
     for person in people:
-        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and person.profession != job and int(person.id) not in scouting_units() and int(person.id) not in military_ids():
+        if person.age >= 16 and person.age < 65 and not on_birth_leave(person) and not is_pregnant(person) and person.training.is_empty() and person.profession != job and int(person.id) not in scouting_units() and int(person.id) not in military_ids() and int(person.id) not in Outposts.units(self):
             candidates.append(person)
     candidates.sort_custom(func(a, b): return a.profession == "General" and b.profession != "General")
     if candidates.is_empty(): return "No eligible adult available for retraining."
@@ -755,7 +795,7 @@ func update_population(dt: float) -> void:
         if birth_progress >= 1:
             var candidates: Array = []
             for person in people:
-                if person.age >= 18 and person.age < 45 and not is_pregnant(person) and not on_birth_leave(person) and int(person.id) not in military_ids() and int(person.id) not in scouting_units() and person.training.is_empty(): candidates.append(person)
+                if person.age >= 18 and person.age < 45 and not is_pregnant(person) and not on_birth_leave(person) and int(person.id) not in military_ids() and int(person.id) not in scouting_units() and int(person.id) not in Outposts.units(self) and person.training.is_empty(): candidates.append(person)
             if not candidates.is_empty():
                 # Rotate opportunities through adults instead of repeatedly choosing the first person.
                 candidates.sort_custom(func(a, b): return float(a.get("last_birth_day", -10000.0)) < float(b.get("last_birth_day", -10000.0)))
@@ -789,6 +829,7 @@ func workers_used() -> int:
 func assign(job: String, count: int) -> void:
     if not job_unlocked(job): return
     automatic_workforce = false
+    for person in people: person.erase("scout_return_job")
     var available := workforce_capacity() - workers_used() + int(assignments[job])
     var assigned := clampi(count, 0, available)
     # An explicit order to add builders or quarry workers overrides their food diversion.
@@ -920,6 +961,7 @@ func tick(dt: float) -> void:
     advance_government(dt)
     advance_armies(dt)
     update_exploration(dt)
+    Outposts.advance(self, dt)
     if automatic_workforce: apply_targets()
     clamp_assignments()
     var work := effective_assignments()
@@ -1039,7 +1081,7 @@ func tick(dt: float) -> void:
         announce("Settlement condition: %s." % " · ".join(conditions))
 
 func snapshot() -> Dictionary:
-    return {"happiness": happiness, "government": government, "camp_dismantling": camp_dismantling, "version": 1, "research_points_version": research_points_version, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "owned_commanders": owned_commanders, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
+    return {"outpost_sites": outpost_sites, "outposts": outposts, "world_name": world_name, "happiness": happiness, "government": government, "camp_dismantling": camp_dismantling, "version": 1, "research_points_version": research_points_version, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "owned_commanders": owned_commanders, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
 
 func save_game() -> void:
     if save_path.is_empty(): return
@@ -1052,7 +1094,10 @@ func restore_snapshot(data: Dictionary) -> void:
     var old_explored := JSON.stringify(explored)
     for key in snapshot():
         if key not in ["version", "saved_at"] and data.has(key): set(key, data[key])
+    outposts = data.get("outposts", []).duplicate(true)
+    outpost_sites = data.get("outpost_sites", {}).duplicate(true)
     camp_dismantling = data.get("camp_dismantling", {}).duplicate(true)
+    Outposts.normalize(self)
     migrate_government(data)
     migrate_research_points(data)
     if scout_missions.is_empty() and not scout_mission.is_empty(): scout_missions = [scout_mission]
@@ -1073,6 +1118,7 @@ func load_game() -> void:
     if not data is Dictionary or data.get("version", 0) != 1: return
     for key in data:
         if key not in ["version", "saved_at"] and key in snapshot(): set(key, data[key])
+    Outposts.normalize(self)
     migrate_government(data)
     migrate_research_points(data)
     if scout_missions.is_empty() and not scout_mission.is_empty(): scout_missions = [scout_mission]
@@ -1171,11 +1217,19 @@ func military_housed() -> int:
     for army in armies: count += army.soldiers.size()
     return mini(count, military_capacity())
 
+func home_influence_radius() -> float:
+    # Modest population growth: one extra map unit per 20 residents above the
+    # initial 30, capped at nine extra units. Small towns retain their home sight.
+    return 21.0 + clampf((population - 30) / 20.0, 0.0, 9.0)
+
 func has_home_influence(point: Vector2) -> bool:
-    return point.distance_to(Vector2(-4, 0)) <= 21
+    return point.distance_to(Vector2(-4, 0)) <= home_influence_radius()
 
 func has_live_sight(point: Vector2) -> bool:
     if has_home_influence(point): return true
+    for post in outposts:
+        for id in post.units:
+            if point.distance_to(Outposts.person_position(self, int(id))) <= 7: return true
     for mission in scout_missions:
         if point.distance_to(mission_position(mission)) <= 7: return true
     if scout_missions.is_empty() and not scout_mission.is_empty() and point.distance_to(scout_position()) <= 7: return true

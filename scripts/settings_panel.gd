@@ -5,6 +5,7 @@ var volume: HSlider
 var volume_label: Label
 var audio_controls: Dictionary = {}
 var hexes: CheckBox
+var reduced_motion: CheckBox
 var fullscreen: CheckBox
 var sensitivity: HSlider
 var sensitivity_label: Label
@@ -84,6 +85,13 @@ func setup(scene: Node3D) -> void:
         DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
         world.save_settings())
     column.add_child(fullscreen)
+    reduced_motion = CheckBox.new()
+    reduced_motion.text = "Reduce interface animation"
+    reduced_motion.focus_mode = Control.FOCUS_NONE
+    reduced_motion.toggled.connect(func(value):
+        var appearance = world.get_node_or_null("InterfaceStyle")
+        if appearance != null: appearance.set_reduced_motion(value))
+    column.add_child(reduced_motion)
     sensitivity_label = world.label("", 16, Color("e8dfc6"))
     column.add_child(sensitivity_label)
     sensitivity = HSlider.new()
@@ -167,6 +175,8 @@ func refresh() -> void:
     fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN)
     sensitivity.set_value_no_signal(world.zoom_sensitivity)
     sensitivity_label.text = "Zoom sensitivity · %.1f×" % world.zoom_sensitivity
+    var appearance = world.get_node_or_null("InterfaceStyle")
+    if appearance != null: reduced_motion.set_pressed_no_signal(appearance.reduced_motion)
     refresh_updates()
 
 func refresh_updates() -> void:

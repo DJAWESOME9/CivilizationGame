@@ -127,7 +127,7 @@ static func recruit_block(simulation, unit: String, count: int, commander: Strin
         if commander != "None" and army.commander == commander: return "This commander already leads a group."
     var available := 0
     for person in simulation.people:
-        if person.age >= 16 and person.age < 65 and not simulation.on_birth_leave(person) and not simulation.is_pregnant(person) and person.training.is_empty() and int(person.id) not in simulation.military_ids() and int(person.id) not in simulation.scouting_units(): available += 1
+        if person.age >= 16 and person.age < 65 and not simulation.on_birth_leave(person) and not simulation.is_pregnant(person) and person.training.is_empty() and int(person.id) not in simulation.military_ids() and int(person.id) not in simulation.scouting_units() and int(person.id) not in simulation.Outposts.units(simulation): available += 1
     if count > available - 3: return "Keep at least three available civilians; there are not enough recruits."
     if simulation.resources.wood < spec.wood * count or simulation.resources.stone < spec.stone * count: return "Not enough wood or stone for their equipment."
     return ""
@@ -138,7 +138,7 @@ static func recruit(simulation, unit: String, count: int, commander: String) -> 
     var soldiers: Array = []
     var reserved: Array = simulation.military_ids()
     for person in simulation.people:
-        if person.age >= 16 and person.age < 65 and not simulation.on_birth_leave(person) and not simulation.is_pregnant(person) and person.training.is_empty() and int(person.id) not in reserved and int(person.id) not in simulation.scouting_units():
+        if person.age >= 16 and person.age < 65 and not simulation.on_birth_leave(person) and not simulation.is_pregnant(person) and person.training.is_empty() and int(person.id) not in reserved and int(person.id) not in simulation.scouting_units() and int(person.id) not in simulation.Outposts.units(simulation):
             soldiers.append(int(person.id))
             if soldiers.size() == count: break
     var spec: Dictionary = UNITS[unit]

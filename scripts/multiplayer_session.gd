@@ -15,6 +15,7 @@ const PROTOCOL_VERSION := 2
 const AI_NAMES := ["Oakborn", "Stonevale", "Riverfolk", "Ashfield", "Pinewatch", "Sunmere", "Greycliff"]
 var host_port := 24567
 var share_address := ""
+var world_name := "My world"
 var world_id := ""
 var expected_world_id := ""
 var world: Node3D
@@ -75,6 +76,8 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
         for level in ["Easy", "Normal", "Hard"]:
             for i in range(int(ai_mix.get(level, 0))): levels.append(level)
     if port < 1024 or port > 65535: return "Choose a port between 1024 and 65535."
+    if not resume or not FileAccess.file_exists(world_save_path):
+        world_save_path = world.worlds_screen.new_path("shared")
     var resumed := resume and FileAccess.file_exists(world_save_path)
     var peer := ENetMultiplayerPeer.new()
     var error := peer.create_server(port, LIMIT - 1)
@@ -98,6 +101,7 @@ func host_game(nickname: String, port: int, days: float, resume: bool, ai_count:
             solo_sim = null
             return "The multiplayer save could not be read. It has been preserved; choose a fresh world explicitly to replace it."
         if data is Dictionary and data.get("version", 0) == 1:
+            world_name = str(data.get("world_name", "Saved multiplayer world"))
             world_day = float(data.day)
             world_id = str(data.get("world_id", world_id))
             clock_days = float(data.clock)
@@ -290,6 +294,8 @@ func apply_command(simulation, action: String, args: Array) -> String:
     if action in ["recruit", "army_plan", "disband", "defense", "appoint", "create_army", "rename_army", "assign_defense", "reserve_army", "resize_army", "form_army", "compose_army"]:
         return Warfare.army_order(simulation, action, args)
     if action in ["raid", "attack", "raze", "recall", "messenger"]: return "Join a shared world to launch an expedition."
+    if action in ["found_outpost", "outpost_road", "outpost_route", "recall_outpost"]:
+        return simulation.Outposts.order(simulation, action, args)
     match action:
         "assign":
             if args.size() != 2 or args[0] not in simulation.JOBS or not args[1] is int: return "Invalid workforce order."
@@ -389,6 +395,9 @@ func publish() -> void:
     for peer_id in peer_tokens:
         var token: String = peer_tokens[peer_id]
         var state: Dictionary = civilizations[token].sim.snapshot()
+        state["world_id"] = world_id
+        state["world_name"] = world_name
+        state["join_code"] = invitation(share_address)
         state["slot"] = civilizations[token].slot
         state["civilization_name"] = civilizations[token].name
         state["trade_offers"] = offers_for(token)
@@ -416,6 +425,9 @@ func receive_world(state: Dictionary, players: Array, day: float, days: float) -
     world.sim.food_ledger = state.get("food_ledger", world.sim.food_ledger)
     world.sim.daily_food_change = state.get("daily_food_change", 0.0)
     roster = players
+    world_id = str(state.get("world_id", expected_world_id))
+    world_name = str(state.get("world_name", "Shared world"))
+    world.worlds_screen.remember_joined(state, players, day)
     world_day = day
     clock_days = days
     world.running = true
@@ -424,6 +436,8 @@ func receive_world(state: Dictionary, players: Array, day: float, days: float) -
     visible_campaigns = state.get("campaigns", [])
     status = "Connected · your civilization · world running"
     if first_connection:
+        world.worlds_screen.selected = true
+        world.worlds_screen.hide()
         world_changed()
         world.feedback.text = "Connected to the shared world. Manage your civilization here; Multiplayer opens warfare, barter and world players."
         world.multiplayer_screen.hide()
@@ -443,7 +457,7 @@ func persist() -> void:
         var record: Dictionary = civilizations[token]
         records[token] = {"name": record.name, "slot": record.slot, "state": record.sim.snapshot(), "ai": record.get("ai", false), "difficulty": record.get("difficulty", "Normal"), "next_decision": record.get("next_decision", world_day), "next_raid": record.get("next_raid", world_day), "next_trade": record.get("next_trade", world_day), "relationships": record.get("relationships", {})}
     var file := FileAccess.open(world_save_path, FileAccess.WRITE)
-    if file: file.store_string(JSON.stringify({"version": 1, "world_id": world_id, "day": world_day, "clock": clock_days, "civilizations": records, "trade_offers": trade_offers, "next_offer": next_offer, "campaigns": warfare.campaigns, "next_campaign": warfare.next_campaign, "saved_at": Time.get_unix_time_from_system()}))
+    if file: file.store_string(JSON.stringify({"version": 1, "world_name": world_name, "join_code": invitation(share_address), "host_port": host_port, "creator": own_token, "world_id": world_id, "day": world_day, "clock": clock_days, "civilizations": records, "trade_offers": trade_offers, "next_offer": next_offer, "campaigns": warfare.campaigns, "next_campaign": warfare.next_campaign, "saved_at": Time.get_unix_time_from_system()}))
 
 func invitation(address: String) -> String:
     if not active or not multiplayer.is_server(): return ""
@@ -467,6 +481,7 @@ static func parse_invitation(value: String) -> Dictionary:
 
 func leave(message: String = "Left the world. Returned to single-player.") -> void:
     persist()
+    if is_instance_valid(world.worlds_screen): world.worlds_screen.save_joined()
     if multiplayer.multiplayer_peer: multiplayer.multiplayer_peer.close()
     multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
     active = false
@@ -599,6 +614,21 @@ func kill_visiting_scouts(token: String, slot: int, started: float, units: Array
     return "This scouting party is no longer present."
 
 func player_command(token: String, action: String, args: Array) -> String:
+    if action == "found_outpost":
+        if args.size() != 1 or not args[0] is int or args[0] < 0 or args[0] >= Simulation.Outposts.SITES.size(): return "Choose a resource site."
+        var owner_sim = civilizations[token].sim
+        var origin := Vector2(owner_sim.world_origin[0], owner_sim.world_origin[1])
+        var destination: Vector2 = Simulation.Outposts.SITES[args[0]].point + origin
+        for other_token in civilizations:
+            if other_token == token: continue
+            var other_sim = civilizations[other_token].sim
+            var other_origin := Vector2(other_sim.world_origin[0], other_sim.world_origin[1])
+            if destination.distance_to(other_origin + Vector2(-4, 0)) < 12:
+                return "This site is too close to another civilization's settlement."
+            for other_post in other_sim.outposts:
+                var other_point: Vector2 = Simulation.Outposts.SITES[int(other_post.site)].point + other_origin
+                if destination.distance_to(other_point) < 8:
+                    return "Another civilization already has an outpost near this site."
     if action == "attack_scouts":
         if args.size() != 4 or not args[0] is int or not (args[1] is float or args[1] is int) or not args[2] is Array or not args[3] is int or int(args[3]) < 0: return "Choose visiting scouts and a ready army."
         return kill_visiting_scouts(token, args[0], float(args[1]), args[2], args[3])
@@ -756,7 +786,7 @@ func visible_inhabitants(simulation) -> Array:
     for army in simulation.armies:
         if army.status not in ["Ready", "Training", "Recovering"]: continue
         for id in army.soldiers: roles[int(id)] = Warfare.soldier_unit(army, int(id))
-    var absent: Array = simulation.scouting_units() + simulation.emergency_defenders
+    var absent: Array = simulation.scouting_units() + simulation.emergency_defenders + simulation.Outposts.units(simulation)
     for army in simulation.armies:
         if army.status not in ["Ready", "Training", "Recovering"]: absent.append_array(army.soldiers)
     # Show home troops even in large towns; representatives remain bounded.

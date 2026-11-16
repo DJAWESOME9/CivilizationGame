@@ -6,6 +6,7 @@ var ambience_volume := 65.0
 var effects_volume := 80.0
 
 var session: Node
+var worlds_screen: Control
 var multiplayer_screen: Control
 var solo_time_controls: Array[Control] = []
 var sim = preload("res://scripts/simulation.gd").new()
@@ -53,6 +54,7 @@ var has_selected_land := false
 var choosing_scout_destination := false
 var exploration_label: Label
 var scout_button: Button
+var outposts_view: Node3D
 var exploration: Node3D
 var happiness_panel: Control
 var happiness_button: Button
@@ -121,7 +123,7 @@ func _ready() -> void:
     camera.far = 650.0
     update_camera()
     if "--guest-profile" in OS.get_cmdline_user_args(): sim.save_path = "user://guest_settlement.json"
-    if "--capture" not in OS.get_cmdline_user_args(): sim.load_game()
+    sim.save_path = "" # Choose a slot before loading, advancing or saving.
     if "--capture" in OS.get_cmdline_user_args() and "--winter" in OS.get_cmdline_user_args(): sim.day = 270
     if "--capture" in OS.get_cmdline_user_args() and "--night" in OS.get_cmdline_user_args(): sim.day += 14.0 / 24.0
     if "--capture" in OS.get_cmdline_user_args() and "--sunset" in OS.get_cmdline_user_args(): sim.day += 10.0 / 24.0
@@ -150,8 +152,10 @@ func _ready() -> void:
     if "--multiplayer" in OS.get_cmdline_user_args(): multiplayer_screen.show()
     if "--research" in OS.get_cmdline_user_args(): research_screen.show()
     if "--population" in OS.get_cmdline_user_args(): population_screen.show()
-    if "--capture" not in OS.get_cmdline_user_args() and not sim.has_seen_intro:
-        show_intro()
+    worlds_screen = preload("res://scripts/worlds_screen.gd").new()
+    settings_panel.get_parent().add_child(worlds_screen)
+    worlds_screen.setup(self)
+    if "--capture" not in OS.get_cmdline_user_args(): worlds_screen.open()
     if "--resources" in OS.get_cmdline_user_args(): resource_panel.open_resource("food")
     if "--happiness" in OS.get_cmdline_user_args(): happiness_panel.show()
     if "--settings" in OS.get_cmdline_user_args(): settings_panel.show()
@@ -166,6 +170,10 @@ func _ready() -> void:
     game_audio = preload("res://scripts/game_audio.gd").new()
     add_child(game_audio)
     game_audio.setup(self)
+    var appearance := preload("res://scripts/interface_style.gd").new()
+    appearance.name = "InterfaceStyle"
+    add_child(appearance)
+    appearance.setup(self)
 
 func ground_height(x: float, z: float) -> float:
     var global_point := Vector2(x, z) + region_origin
@@ -278,14 +286,26 @@ func mesh_from_triangles(vertices: PackedVector3Array, material: Material, paren
     parent.add_child(instance)
     return instance
 
+# Keep the detailed playable region, with a coarse landscape apron beyond it.
+# The apron covers the ground visible at maximum zoom and at the pan limits.
+const LANDSCAPE_EXTENT := 512
+
 func make_land() -> void:
+    var coordinates: Array[int] = []
+    for coordinate in range(-LANDSCAPE_EXTENT, -96, 8): coordinates.append(coordinate)
+    for coordinate in range(-96, 96): coordinates.append(coordinate)
+    for coordinate in range(96, LANDSCAPE_EXTENT + 1, 8): coordinates.append(coordinate)
     var vertices := PackedVector3Array()
-    for x in range(-96, 96):
-        for z in range(-96, 96):
+    for xi in range(coordinates.size() - 1):
+        for zi in range(coordinates.size() - 1):
+            var x := coordinates[xi]
+            var z := coordinates[zi]
+            var next_x := coordinates[xi + 1]
+            var next_z := coordinates[zi + 1]
             var a := pos(x, z)
-            var b := pos(x + 1, z)
-            var c := pos(x, z + 1)
-            var d := pos(x + 1, z + 1)
+            var b := pos(next_x, z)
+            var c := pos(x, next_z)
+            var d := pos(next_x, next_z)
             vertices.append_array([a, b, c, b, d, c])
     land_mesh = mesh_from_triangles(vertices, mats.grass)
 
@@ -307,7 +327,7 @@ func make_river() -> void:
     var bank_vertices := PackedVector3Array()
     var shore_vertices := PackedVector3Array()
     var vertices := PackedVector3Array()
-    for z in range(-96, 96):
+    for z in range(-LANDSCAPE_EXTENT, LANDSCAPE_EXTENT):
         var x1 := 10.0 + sin((z + region_origin.y) * 0.095) * 3.0 - region_origin.x
         var x2 := 10.0 + sin((z + 1 + region_origin.y) * 0.095) * 3.0 - region_origin.x
         # Broad, softly sloped banks frame the water and blend it into the meadow.
@@ -430,6 +450,19 @@ func early_building(x: float, z: float, kind: String, angle: float = 0.15, scale
         roof(shelter, 1.35, 1.45, 1.05, 1.95, mats.thatch)
         for xx in [-1.0, 1.0]:
             beam(shelter, Vector3(xx, 0, 1.13), Vector3(xx, 1.12, 1.13), 0.055, mats.wood)
+    elif kind == "Storehouse":
+        # A low reed-and-pole shed with a wide entrance and stored sacks.
+        for xx in [-1.08, 1.08]:
+            box(shelter, Vector3(xx, 0.51, 0), Vector3(0.12, 0.98, 2.3), mats.reed)
+        box(shelter, Vector3(0, 0.51, -1.1), Vector3(2.2, 0.98, 0.12), mats.reed)
+        for xx in [-1.05, 1.05]:
+            for zz in [-1.12, 1.12]:
+                beam(shelter, Vector3(xx, 0, zz), Vector3(xx, 1.08, zz), 0.07, mats.wood)
+        roof(shelter, 1.35, 1.42, 1.0, 1.75, mats.thatch)
+        for xx in [-0.62, 0.0, 0.62]:
+            sphere(shelter, Vector3(xx, 0.25, -0.65), Vector3(0.26, 0.23, 0.3), mats.cloth)
+        for i in range(3):
+            beam(shelter, Vector3(0.62, 0.12 + i * 0.15, 0.0), Vector3(0.62, 0.12 + i * 0.15, 0.85), 0.08, mats.wood)
     elif kind == "Barracks":
         # Communal sleeping shelter: rough log sides and a broad open doorway.
         for i in range(6):
@@ -694,7 +727,7 @@ func save_settings() -> void:
     preferences.save("user://settings.cfg")
 
 func management_open() -> bool:
-    return (is_instance_valid(multiplayer_screen) and multiplayer_screen.visible) or research_screen.visible or population_screen.visible or happiness_panel.visible or resource_panel.visible or settings_panel.visible or object_panel.visible
+    return (is_instance_valid(worlds_screen) and worlds_screen.visible) or (is_instance_valid(multiplayer_screen) and multiplayer_screen.visible) or research_screen.visible or population_screen.visible or happiness_panel.visible or resource_panel.visible or settings_panel.visible or object_panel.visible
 
 func inspectable(node: Node3D, info: Dictionary) -> void:
     node.set_meta("inspection", info)
@@ -767,6 +800,8 @@ func dispatch_scouts(point: Vector2) -> String:
     return message
 
 func _input(event: InputEvent) -> void:
+    if is_instance_valid(worlds_screen) and worlds_screen.visible and not multiplayer_screen.visible:
+        return
     if is_instance_valid(object_panel) and object_panel.visible:
         if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
             object_panel.hide()
@@ -873,7 +908,7 @@ func _input(event: InputEvent) -> void:
             refresh_hex_grid()
 
 func _process(delta: float) -> void:
-    if running and (not is_instance_valid(session) or (not session.active and not session.connecting)):
+    if running and not (is_instance_valid(worlds_screen) and worlds_screen.visible) and (not is_instance_valid(session) or (not session.active and not session.connecting)):
         sim.advance(delta * (sim.days_per_real_day / 86400.0 if play_speed == 0 else play_speed))
     hud_timer += delta
     save_timer += delta
@@ -971,6 +1006,8 @@ func panel_column(layer: CanvasLayer, location: Vector2, width: float, title: St
 func set_panel_collapsed(title: String, collapsed: bool) -> void:
     var state: Dictionary = panel_states[title]
     state.body.visible = not collapsed
+    var appearance = get_node_or_null("InterfaceStyle")
+    if not collapsed and appearance != null: appearance.reveal(state.body)
     state.toggle.text = title + ("  +" if collapsed else "  −")
     state.panel.set_deferred("size", Vector2.ZERO)
     var preferences := ConfigFile.new()
@@ -1151,6 +1188,7 @@ func make_top_bar(layer: CanvasLayer) -> void:
     multiplayer_button.focus_mode = Control.FOCUS_NONE
     multiplayer_button.pressed.connect(func(): multiplayer_screen.show())
     row.add_child(multiplayer_button)
+    game_button(row, "Worlds", func(): worlds_screen.open())
     var settings := Button.new()
     settings.text = "Settings"
     settings.custom_minimum_size.x = 95
@@ -1285,6 +1323,10 @@ func make_ui() -> void:
         dispatch_scouts(selected_land))
     explore_page.add_child(label("Click land to inspect · drag to move the map.\nUnknown land is hidden; old reports fade.", 12, Color("9fae99")))
 
+    outposts_view = preload("res://scripts/outposts_view.gd").new()
+    add_child(outposts_view)
+    outposts_view.setup(self, explore_page)
+
     military_page.add_child(label("Your armies", 18, Color("eee1bf")))
     command_armies = VBoxContainer.new()
     command_armies.add_theme_constant_override("separation", 7)
@@ -1321,30 +1363,9 @@ func make_ui() -> void:
     controls.add_child(clock)
     solo_time_controls.append(clock)
     var restart := Button.new()
-    restart.text = "New settlement"
     restart.focus_mode = Control.FOCUS_NONE
-    restart.pressed.connect(func():
-        var dialog := ConfirmationDialog.new()
-        dialog.title = "Start a new settlement?"
-        dialog.dialog_text = "Replace the local save with a fresh gathering-only settlement?"
-        dialog.confirmed.connect(func():
-            sim = preload("res://scripts/simulation.gd").new()
-            if "--guest-profile" in OS.get_cmdline_user_args(): sim.save_path = "user://guest_settlement.json"
-            sim.days_per_real_day = 90.0 if clock.selected == 0 else 360.0
-            sim.tick(0)
-            running = false
-            play_button.text = "Resume"
-            build_choice = ""
-            refresh_hex_grid()
-            visual_revision = -1
-            if is_instance_valid(exploration): exploration.invalidate()
-            research_screen.selected = "Toolmaking"
-            refresh_game()
-            sim.save_game())
-        dialog.canceled.connect(func(): dialog.queue_free())
-        dialog.confirmed.connect(func(): dialog.queue_free())
-        add_child(dialog)
-        dialog.popup_centered())
+    restart.text = "Worlds / save slots"
+    restart.pressed.connect(func(): worlds_screen.open())
     controls.add_child(restart)
     solo_time_controls.append(restart)
     game_button(bottom, "Advance up to one season · stops at a food crisis", func():
@@ -1479,6 +1500,7 @@ func refresh_game() -> void:
         # Refresh it after syncing, even when the displayed count did not change.
         job_controls[job].changed.emit()
     for kind in build_buttons:
+        build_buttons[kind].visible = sim.building_unlocked(kind)
         var blocked: String = sim.building_block(kind)
         build_buttons[kind].disabled = not blocked.is_empty()
         build_buttons[kind].tooltip_text = blocked
@@ -1486,7 +1508,7 @@ func refresh_game() -> void:
         if not sim.job_unlocked("Construction"):
             build_guidance_label.text = "No buildings are available yet. Research Toolmaking, then Shelter Building, to unlock construction and your first House. Click Research above to begin."
         else:
-            build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex in the starting zone. Disabled buildings show their requirements when you hover."
+            build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex in the starting zone. Research unlocks more buildings. Disabled buildings show material or facility requirements when you hover."
     research_button.text = "RESEARCH · %.2f points / day\n%s · %.0f%%" % [sim.research_points_per_day(), sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
     if is_instance_valid(exploration_label):
         exploration_label.text = sim.land_report(selected_land) if has_selected_land else "Choose destination on map, then click the land you want surveyed."
@@ -1545,7 +1567,7 @@ func rebuild_buildings() -> void:
         var center := Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5))
         if b.progress >= 1 and b.kind in ["House", "Storehouse", "School", "Barracks", "Town Hall", "Pottery Workshop", "Archive"]:
             var home: Node3D
-            if b.kind in ["House", "Barracks", "Town Hall"]:
+            if b.kind in ["House", "Storehouse", "Barracks", "Town Hall"]:
                 home = early_building(center.x, center.y, b.kind)
             else:
                 home = house(center.x, center.y, 0.15, 0.85)
@@ -1663,6 +1685,7 @@ func stone_wall(parent: Node3D, slits: bool = false) -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_CLOSE_REQUEST:
         if is_instance_valid(session): session.persist()
+        if is_instance_valid(worlds_screen): worlds_screen.save_joined()
         sim.save_game()
         get_tree().quit()
 

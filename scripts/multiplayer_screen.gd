@@ -1,6 +1,7 @@
 extends Control
 
 var world: Node3D
+var world_title: LineEdit
 var nickname: LineEdit
 var address: LineEdit
 var port: SpinBox
@@ -91,6 +92,11 @@ func setup(scene: Node3D) -> void:
     if "--warfare" in OS.get_cmdline_user_args(): tabs.current_tab = 2
     if "--barter" in OS.get_cmdline_user_args(): tabs.current_tab = 1
     column.add_child(HSeparator.new())
+    world_title = LineEdit.new()
+    world_title.placeholder_text = "Name your new world"
+    world_title.text = "My world"
+    world_title.max_length = 48
+    column.add_child(world_title)
     var identity := HBoxContainer.new()
     column.add_child(identity)
     identity.add_child(world.label("Civilization name", 15, Color("ddd2b5")))
@@ -119,16 +125,7 @@ func setup(scene: Node3D) -> void:
     resume_world.text = "Resume saved multiplayer world"
     resume_world.button_pressed = true
     host_row.add_child(resume_world)
-    host_button = world.game_button(host_row, "Host world", func():
-        if not resume_world.button_pressed and FileAccess.file_exists(world.session.world_save_path):
-            var confirm := ConfirmationDialog.new()
-            confirm.title = "Replace multiplayer world?"
-            confirm.dialog_text = "Create a fresh shared world and replace the saved multiplayer world? Your single-player save is separate."
-            confirm.confirmed.connect(func(): host_now(); confirm.queue_free())
-            confirm.canceled.connect(func(): confirm.queue_free())
-            add_child(confirm)
-            confirm.popup_centered()
-        else: host_now())
+    host_button = world.game_button(host_row, "Host world", func(): host_now())
     var ai_row := HBoxContainer.new()
     column.add_child(ai_row)
     ai_row.add_child(world.label("AI opponents", 15, Color("ddd2b5")))
@@ -203,6 +200,7 @@ func setup(scene: Node3D) -> void:
     column.add_child(instructions)
     visibility_changed.connect(func():
         if visible:
+            move_to_front()
             world.dragging = false
             world.orbiting = false
             refresh())
@@ -216,9 +214,15 @@ func selected_ai_counts() -> Dictionary:
     return counts
 
 func host_now() -> void:
+    if not resume_world.button_pressed:
+        world.session.world_name = world_title.text.strip_edges().left(48)
+        if world.session.world_name.is_empty(): world.session.world_name = "My world"
+    world.sim.save_game()
     result.text = world.session.host_game(nickname.text, int(port.value), [-1.0, 90.0, 360.0, 8640.0, 2880.0][clock.selected], resume_world.button_pressed, 0, "Normal", selected_ai_counts())
     refresh()
     if world.session.active:
+        world.worlds_screen.selected = true
+        world.worlds_screen.hide()
         invite_address.text = world.session.share_address
         refresh_invitation()
         world.feedback.text = "Shared world opened. Manage your civilization here; Multiplayer opens warfare, barter and world players."
@@ -249,6 +253,7 @@ func refresh() -> void:
     port.editable = not busy
     clock.disabled = busy
     resume_world.disabled = busy
+    world_title.editable = not busy and not resume_world.button_pressed
     sharing_row.visible = session.active and world.multiplayer.is_server()
     refresh_invitation()
     var resuming := resume_world.button_pressed and FileAccess.file_exists(session.world_save_path)
@@ -273,6 +278,8 @@ func refresh() -> void:
     players_label.text = "WORLD CIVILIZATIONS · %d / %d slots\n" % [session.roster.size(), session.LIMIT] + ("\n".join(lines) if not lines.is_empty() else "Host a fresh world or resume it. Joining creates your civilization or restores your saved one.\nChoose zero AI opponents to leave all other slots for real people.")
 
 func refresh_invitation() -> void:
+    if world.session.active and world.multiplayer.is_server() and not invite_address.text.strip_edges().is_empty():
+        world.session.share_address = invite_address.text.strip_edges()
     invite_text.text = world.session.invitation(invite_address.text)
     copy_invite.disabled = invite_text.text.is_empty()
 
@@ -299,10 +306,16 @@ func amount_selector(row: HBoxContainer) -> SpinBox:
     return amount
 
 func make_trade_page(tabs: TabContainer) -> void:
+    var scroll := ScrollContainer.new()
+    scroll.name = "Barter"
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    tabs.add_child(scroll)
     var page := VBoxContainer.new()
-    page.name = "Barter"
+    page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     page.add_theme_constant_override("separation", 16)
-    tabs.add_child(page)
+    scroll.add_child(page)
     page.add_child(world.label("Trade with another civilization", 23, Color("eee1bf")))
     page.add_child(world.label("Offer materials in exchange for what you need. Both players must agree.", 15, Color("b7c9a9")))
     var partner_row := HBoxContainer.new()

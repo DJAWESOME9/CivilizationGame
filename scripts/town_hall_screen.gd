@@ -35,8 +35,10 @@ func setup(scene: Node3D) -> void:
     top.add_child(title)
     world.game_button(top, "Close · Esc", func(): hide())
     summary = world.label("", 16, Color("dec58f"))
+    summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(summary)
     result = world.label("", 14, Color("e2c789"))
+    result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(result)
     var scroll := ScrollContainer.new()
     scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -49,15 +51,16 @@ func setup(scene: Node3D) -> void:
     policy_grid = GridContainer.new()
     policy_grid.add_theme_constant_override("h_separation", 14)
     policy_grid.add_theme_constant_override("v_separation", 14)
+    policy_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     content.add_child(policy_grid)
     scroll.resized.connect(func():
         policy_grid.columns = maxi(1, mini(3, int((scroll.size.x - 18.0 + 14.0) / (POLICY_TILE_SIZE + 14.0)))))
     for name in world.sim.CIVIC_POLICIES:
         var info: Dictionary = world.sim.CIVIC_POLICIES[name]
         var action := Button.new()
-        action.custom_minimum_size = Vector2(POLICY_TILE_SIZE, POLICY_TILE_SIZE)
-        action.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-        action.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+        action.custom_minimum_size = Vector2(0, POLICY_TILE_SIZE)
+        action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        action.size_flags_vertical = Control.SIZE_EXPAND_FILL
         action.tooltip_text = info.detail
         action.pressed.connect(func():
             result.text = world.order("civic", [name, true if name == "Community Feast" else not bool(world.sim.government.active.get(name, false))])
@@ -75,13 +78,22 @@ func setup(scene: Node3D) -> void:
         var heading: Label = world.label(name, 18, Color("eee2c6"))
         heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         tile.add_child(heading)
-        tile.add_child(world.label("%.0f influence%s" % [info.cost, " + %.2f/day" % info.upkeep if info.upkeep > 0 else ""], 13, Color("dec58f")))
+        var cost: Label = world.label("%.0f influence%s" % [info.cost, " + %.2f/day" % info.upkeep if info.upkeep > 0 else ""], 13, Color("dec58f"))
+        cost.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        tile.add_child(cost)
         var detail: Label = world.label(info.detail, 14, Color("c1d0b3"))
         detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
         tile.add_child(detail)
         var status: Label = world.label("", 14, Color("c1d0b3"))
+        status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         tile.add_child(status)
+        # Button does not inherit its child container's minimum height.
+        # Keep the square shape where possible, but allow wrapped text to fit.
+        var fit_tile := func():
+            action.custom_minimum_size.y = maxf(action.size.x, inset.get_combined_minimum_size().y)
+        action.resized.connect(fit_tile)
+        inset.minimum_size_changed.connect(fit_tile)
         policy_status[name] = status
         policy_buttons[name] = action
     var birth_info: Label = world.label("BIRTH POLICY\nEncouraged · 2 influence: +50% new pregnancies, +3 happiness.\nAllowed · 1 influence to switch: normal new pregnancies, neutral happiness.\nForbidden · 3 influence: no new pregnancies, -12 happiness.\nNew pregnancies need food, spare housing and happiness of at least 50. Existing pregnancies continue. Final 90 pregnancy days and 60 days after birth are leave; population/food needs remain.", 15, Color("c1d0b3"))
@@ -91,7 +103,9 @@ func setup(scene: Node3D) -> void:
     for choice in ["Encouraged", "Allowed", "Forbidden"]: births.add_item(choice)
     content.add_child(births)
     world.game_button(content, "Enact birth policy", func(): result.text = world.order("civic", ["Births", births.get_item_text(births.selected)]); refresh())
-    content.add_child(world.label("EMERGENCY FOOD RESPONSE · enable in People\nThresholds use days of food at current rations. Recovery must exceed activation.\nSelected groups temporarily gather in the chosen order; None skips a slot.\nWorkers divert as needed, following your priority; normal assignments resume afterward.\nFood workers, soldiers, scouts, children and elders are excluded. Gathering still needs available wildlife.", 15, Color("c1d0b3")))
+    var food_info: Label = world.label("EMERGENCY FOOD RESPONSE · enable in People\nThresholds use days of food at current rations. Recovery must exceed activation.\nSelected groups temporarily gather in the chosen order; None skips a slot.\nWorkers divert as needed, following your priority; normal assignments resume afterward.\nFood workers, soldiers, scouts, children and elders are excluded. Gathering still needs available wildlife.", 15, Color("c1d0b3"))
+    food_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    content.add_child(food_info)
     start_days = threshold(content, "Activate below (days)")
     stop_days = threshold(content, "Recover to (days)")
     for i in range(4):
