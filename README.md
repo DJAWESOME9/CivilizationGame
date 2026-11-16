@@ -25,13 +25,9 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 The blank gray window in 0.2.21 is caused by a missing label color argument, confirmed in the startup log. The correction is published as **0.2.22 / build 24** at the release links below. Close the game, extract the corrected ZIP and replace the old app. Saves and identity are stored separately. The correction has not been launched or gameplay-tested.
 
-## Prepared next build
-
-**0.2.26 / build 28** is built locally in `dist/`, with Mac/Windows ZIPs and signed updater content. Includes player-placed outposts, workforce subassignments, travel/deposit production and lower fortification construction work. Source committed and pushed; public release upload is awaiting explicit approval. Package signature and hashes verified; no tests or game launch performed. Latest public release remains 0.2.25 / build 27.
-
 ## Download and open the game
 
-The latest public release is **0.2.25 / build 27**, adding straight connected defenses, arrow-key placement rotation and preview, and a fading top scrollbar. Download the ZIP for your computer from
+The latest public release is **0.2.26 / build 28**, adding player-placed outposts, shared workforce subassignments, distance-sensitive resource extraction, faster worker movement and lower fortification construction work. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -99,9 +95,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.25 / build 27** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.25).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.25/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.25/Civilization-Windows.zip).
+Version **0.2.26 / build 28** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.26).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.26/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.26/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
