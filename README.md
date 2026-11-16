@@ -27,7 +27,7 @@ The blank gray window in 0.2.21 is caused by a missing label color argument, con
 
 ## Download and open the game
 
-The latest public release is **0.2.22 / build 24**, adding traveling trade scouts, resource-aware AI trade, visiting scout defenses, clearer army controls, simpler starting buildings, softer fog and highlighted technology paths. Download the ZIP for your computer from
+The latest public release is **0.2.23 / build 25**, adding resource outposts, roads and supply routes, separate world save slots, refreshed interface styling and animations, cinematic artwork, citizen improvements and progressive technology discovery. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -95,9 +95,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.22 / build 24** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.22).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.22/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.22/Civilization-Windows.zip).
+Version **0.2.23 / build 25** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.23).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.23/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.23/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -884,3 +884,8 @@ multiplayer, long-term balance and live updater installation remain unverified.
 Not packaged or published. Checks are in `tests/outposts_smoke.gd` and the native
 render fixture in `tests/outposts_scene_smoke.gd`; native checks were run from a
 temporary project with the separate Civilization Outpost Checks profile.
+
+
+## Release 0.2.23 / build 25
+
+Published outposts, roads and supply routes, Your worlds/save slots, refreshed interface and citizen visuals, cinematic cover, population-based influence, progressive research discovery and landscape coverage. All six release assets and signed feed verified. No new gameplay launch or tests performed for publication; live updater installation and cross-machine multiplayer remain unverified. A concurrent citizen-movement change is still local and excluded from this release.

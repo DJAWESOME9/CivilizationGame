@@ -1,5 +1,11 @@
-Startup correction — 0.2.22 / build 24
+Outposts & new horizons — 0.2.23 / build 25
 
-Corrects the missing color argument in the Your armies heading that prevents the main scene loading in 0.2.21. Includes returning scouts restoring eligible former civilian jobs. If the gray window cannot update, close the game and replace the app with the corrected ZIP. Saves and identities are stored separately.
+- Establish surveyed stone, wood and food outposts with real settlers and dedicated supply carriers. Build roads, pause routes and recall crews.
+- Choose Your worlds at startup: separate solo/hosted saves, remembered joined worlds, world names and creator renaming.
+- Evergreen/brass interface styling, opening and tab animations, reduced-motion setting and cinematic settlement cover.
+- More detailed citizen clothing and smoother civilian movement; simpler early Storehouse and better-fitting Town Hall policies.
+- Population-based home influence, landscape beyond the map edges, and progressive research/building discovery.
 
-Exports and artifact integrity checks completed; no parser checks, game launch, gameplay or multiplayer tests run. Published as Latest on GitHub; all six public asset sizes/digests verified.
+Existing saves remain available. Multiplayer requires matching builds. New native app icons require the ZIP download; compatible game content arrives through the signed updater after reopening.
+
+Earlier outpost verification: 55 focused checks and isolated macOS bootstrap/outpost rendering passed; shutdown leak diagnostics remain. This release is packaged without new tests or game launches. Cross-machine multiplayer, long-term balance and live updater installation remain unverified.
