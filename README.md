@@ -25,6 +25,10 @@ conversation history. The full paths and update rules are in AGENTS.md.
 
 The blank gray window in 0.2.21 is caused by a missing label color argument, confirmed in the startup log. The correction is published as **0.2.22 / build 24** at the release links below. Close the game, extract the corrected ZIP and replace the old app. Saves and identity are stored separately. The correction has not been launched or gameplay-tested.
 
+## Prepared next build
+
+**0.2.26 / build 28** is built locally in `dist/`, with Mac/Windows ZIPs and signed updater content. Includes player-placed outposts, workforce subassignments, travel/deposit production and lower fortification construction work. Source committed and pushed; public release upload is awaiting explicit approval. Package signature and hashes verified; no tests or game launch performed. Latest public release remains 0.2.25 / build 27.
+
 ## Download and open the game
 
 The latest public release is **0.2.25 / build 27**, adding straight connected defenses, arrow-key placement rotation and preview, and a fading top scrollbar. Download the ZIP for your computer from
