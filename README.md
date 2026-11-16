@@ -27,7 +27,7 @@ The blank gray window in 0.2.21 is caused by a missing label color argument, con
 
 ## Download and open the game
 
-The latest public release is **0.2.24 / build 26**, adding army border routing and passage requests, smoother and less crowded citizen movement, and Settings, happiness scrolling and checkbox styling fixes. Download the ZIP for your computer from
+The latest public release is **0.2.25 / build 27**, adding straight connected defenses, arrow-key placement rotation and preview, and a fading top scrollbar. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -95,9 +95,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.24 / build 26** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.24).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.24/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.24/Civilization-Windows.zip).
+Version **0.2.25 / build 27** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.25).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.25/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.25/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -491,7 +491,8 @@ exercised; this is an initial multiplayer implementation, not a verified online 
 ## Warfare foundation
 
 **Buildings → Military** contains Training Grounds, Barracks, Palisade and Wall.
-Research **Masonry** to unlock stone wall sections. Each costs **8 wood / 24 stone**
+Palisade sections cost **16 wood / 4 stone** and **30 construction work**.
+Research **Masonry** to unlock stone wall sections. Each costs **8 wood / 18 stone**
 and **40 construction work**, and occupies a clear building hex. Completed walls
 and palisades now physically block battlefield movement and ordinary arrows.
 Wall sections have 420 health; timber palisades have 180. Troops can breach them
@@ -923,3 +924,12 @@ This uses home influence rather than a territorial claim system. Local source
 change; no tests, game launch or multiplayer verification performed; not published.
 
 Palisades and stone walls use straight sections. Adjacent completed defenses automatically join across neighboring hexes, including mixed wood/stone lines. While placing either, arrow keys rotate the section in 30° steps (left/down back, right/up forward); the map preview shows orientation and links. WASD still pans. Orientation is saved; older sections default to 0°. Connections appear when construction finishes.
+
+
+## Published 0.2.25 / build 27 — 2026-11-16
+
+Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.25. Includes straight connected palisades/stone walls, arrow-key placement rotation, orientation/link preview, persisted orientation and shared tactical barrier geometry, plus top-scrollbar idle fade. Supersedes the local/unpublished status of these two changes above.
+
+Feature source committed/pushed as 03a6ec8; release metadata committed as 344bc06. Both platforms built from the fixed 344bc06 snapshot at /tmp/civilization-release-27. Runtime and publisher key unchanged. Six compiled/signed assets published; RSA signature, PCK sizes/SHA-256, ZIP checksums, all six remote asset sizes/digests and latest public update.json byte match verified. Export logs contain only the known macOS certificate lookup diagnostic; no script errors reported. No tests, game launch, live updater installation or cross-machine multiplayer verification performed. Runtime behavior remains unverified. Saves, identity and installed apps/updates untouched. Build log: /tmp/civilization-build-27.log.
+
+Source push that was previously blocked was explicitly requested and completed in this chat; the historical pending-source-push status is superseded. See [[Development]] and [[Civilization Ideation]].

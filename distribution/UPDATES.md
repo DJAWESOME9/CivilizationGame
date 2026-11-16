@@ -202,3 +202,12 @@ Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag
 All source changes committed as a941c94. Built both platforms from that fixed commit snapshot at /tmp/civilization-release-26; runtime and publisher key unchanged. Six compiled/signed assets published. RSA signature, PCK sizes/SHA-256, ZIP checksums, all six remote asset sizes/digests and latest public update.json byte match verified. Export logs contain only known macOS certificate lookup diagnostics; no script errors reported. No tests, game launch, live updater installation or cross-machine multiplayer verification performed. Runtime behavior remains unverified. Saves, identity and installed apps/updates untouched.
 
 Source push to origin/main was rejected by automatic approval review: explicit approval required to publish the full source tree to public DJAWESOME9/CivilizationGame. No bypass attempted; release asset publication succeeded independently. Local source commit and release are complete; source push remains pending explicit approval. Build log: /tmp/civilization-build-26.log.
+
+
+## Published 0.2.25 / build 27 — 2026-11-16
+
+Published as Latest: https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.25. Includes straight connected palisades/stone walls, arrow-key placement rotation, orientation/link preview, persisted orientation and shared tactical barrier geometry, plus top-scrollbar idle fade. Supersedes the local/unpublished status of these two changes above.
+
+Feature source committed/pushed as 03a6ec8; release metadata committed as 344bc06. Both platforms built from the fixed 344bc06 snapshot at /tmp/civilization-release-27. Runtime and publisher key unchanged. Six compiled/signed assets published; RSA signature, PCK sizes/SHA-256, ZIP checksums, all six remote asset sizes/digests and latest public update.json byte match verified. Export logs contain only the known macOS certificate lookup diagnostic; no script errors reported. No tests, game launch, live updater installation or cross-machine multiplayer verification performed. Runtime behavior remains unverified. Saves, identity and installed apps/updates untouched. Build log: /tmp/civilization-build-27.log.
+
+Source push that was previously blocked was explicitly requested and completed in this chat; the historical pending-source-push status is superseded. See [[Development]] and [[Civilization Ideation]].
