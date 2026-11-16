@@ -46,7 +46,7 @@ func refresh_settlements() -> void:
         var info: Dictionary = world.sim.known_civilizations[key]
         var point := Vector2(info.point[0], info.point[1])
         var building_shapes: Array = []
-        for building in info.buildings: building_shapes.append([building.kind, building.q, building.r, building.progress >= 1])
+        for building in info.buildings: building_shapes.append([building.kind, building.q, building.r, building.progress >= 1, building.get("rotation_step", 0)])
         var signature := str([info.point, building_shapes, info.get("arrow_slits", false)])
         if not settlements.has(key) or settlements[key].signature != signature:
             if settlements.has(key): settlements[key].node.queue_free()
@@ -70,18 +70,11 @@ func refresh_settlements() -> void:
                     root.add_child(facility)
                     facility.position = world.pos(location.x, location.y, 0.04)
                     world.craft_building_model(facility, building.kind)
-                elif building.progress >= 1 and building.kind == "Palisade":
-                    var fence := Node3D.new()
-                    root.add_child(fence)
-                    fence.position = world.pos(location.x, location.y, 0.04)
-                    for i in range(20):
-                        var angle := i * TAU / 20.0
-                        world.cylinder(fence, Vector3(cos(angle) * 1.35, 0.75, sin(angle) * 1.35), 0.11, 0.02, 1.5, world.mats.wood, 6)
-                elif building.progress >= 1 and building.kind == "Wall":
-                    var wall := Node3D.new()
-                    root.add_child(wall)
-                    wall.position = world.pos(location.x, location.y, 0.04)
-                    world.stone_wall(wall, info.get("arrow_slits", false))
+                elif building.progress >= 1 and building.kind in ["Palisade", "Wall"]:
+                    var defense := Node3D.new()
+                    root.add_child(defense)
+                    defense.position = world.pos(location.x, location.y, 0.04)
+                    world.fortification(defense, building, info.buildings, info.get("arrow_slits", false))
                 else:
                     world.box(root, world.pos(location.x, location.y, 0.15), Vector3(2.3, 0.3 if building.progress < 1 else 0.1, 2.3), world.mats.soil)
             var marker := Node3D.new()

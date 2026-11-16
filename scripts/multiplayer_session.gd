@@ -314,8 +314,9 @@ func apply_command(simulation, action: String, args: Array) -> String:
             if args.size() != 1 or not args[0] is String or not simulation.STARTING_OBJECTS.has(args[0]): return "Invalid dismantling order."
             return simulation.order_dismantle(args[0])
         "build":
-            if args.size() != 3 or args[0] not in simulation.BUILDINGS or not args[1] is int or not args[2] is int: return "Invalid building order."
-            return simulation.order_build(args[0], args[1], args[2])
+            if args.size() not in [3, 4] or args[0] not in simulation.BUILDINGS or not args[1] is int or not args[2] is int: return "Invalid building order."
+            if args.size() == 4 and (not args[3] is int or args[3] < 0 or args[3] > 5): return "Invalid wall orientation."
+            return simulation.order_build(args[0], args[1], args[2], args[3] if args.size() == 4 else 0)
         "scout":
             if args.size() != 1 or not args[0] is Vector2 or not args[0].is_finite(): return "Invalid scout destination."
             return simulation.send_scouts(args[0])

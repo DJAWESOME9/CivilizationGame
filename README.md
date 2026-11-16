@@ -193,7 +193,8 @@ Command tab contents and building-category lists scroll vertically when their
 contents exceed the panel; the tab headers stay visible.
 Each panel header has its own collapse/restore button. Panel choices persist locally.
 Settings stays pinned at the right of the top bar; the other top-bar controls
-scroll horizontally when they exceed the available width.
+scroll horizontally when they exceed the available width. The top scrollbar fades
+after three seconds of inactivity; move over the top row or scroll to reveal it.
 The interface uses evergreen panels, brass accents, opening fades, subtle panel
 scale-ins, tab transitions and button hover easing. Settings → **Reduce interface
 animation** disables opening/tab/hover motion and saves your preference locally.
@@ -920,3 +921,5 @@ Easy/Medium AI wait. These AI choices are provisional tuning.
 
 This uses home influence rather than a territorial claim system. Local source
 change; no tests, game launch or multiplayer verification performed; not published.
+
+Palisades and stone walls use straight sections. Adjacent completed defenses automatically join across neighboring hexes, including mixed wood/stone lines. While placing either, arrow keys rotate the section in 30° steps (left/down back, right/up forward); the map preview shows orientation and links. WASD still pans. Orientation is saved; older sections default to 0°. Connections appear when construction finishes.

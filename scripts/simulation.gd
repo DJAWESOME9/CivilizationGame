@@ -855,7 +855,7 @@ func order_dismantle(id: String) -> String:
     announce("%s queued for dismantling. Assign construction workers." % STARTING_OBJECTS[id].kind)
     return "Dismantling queued. Assign construction workers and let time advance."
 
-func order_build(kind: String, q: int, r: int) -> String:
+func order_build(kind: String, q: int, r: int, rotation_step: int = 0) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     var center := Vector2(3.0 * q, sqrt(3.0) * 2.0 * (r + q * 0.5))
     if center.distance_to(Vector2(-4, 0)) > build_radius() or center.x > (8 if completed("Town Hall") > 0 else 4): return "Choose land inside your buildable clearing."
@@ -873,7 +873,7 @@ func order_build(kind: String, q: int, r: int) -> String:
     var cost: Dictionary = BUILDINGS[kind]
     for resource in cost:
         if resource != "work": resources[resource] -= cost[resource]
-    buildings.append({"kind": kind, "q": q, "r": r, "progress": 0.0, "growth": 0.0})
+    buildings.append({"kind": kind, "q": q, "r": r, "progress": 0.0, "growth": 0.0, "rotation_step": posmod(rotation_step, 6)})
     revision += 1
     announce("%s commissioned; materials reserved at the site." % kind)
     return ""

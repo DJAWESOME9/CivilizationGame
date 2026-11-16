@@ -13,6 +13,9 @@ var sim = preload("res://scripts/simulation.gd").new()
 var running := false
 var play_speed := 0.0
 var build_choice := ""
+var wall_rotation_step := 0
+var wall_preview: Node3D
+var wall_preview_signature := ""
 var building_nodes := Node3D.new()
 var visual_revision := -1
 var hud_timer := 0.0
@@ -817,6 +820,11 @@ func _input(event: InputEvent) -> void:
             settings_panel.hide()
             get_viewport().set_input_as_handled()
         return
+    if build_choice in ["Wall", "Palisade"] and event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]:
+        wall_rotation_step = posmod(wall_rotation_step + (-1 if event.keycode in [KEY_LEFT, KEY_DOWN] else 1), 6)
+        feedback.text = "%s: %d° · Arrow keys rotate; click a clear hex to place." % [build_choice, wall_rotation_step * 30]
+        get_viewport().set_input_as_handled()
+        return
     # Finish drags even when the pointer has crossed a panel.
     if event is InputEventMouseButton and not event.pressed:
         if event.button_index == drag_button:
@@ -920,10 +928,10 @@ func _process(delta: float) -> void:
         sim.save_game()
     var direction := Vector2.ZERO
     if not management_open():
-        if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP): direction.y -= 1
-        if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN): direction.y += 1
-        if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT): direction.x -= 1
-        if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT): direction.x += 1
+        if Input.is_physical_key_pressed(KEY_W) or (build_choice not in ["Wall", "Palisade"] and Input.is_physical_key_pressed(KEY_UP)): direction.y -= 1
+        if Input.is_physical_key_pressed(KEY_S) or (build_choice not in ["Wall", "Palisade"] and Input.is_physical_key_pressed(KEY_DOWN)): direction.y += 1
+        if Input.is_physical_key_pressed(KEY_A) or (build_choice not in ["Wall", "Palisade"] and Input.is_physical_key_pressed(KEY_LEFT)): direction.x -= 1
+        if Input.is_physical_key_pressed(KEY_D) or (build_choice not in ["Wall", "Palisade"] and Input.is_physical_key_pressed(KEY_RIGHT)): direction.x += 1
         if Input.is_physical_key_pressed(KEY_Q): yaw += delta * 0.6
         if Input.is_physical_key_pressed(KEY_E): yaw -= delta * 0.6
     if direction != Vector2.ZERO:
@@ -931,6 +939,7 @@ func _process(delta: float) -> void:
         focus += (right * direction.x + Vector3(-right.z, 0, right.x) * direction.y) * delta * camera_size * 0.3
         clamp_focus()
     update_camera()
+    update_wall_preview()
     update_season_visuals()
     update_daylight()
     frame_count += 1
@@ -1136,7 +1145,7 @@ func make_top_bar(layer: CanvasLayer) -> void:
     layout.add_theme_constant_override("separation", 12)
     bar.add_child(layout)
     # Reserve Settings outside the scrolling status row so it stays reachable.
-    var status_scroll := ScrollContainer.new()
+    var status_scroll := preload("res://scripts/top_bar_scroll.gd").new()
     status_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     status_scroll.custom_minimum_size.y = 66
     status_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -1542,7 +1551,7 @@ func refresh_game() -> void:
         visual_revision = sim.revision
         rebuild_buildings()
 
-func place_building(screen: Vector2) -> void:
+func building_hex(screen: Vector2) -> Vector2i:
     var origin := camera.project_ray_origin(screen)
     var direction := camera.project_ray_normal(screen)
     var distance := (0.5 - origin.y) / direction.y
@@ -1559,7 +1568,11 @@ func place_building(screen: Vector2) -> void:
             if length < best:
                 best = length
                 nearest = Vector2i(q, r)
-    var error: String = order("build", [build_choice, int(nearest.x), int(nearest.y)])
+    return nearest
+
+func place_building(screen: Vector2) -> void:
+    var nearest := building_hex(screen)
+    var error: String = order("build", [build_choice, int(nearest.x), int(nearest.y), wall_rotation_step])
     feedback.text = error if not error.is_empty() else "%s commissioned. Assign construction workers to build it." % build_choice
     if error.is_empty() or error == "Order sent to the host.":
         build_choice = ""
@@ -1608,12 +1621,8 @@ func rebuild_buildings() -> void:
                 for xx in [-0.8, 0.0, 0.8]:
                     beam(site, Vector3(xx, 0, -0.7), Vector3(xx, 1.2, -0.7), 0.04, mats.wood)
                     cylinder(site, Vector3(xx, 1.0, -0.7), 0.23, 0.23, 0.07, mats.thatch).rotation_degrees.x = 90
-            elif b.kind == "Palisade":
-                for i in range(20):
-                    var angle := i * TAU / 20.0
-                    cylinder(site, Vector3(cos(angle) * 1.35, 0.75, sin(angle) * 1.35), 0.11, 0.02, 1.5, mats.wood, 6)
-            elif b.kind == "Wall":
-                stone_wall(site, "Arrow Slits" in sim.technologies)
+            elif b.kind in ["Palisade", "Wall"]:
+                fortification(site, b, sim.buildings, "Arrow Slits" in sim.technologies)
             elif b.kind == "Well":
                 cylinder(site, Vector3(0, 0.45, 0), 0.7, 0.7, 0.9, mats.stone)
                 cylinder(site, Vector3(0, 0.91, 0), 0.46, 0.46, 0.02, mats.dark)
@@ -1674,6 +1683,43 @@ func _build_field_plot(site: Node3D, field: Dictionary, field_tiles: Dictionary)
             var z := -1.18 + row * 0.39
             var y := surface_height(center.x + x, center.y + z) - site.position.y + 0.14
             cylinder(site, Vector3(x, y, z), 0.035, 0.015, 0.26, mats.reed, 5)
+
+func update_wall_preview() -> void:
+    var active := build_choice in ["Wall", "Palisade"] and not management_open()
+    var cell := building_hex(get_viewport().get_mouse_position()) if active else Vector2i.ZERO
+    var signature := str([active, cell, build_choice, wall_rotation_step, sim.revision])
+    if signature == wall_preview_signature: return
+    wall_preview_signature = signature
+    if is_instance_valid(wall_preview):
+        remove_child(wall_preview)
+        wall_preview.queue_free()
+    if not active: return
+    var b := {"kind": build_choice, "q": cell.x, "r": cell.y, "rotation_step": wall_rotation_step}
+    var center: Vector2 = preload("res://scripts/fortifications.gd").center(b)
+    wall_preview = Node3D.new()
+    add_child(wall_preview)
+    wall_preview.position = pos(center.x, center.y, 0.04)
+    fortification(wall_preview, b, sim.buildings, "Arrow Slits" in sim.technologies)
+
+func fortification(parent: Node3D, b: Dictionary, buildings: Array, slits: bool) -> void:
+    var origin: Vector2 = preload("res://scripts/fortifications.gd").center(b)
+    for segment in preload("res://scripts/fortifications.gd").segments(b, buildings):
+        var a: Vector2 = segment[0]
+        var end: Vector2 = segment[1]
+        var delta := end - a
+        var middle := (a + end) * 0.5
+        var piece := Node3D.new()
+        parent.add_child(piece)
+        piece.position = Vector3(middle.x - origin.x, surface_height(middle.x, middle.y) + 0.04 - parent.position.y, middle.y - origin.y)
+        piece.rotation.y = -delta.angle()
+        piece.rotation.z = atan2(surface_height(end.x, end.y) - surface_height(a.x, a.y), delta.length())
+        if b.kind == "Wall":
+            piece.scale.x = delta.length() / 2.9
+            stone_wall(piece, slits)
+        else:
+            var count := maxi(2, int(ceil(delta.length() / 0.2)))
+            for i in range(count + 1):
+                cylinder(piece, Vector3(-delta.length() * 0.5 + delta.length() * i / count, 0.75, 0), 0.11, 0.02, 1.5, mats.wood, 6)
 
 func stone_wall(parent: Node3D, slits: bool = false) -> void:
     # A fortified section occupies one building hex, with towers and battlements.

@@ -99,7 +99,9 @@ static func start(w, session, c: Dictionary) -> void:
     # Push initial positions out of fortification footprints.
     for f in b.fighters:
         for wall in walls(home):
-            if inside(point(f), wall): f.point = [point(f).x, float(wall.center.y) + float(wall.half.y) + 0.4]
+            if inside(point(f), wall):
+                var outside: Vector2 = wall.center + Vector2(0, float(wall.half.y) + 0.4).rotated(float(wall.angle))
+                f.point = [outside.x, outside.y]
     home.clamp_assignments()
 
 static func building_point(building: Dictionary) -> Vector2:
@@ -109,11 +111,14 @@ static func walls(home) -> Array:
     var result: Array = []
     for building in home.buildings:
         if building.progress < 1 or building.kind not in ["Wall", "Palisade"]: continue
-        result.append({"building": building, "center": building_point(building), "half": Vector2(1.7, 0.65) if building.kind == "Wall" else Vector2(1.55, 1.55)})
+        for segment in preload("res://scripts/fortifications.gd").segments(building, home.buildings):
+            var a: Vector2 = segment[0]
+            var end: Vector2 = segment[1]
+            result.append({"building": building, "center": (a + end) * 0.5, "half": Vector2(a.distance_to(end) * 0.5 + 0.12, 0.45 if building.kind == "Wall" else 0.25), "angle": (end - a).angle()})
     return result
 
 static func inside(p: Vector2, wall: Dictionary) -> bool:
-    var d: Vector2 = (p - wall.center).abs()
+    var d: Vector2 = (p - wall.center).rotated(-float(wall.angle)).abs()
     return d.x <= wall.half.x and d.y <= wall.half.y
 
 static func blocker(a: Vector2, d: Vector2, obstacles: Array) -> Dictionary:
@@ -122,17 +127,19 @@ static func blocker(a: Vector2, d: Vector2, obstacles: Array) -> Dictionary:
     var best: Dictionary = {}
     var best_t := 2.0
     for wall in obstacles:
-        var low: Vector2 = wall.center - wall.half
-        var high: Vector2 = wall.center + wall.half
+        var local_a: Vector2 = (a - wall.center).rotated(-float(wall.angle))
+        var local_direction := direction.rotated(-float(wall.angle))
+        var low: Vector2 = -wall.half
+        var high: Vector2 = wall.half
         var entry := 0.0
         var leave := 1.0
         var hit := true
         for axis in range(2):
-            if absf(direction[axis]) < 0.00001:
-                if a[axis] < low[axis] or a[axis] > high[axis]: hit = false
+            if absf(local_direction[axis]) < 0.00001:
+                if local_a[axis] < low[axis] or local_a[axis] > high[axis]: hit = false
             else:
-                var t1: float = (low[axis] - a[axis]) / direction[axis]
-                var t2: float = (high[axis] - a[axis]) / direction[axis]
+                var t1: float = (low[axis] - local_a[axis]) / local_direction[axis]
+                var t2: float = (high[axis] - local_a[axis]) / local_direction[axis]
                 entry = maxf(entry, minf(t1, t2))
                 leave = minf(leave, maxf(t1, t2))
         if hit and entry <= leave and entry < best_t:
@@ -241,7 +248,8 @@ static func move(f: Dictionary, destination: Vector2, speed: float, days: float,
         # Move along the wall to its nearest open end rather than walking through it.
         var center: Vector2 = wall.center
         var half: Vector2 = wall.half
-        var corner := Vector2(center.x + (half.x + 0.5) * (1 if p.x >= center.x else -1), center.y + (half.y + 0.5) * (1 if p.y >= center.y else -1))
+        var local_p := (p - center).rotated(-float(wall.angle))
+        var corner := center + Vector2((half.x + 0.5) * (1 if local_p.x >= 0 else -1), (half.y + 0.5) * (1 if local_p.y >= 0 else -1)).rotated(float(wall.angle))
         next = p.move_toward(corner, speed * days)
         if not blocker(p, next, obstacles).is_empty():
             var around := p.move_toward(Vector2(corner.x, p.y), speed * days)
