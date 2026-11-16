@@ -14,6 +14,16 @@ static func decide(session, token: String) -> void:
     var spec: Dictionary = DIFFICULTIES.get(record.get("difficulty", "Normal"), DIFFICULTIES.Normal)
     record.next_decision = session.world_day + spec.interval
     var sim = record.sim
+    for item in session.warfare.passage_items(session, token):
+        if item.incoming:
+            var requester := ""
+            for campaign in session.warfare.campaigns:
+                if int(campaign.id) == int(item.campaign): requester = str(campaign.attacker)
+            var allow: bool = not requester.is_empty() and int(session.relationship(token, requester).score) > -20
+            session.player_command(token, "passage_reply", [int(item.campaign), int(item.request), allow])
+        else:
+            # Hard AI may escalate; easier opponents wait for new opportunities.
+            session.player_command(token, "passage_attack" if record.difficulty == "Hard" else "passage_wait", [int(item.campaign), int(item.request)])
     # No extra resources or production bonuses: every order uses normal validation.
     sim.emergency_food = true
     if sim.research.is_empty():

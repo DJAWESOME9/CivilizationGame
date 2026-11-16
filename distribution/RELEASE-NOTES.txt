@@ -1,11 +1,10 @@
-Outposts & new horizons — 0.2.23 / build 25
+Passage & movement — 0.2.24 / build 26
 
-- Establish surveyed stone, wood and food outposts with real settlers and dedicated supply carriers. Build roads, pause routes and recall crews.
-- Choose Your worlds at startup: separate solo/hosted saves, remembered joined worlds, world names and creator renaming.
-- Evergreen/brass interface styling, opening and tab animations, reduced-motion setting and cinematic settlement cover.
-- More detailed citizen clothing and smoother civilian movement; simpler early Storehouse and better-fitting Town Hall policies.
-- Population-based home influence, landscape beyond the map edges, and progressive research/building discovery.
+- Armies route around uninvolved civilizations. Blocked armies request passage; landowners can allow or deny, and denied commanders can send attack orders by messenger.
+- Saved passage decisions and expedition permissions, tailored multiplayer snapshots and AI responses.
+- More dispersed idle citizens and smoother resident, scout and outpost movement.
+- Settings stays reachable, happiness details scroll, and checkbox selected-hover styling is consistent.
 
-Existing saves remain available. Multiplayer requires matching builds. New native app icons require the ZIP download; compatible game content arrives through the signed updater after reopening.
+Existing saves remain available. Multiplayer requires matching builds. Compatible content updates apply after reopening.
 
-Earlier outpost verification: 55 focused checks and isolated macOS bootstrap/outpost rendering passed; shutdown leak diagnostics remain. This release is packaged without new tests or game launches. Cross-machine multiplayer, long-term balance and live updater installation remain unverified.
+Both platform packages built; signed feed and artifact integrity checked. No new tests, game launch, live updater installation or cross-machine multiplayer verification performed. Runtime behavior remains unverified.

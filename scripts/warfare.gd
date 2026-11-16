@@ -292,6 +292,177 @@ static func army_order(simulation, action: String, args: Array) -> String:
         return "Commander orders updated."
     return "Unknown military order."
 
+# Routes use the same home influence as sight/interception, with room for formations.
+func border_regions(session, attacker: String, defender: String, grants: Array = []) -> Array:
+    var regions: Array = []
+    for token in session.civilizations:
+        if token == attacker or token == defender or token in grants: continue
+        var sim = session.civilizations[token].sim
+        regions.append([Vector2(sim.world_origin[0] - 4.0, sim.world_origin[1]), sim.home_influence_radius() + 3.0, token])
+    return regions
+
+func clear_march_segment(a: Vector2, b: Vector2, regions: Array) -> bool:
+    for region in regions:
+        var center: Vector2 = region[0]
+        var radius: float = region[1]
+        # Existing armies caught inside a growing border may leave, never cut deeper.
+        if a.distance_to(center) < radius:
+            if (a - center).dot(b - a) < -0.0001: return false
+        elif Geometry2D.get_closest_point_to_segment(center, a, b).distance_to(center) < radius - 0.0001:
+            return false
+    return true
+
+func march_route(start: Vector2, destination: Vector2, regions: Array) -> Array:
+    if clear_march_segment(start, destination, regions):
+        return [[start.x, start.y], [destination.x, destination.y]]
+    var nodes: Array[Vector2] = [start, destination]
+    # Circumscribed rings keep straight chords outside the protected circles.
+    for region in regions:
+        for i in range(24):
+            var point: Vector2 = region[0] + Vector2.from_angle(TAU * i / 24.0) * ((float(region[1]) + 0.1) / cos(PI / 24.0))
+            var outside := true
+            for other in regions:
+                if point.distance_to(other[0]) < float(other[1]):
+                    outside = false
+                    break
+            if outside: nodes.append(point)
+    var costs: Array[float] = []
+    var previous: Array[int] = []
+    var visited: Array[bool] = []
+    for point in nodes:
+        costs.append(INF)
+        previous.append(-1)
+        visited.append(false)
+    costs[0] = 0.0
+    for iteration in nodes.size():
+        var current := -1
+        for i in nodes.size():
+            if not visited[i] and (current == -1 or costs[i] < costs[current]): current = i
+        if current == -1 or is_inf(costs[current]): break
+        if current == 1:
+            var result: Array = []
+            while current != -1:
+                result.push_front([nodes[current].x, nodes[current].y])
+                current = previous[current]
+            return result
+        visited[current] = true
+        for i in nodes.size():
+            if visited[i] or i == 0: continue
+            var cost: float = costs[current] + nodes[current].distance_to(nodes[i])
+            if cost < costs[i] and clear_march_segment(nodes[current], nodes[i], regions):
+                costs[i] = cost
+                previous[i] = current
+    return []
+
+func route_length(route: Array) -> float:
+    var length := 0.0
+    for i in range(1, route.size()):
+        length += Vector2(route[i - 1][0], route[i - 1][1]).distance_to(Vector2(route[i][0], route[i][1]))
+    return length
+
+func route_position(route: Array, fraction: float) -> Vector2:
+    var remaining := route_length(route) * clampf(fraction, 0, 1)
+    for i in range(1, route.size()):
+        var a := Vector2(route[i - 1][0], route[i - 1][1])
+        var b := Vector2(route[i][0], route[i][1])
+        var length := a.distance_to(b)
+        if remaining <= length: return a.lerp(b, remaining / maxf(length, 0.0001))
+        remaining -= length
+    return Vector2(route.back()[0], route.back()[1])
+
+# Requests and grants live with their expedition, so saves retain unanswered decisions.
+func request_is_current(campaign: Dictionary, request: Dictionary) -> bool:
+    return campaign.get("route_blocked", false) and campaign.phase in ["Marching", "Returning"] and request.phase == campaign.phase and int(request.target) == int(campaign.to_slot)
+
+func queue_passage(session, campaign: Dictionary, start: Vector2, destination: Vector2, regions: Array) -> void:
+    for request in campaign.get("passage_requests", []):
+        if request_is_current(campaign, request) and request.status in ["Pending", "Denied", "Waiting"]: return
+    var landowner := ""
+    # Ask the nearest landowner on the attempted direct corridor first.
+    # More than one border can require consent; request the next only if still blocked.
+    var nearest := INF
+    for region in regions:
+        if clear_march_segment(start, destination, [region]): continue
+        var distance: float = start.distance_to(region[0])
+        if distance < nearest:
+            nearest = distance
+            landowner = str(region[2])
+    if landowner.is_empty(): return
+    if not campaign.has("passage_requests"): campaign.passage_requests = []
+    var request_id := int(campaign.get("passage_serial", 0)) + 1
+    campaign.passage_serial = request_id
+    campaign.passage_requests.append({"id": request_id, "landowner": landowner, "status": "Pending", "phase": campaign.phase, "target": campaign.to_slot})
+    session.civilizations[landowner].sim.announce("%s requests permission for an army to cross your land." % session.civilizations[campaign.attacker].name)
+    session.civilizations[campaign.attacker].sim.announce("Passage requested from %s. The army will wait for permission." % session.civilizations[landowner].name)
+    revision += 1
+
+func passage_items(session, token: String) -> Array:
+    var result: Array = []
+    for campaign in campaigns:
+        var army := find_army(session.civilizations[campaign.attacker].sim, int(campaign.army))
+        if army.is_empty(): continue
+        for request in campaign.get("passage_requests", []):
+            if not request_is_current(campaign, request): continue
+            var incoming: bool = request.landowner == token and request.status == "Pending"
+            var denied: bool = campaign.attacker == token and request.status == "Denied"
+            if not incoming and not denied: continue
+            result.append({"campaign": int(campaign.id), "request": int(request.id), "incoming": incoming, "civilization": session.civilizations[campaign.attacker].name, "landowner": session.civilizations[request.landowner].name, "army": army_name(army), "count": army.soldiers.size()})
+    return result
+
+func passage_order(session, token: String, action: String, args: Array) -> String:
+    if args.size() != (3 if action == "passage_reply" else 2) or not args[0] is int or not args[1] is int: return "Choose a current passage request."
+    if action == "passage_reply" and not args[2] is bool: return "Choose Allow or Don't allow."
+    for campaign in campaigns:
+        if int(campaign.id) != args[0]: continue
+        for request in campaign.get("passage_requests", []):
+            if int(request.id) != args[1]: continue
+            if not request_is_current(campaign, request): return "That expedition no longer needs this passage."
+            var army := find_army(session.civilizations[campaign.attacker].sim, int(campaign.army))
+            if army.is_empty(): return "That army is no longer available."
+            if action == "passage_reply":
+                if request.landowner != token or request.status != "Pending": return "That request is not awaiting your decision."
+                request.status = "Allowed" if args[2] else "Denied"
+                if args[2]:
+                    if not campaign.has("passage_grants"): campaign.passage_grants = []
+                    if token not in campaign.passage_grants: campaign.passage_grants.append(token)
+                    campaign.erase("border_signature")
+                    refresh_march_route(session, campaign, army)
+                session.civilizations[campaign.attacker].sim.announce("%s %s passage for %s." % [session.civilizations[token].name, "allowed" if args[2] else "denied", army_name(army)])
+                revision += 1
+                return "Passage allowed for this expedition and its return." if args[2] else "Passage denied. Their commander can choose to attack your civilization."
+            if campaign.attacker != token or request.status != "Denied": return "That denial is not awaiting your orders."
+            if action == "passage_attack":
+                if not campaign.get("messengers", []).is_empty(): return "Wait for the army's current messenger before sending new attack orders."
+                # Contact through a request permits this explicit attack choice without revealing a town report.
+                var slot: int = session.civilizations[request.landowner].slot
+                var origin: Vector2 = SITES[int(campaign.from_slot)]
+                campaign.messengers = [{"point": [origin.x, origin.y], "order": "Attack", "payload": [slot]}]
+                request.status = "Attack ordered"
+                revision += 1
+                return "Messenger sent: attack %s instead. The army must receive the order first." % session.civilizations[request.landowner].name
+            request.status = "Waiting"
+            revision += 1
+            return "Army remains stopped. You can send Return or choose another target in Armies & commanders."
+    return "That passage request is no longer available."
+
+func refresh_march_route(session, campaign: Dictionary, army: Dictionary) -> void:
+    var regions := border_regions(session, campaign.attacker, campaign.defender, campaign.get("passage_grants", []))
+    var signature := var_to_str([regions, campaign.phase, campaign.to_slot])
+    if campaign.get("border_signature", "") == signature: return
+    var start := campaign_point(campaign)
+    var destination: Vector2 = SITES[int(campaign.from_slot if campaign.phase == "Returning" else campaign.to_slot)]
+    var route := march_route(start, destination, regions)
+    campaign.border_signature = signature
+    campaign.march_route = route
+    campaign.route_blocked = route.is_empty()
+    if route.is_empty():
+        queue_passage(session, campaign, start, destination, regions)
+    campaign.route_anchor = [start.x, start.y]
+    campaign.elapsed = 0.0
+    var duration := maxf(0.05, route_length(route) / (3.6 if army.commander == "Mira" else 3.0))
+    if campaign.phase == "Returning": campaign.return_days = duration
+    else: campaign.travel = duration
+
 func launch(session, token: String, army_id: int, target_slot: int, mission: String = "Raid", destroy_buildings: bool = false) -> String:
     if mission not in ["Attack", "Raid", "Raze"]: return "Choose Attack, Raid or Raze."
     var attacker = session.civilizations[token].sim
@@ -304,7 +475,9 @@ func launch(session, token: String, army_id: int, target_slot: int, mission: Str
         if int(session.civilizations[candidate].slot) == target_slot: target = candidate
     if target.is_empty() or target == token: return "Choose another civilization."
     if not attacker.known_civilizations.has(str(target_slot)): return "Send scouts to discover that civilization first."
-    var travel: float = SITES[int(session.civilizations[token].slot)].distance_to(SITES[target_slot]) / 3.0
+    var route := march_route(SITES[int(session.civilizations[token].slot)], SITES[target_slot], border_regions(session, token, target))
+    var blocked := route.is_empty()
+    var travel: float = (SITES[int(session.civilizations[token].slot)].distance_to(SITES[target_slot]) if blocked else route_length(route)) / 3.0
     if army.commander == "Mira": travel /= 1.2
     var food := ceilf(army.soldiers.size() * (travel * 2.0 / 0.65 + 16.0) / 90.0 * 1.5)
     food = minf(food, carry_capacity(army))
@@ -313,12 +486,14 @@ func launch(session, token: String, army_id: int, target_slot: int, mission: Str
     army.supplies = food
     army.status = "Marching"
     army.defend_home = false
-    campaigns.append({"id": next_campaign, "attacker": token, "defender": target, "army": army_id, "mission": mission, "destroy_buildings": destroy_buildings and mission == "Raze", "messengers": [], "phase": "Marching", "elapsed": 0.0, "travel": travel, "round_clock": 0.0, "rounds": 0, "attacker_losses": 0, "defender_losses": 0, "defender_armies": [], "attacker_start": army.soldiers.size(), "defender_start": 0, "militia": [], "militia_morale": 65.0, "result": "", "loot": {"food": 0.0, "wood": 0.0, "stone": 0.0}, "from_slot": session.civilizations[token].slot, "to_slot": target_slot})
+    campaigns.append({"route_blocked": blocked, "route_anchor": [SITES[int(session.civilizations[token].slot)].x, SITES[int(session.civilizations[token].slot)].y], "march_route": route, "border_signature": var_to_str([border_regions(session, token, target), "Marching", target_slot]), "id": next_campaign, "attacker": token, "defender": target, "army": army_id, "mission": mission, "destroy_buildings": destroy_buildings and mission == "Raze", "messengers": [], "phase": "Marching", "elapsed": 0.0, "travel": travel, "round_clock": 0.0, "rounds": 0, "attacker_losses": 0, "defender_losses": 0, "defender_armies": [], "attacker_start": army.soldiers.size(), "defender_start": 0, "militia": [], "militia_morale": 65.0, "result": "", "loot": {"food": 0.0, "wood": 0.0, "stone": 0.0}, "from_slot": session.civilizations[token].slot, "to_slot": target_slot})
     next_campaign += 1
-    attacker.announce("%s marches with %d %s to %s %s." % [army_name(army), army.soldiers.size(), army.unit.to_lower(), mission.to_lower(), session.civilizations[target].name])
+    if blocked:
+        queue_passage(session, campaigns.back(), SITES[int(session.civilizations[token].slot)], SITES[target_slot], border_regions(session, token, target))
+    attacker.announce("%s %s with %d %s to %s %s." % [army_name(army), "awaits passage" if blocked else "marches", army.soldiers.size(), army.unit.to_lower(), mission.to_lower(), session.civilizations[target].name])
     # Defenders discover approaching armies through actual sight, not launch notifications.
     revision += 1
-    return "Army dispatched; provisions reserved. Your target can be offline."
+    return "Army waiting at home; a passage request was sent to the blocking civilization." if blocked else "Army dispatched; provisions reserved. Your target can be offline."
 
 func recall(session, token: String, army_id: int) -> String:
     return send_messenger(session, token, army_id, "Return")
@@ -375,6 +550,9 @@ func deliver_message(session, campaign: Dictionary, message: Dictionary) -> void
         campaign.return_days = maxf(0.05, point.distance_to(SITES[int(campaign.from_slot)]) / (3.6 if army.commander == "Mira" else 3.0))
         campaign.elapsed = 0.0
         campaign.phase = "Returning"
+        campaign.erase("march_route")
+        campaign.erase("border_signature")
+        refresh_march_route(session, campaign, army)
         army.status = "Returning"
     elif message.order == "Hold":
         release_defenders(session, campaign)
@@ -387,12 +565,16 @@ func deliver_message(session, campaign: Dictionary, message: Dictionary) -> void
             if int(session.civilizations[candidate].slot) == int(message.payload[0]): target_token = candidate
         if target_token.is_empty(): return
         release_defenders(session, campaign)
+        campaign.passage_grants = []
         campaign.defender = target_token
         campaign.to_slot = int(message.payload[0])
         campaign.route_start = [point.x, point.y]
         campaign.travel = maxf(0.05, point.distance_to(SITES[int(campaign.to_slot)]) / (3.6 if army.commander == "Mira" else 3.0))
         campaign.elapsed = 0.0
         campaign.phase = "Marching"
+        campaign.erase("march_route")
+        campaign.erase("border_signature")
+        refresh_march_route(session, campaign, army)
         campaign.mission = message.order
         campaign.destroy_buildings = message.order == "Raze" and message.payload.size() > 1 and message.payload[1]
         campaign.erase("battle")
@@ -434,6 +616,8 @@ func advance_step(session, days: float) -> void:
             campaigns.erase(campaign)
             revision += 1
             continue
+        if campaign.phase in ["Marching", "Returning"]:
+            refresh_march_route(session, campaign, army)
         for message in campaign.get("messengers", []).duplicate():
             var courier := Vector2(message.point[0], message.point[1])
             var destination := campaign_point(campaign)
@@ -451,6 +635,7 @@ func advance_step(session, days: float) -> void:
             if int(id) not in living_ids: campaign.militia.erase(id)
         army.supplies = maxf(0, float(army.supplies) - army.soldiers.size() / 90.0 * 1.5 * days)
         if army.supplies <= 0: army.morale = maxf(0, float(army.morale) - days * 6)
+        if campaign.phase in ["Marching", "Returning"] and campaign.get("route_blocked", false): continue
         campaign.elapsed += days * sim.travel_factor() * load_factor(army) if campaign.phase in ["Marching", "Returning"] else days
         if campaign.phase == "Marching" and campaign.elapsed >= campaign.travel:
             begin_battle(session, campaign)
@@ -614,6 +799,9 @@ func finish(session, campaign: Dictionary, won: bool, reason: String) -> void:
     campaign.return_days = maxf(0.05, return_point.distance_to(SITES[int(campaign.from_slot)]) / (3.6 if army.commander == "Mira" else 3.0)) if not army.is_empty() else 0.05
     campaign.phase = "Returning"
     campaign.elapsed = 0.0
+    campaign.erase("march_route")
+    campaign.erase("border_signature")
+    if not army.is_empty(): refresh_march_route(session, campaign, army)
     campaign.result = report.outcome
     campaign.loot = loot
     if won and not campaign.has("battle") and float(loot.food) + float(loot.wood) + float(loot.stone) > 0:
@@ -626,6 +814,10 @@ func finish(session, campaign: Dictionary, won: bool, reason: String) -> void:
     revision += 1
 
 func campaign_point(campaign: Dictionary) -> Vector2:
+    if campaign.phase in ["Marching", "Returning"] and campaign.has("march_route"):
+        if campaign.get("route_blocked", false): return Vector2(campaign.route_anchor[0], campaign.route_anchor[1])
+        var duration: float = campaign.get("return_days", campaign.travel) if campaign.phase == "Returning" else campaign.travel
+        return route_position(campaign.march_route, float(campaign.elapsed) / maxf(0.01, duration))
     var start: Vector2 = SITES[int(campaign.from_slot)]
     var end: Vector2 = SITES[int(campaign.to_slot)]
     if campaign.phase in ["Fighting", "Raiding"]: return end + Vector2(-3, 0)
@@ -662,6 +854,11 @@ func campaign_view(session, campaign: Dictionary, token: String) -> Dictionary:
         return observed
     var view: Dictionary = {"id": campaign.id, "army": campaign.army, "own": campaign.attacker == token, "attacker": session.civilizations[campaign.attacker].name, "defender": session.civilizations[campaign.defender].name, "from_slot": campaign.from_slot, "to_slot": campaign.to_slot, "phase": campaign.phase, "elapsed": campaign.elapsed, "travel": campaign.travel, "return_start": campaign.get("return_start", 1.0), "return_days": campaign.get("return_days", campaign.travel), "rounds": campaign.rounds, "count": army.get("soldiers", []).size(), "unit": army.get("unit", "Militia"), "formation": army.get("formation", "Line"), "commander": army.get("commander", ""), "morale": army.get("morale", 0), "result": campaign.result, "name": army_name(army) if not army.is_empty() else "Army", "mission": campaign.get("mission", "Raid"), "messengers": campaign.get("messengers", []), "route_start": campaign.get("route_start", [SITES[int(campaign.from_slot)].x, SITES[int(campaign.from_slot)].y]), "return_point": campaign.get("return_point", [SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).x, SITES[int(campaign.from_slot)].lerp(SITES[int(campaign.to_slot)], float(campaign.get("return_start", 1.0))).y]), "hold_point": campaign.get("hold_point", [0, 0])}
 
+    var ahead := campaign.duplicate(false)
+    ahead.elapsed = float(campaign.elapsed) + 0.01
+    var direction := campaign_point(ahead) - campaign_point(campaign)
+    view["heading"] = atan2(direction.x, direction.y)
+    view["route_blocked"] = campaign.get("route_blocked", false)
     view["composition"] = composition(army)
     view["cargo"] = army.get("cargo", {})
     view["scene"] = battle_scene(session, campaign, token)

@@ -37,6 +37,7 @@ func make_theme() -> Theme:
         result.set_stylebox("normal", type, box(Color("253a32"), Color("64725a")))
         result.set_stylebox("hover", type, box(Color("364e40"), Color("c9af76")))
         result.set_stylebox("pressed", type, box(Color("493f2b"), Color("d7b873")))
+        result.set_stylebox("hover_pressed", type, box(Color("574b32"), Color("e7c886")))
         result.set_stylebox("disabled", type, box(Color("1d2b27"), Color("39473e")))
         var focus := box(Color(0, 0, 0, 0), Color("e7c886"))
         focus.set_border_width_all(2)
@@ -44,6 +45,25 @@ func make_theme() -> Theme:
         result.set_color("font_color", type, IVORY)
         result.set_color("font_hover_color", type, Color("fff2d5"))
         result.set_color("font_pressed_color", type, Color("ffde9c"))
+        result.set_color("font_hover_pressed_color", type, Color("ffe5b3"))
+        result.set_color("font_disabled_color", type, Color("7e8c7e"))
+    # Checkbox states need their own complete set: mixing custom Button states
+    # with engine defaults can change the frame/padding when checked and hovered.
+    for type in ["CheckBox", "CheckButton"]:
+        for state in ["normal", "pressed", "hover", "hover_pressed", "disabled"]:
+            var fill := Color(0, 0, 0, 0)
+            var edge := Color(0, 0, 0, 0)
+            if state == "hover" or state == "hover_pressed":
+                fill = Color("2a4033")
+                edge = Color("64725a")
+            result.set_stylebox(state, type, box(fill, edge))
+        var focus := box(Color(0, 0, 0, 0), Color("e7c886"))
+        focus.set_border_width_all(2)
+        result.set_stylebox("focus", type, focus)
+        result.set_color("font_color", type, IVORY)
+        result.set_color("font_pressed_color", type, IVORY)
+        result.set_color("font_hover_color", type, Color("fff2d5"))
+        result.set_color("font_hover_pressed_color", type, Color("fff2d5"))
         result.set_color("font_disabled_color", type, Color("7e8c7e"))
     result.set_color("font_color", "Label", IVORY)
     for type in ["LineEdit", "TextEdit"]:

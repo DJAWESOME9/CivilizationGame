@@ -152,9 +152,7 @@ func refresh_forces() -> void:
         if not live: forces[key].node.position = world.pos(at.x, at.y, 0.04)
         if live and not info.own: forces[key].heading = float(info.get("heading", 0.0))
         if live and info.own:
-            var route: Vector2 = Warfare.SITES[int(info.to_slot)] - Vector2(info.route_start[0], info.route_start[1])
-            if info.phase == "Returning": route = Warfare.SITES[int(info.from_slot)] - Vector2(info.return_point[0], info.return_point[1])
-            forces[key].heading = atan2(route.x, route.y)
+            forces[key].heading = float(info.get("heading", 0.0))
 
 func formation_position(index: int, count: int, formation: String) -> Vector3:
     var columns := mini(4, count)

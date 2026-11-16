@@ -3,6 +3,7 @@ extends Node
 const AIOpponent = preload("res://scripts/ai_opponent.gd")
 const Warfare = preload("res://scripts/warfare.gd")
 var warfare = Warfare.new()
+var passage_ui: Node
 var visible_campaigns: Array = []
 
 const Simulation = preload("res://scripts/simulation.gd")
@@ -45,6 +46,9 @@ var next_offer := 1
 
 func setup(scene: Node3D) -> void:
     world = scene
+    passage_ui = preload("res://scripts/passage_requests.gd").new()
+    add_child(passage_ui)
+    passage_ui.setup(self)
     if "--guest-profile" in OS.get_cmdline_user_args(): world_save_path = "user://guest_multiplayer_world.json"
     var identity := ConfigFile.new()
     var identity_path := "user://guest_multiplayer_identity.cfg" if "--guest-profile" in OS.get_cmdline_user_args() else "user://multiplayer_identity.cfg"
@@ -404,6 +408,7 @@ func publish() -> void:
         state["relationships"] = relationships_for(token)
         state["visiting_scouts"] = visiting_scouts(token)
         state["campaigns"] = warfare.public_campaigns(self, token)
+        state["passage_requests"] = warfare.passage_items(self, token)
         state["food_ledger"] = civilizations[token].sim.food_ledger
         state["daily_food_change"] = civilizations[token].sim.daily_food_change
         if peer_id == 1:
@@ -614,6 +619,11 @@ func kill_visiting_scouts(token: String, slot: int, started: float, units: Array
     return "This scouting party is no longer present."
 
 func player_command(token: String, action: String, args: Array) -> String:
+    if action in ["passage_reply", "passage_attack", "passage_wait"]:
+        var response := warfare.passage_order(self, token, action, args)
+        votes.clear()
+        persist()
+        return response
     if action == "found_outpost":
         if args.size() != 1 or not args[0] is int or args[0] < 0 or args[0] >= Simulation.Outposts.SITES.size(): return "Choose a resource site."
         var owner_sim = civilizations[token].sim

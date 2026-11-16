@@ -91,6 +91,7 @@ func setup(scene: Node3D) -> void:
     pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
     add_child(pages)
     var column := page("Armies")
+    world.game_button(column, "Review passage requests", func(): world.session.passage_ui.review())
     var navigation := row(column)
     world.game_button(navigation, "Training", func(): pages.current_tab = 1)
     world.game_button(navigation, "Create / edit armies", func(): pages.current_tab = 2)
@@ -358,7 +359,7 @@ func refresh() -> void:
         if campaign.own:
             var messages: Array = campaign.get("messengers", [])
             if int(campaign.army) == selected_army: pending = not messages.is_empty()
-            campaign_lines.append("%s → %s · %s%s" % [campaign.get("name", "Army"), campaign.defender, campaign.phase, " · Messenger: " + str(messages[0].order) if not messages.is_empty() else ""])
+            campaign_lines.append("%s → %s · %s%s" % [campaign.get("name", "Army"), campaign.defender, "Awaiting passage" if campaign.get("route_blocked", false) else campaign.phase, " · Messenger: " + str(messages[0].order) if not messages.is_empty() else ""])
         else: campaign_lines.append("Enemy army · %s" % campaign.phase)
     campaign_details.text = "\n".join(campaign_lines)
     defend_button.disabled = not home or army.get("defend_home", true)

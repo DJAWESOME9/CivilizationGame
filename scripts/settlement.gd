@@ -1120,7 +1120,7 @@ func resource_indicator(row: HBoxContainer, resource: String, width: float) -> V
 func make_top_bar(layer: CanvasLayer) -> void:
     var bar := PanelContainer.new()
     bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-    bar.offset_bottom = 76
+    bar.offset_bottom = 86
     var style := StyleBoxFlat.new()
     style.bg_color = Color(0.075, 0.115, 0.095, 0.98)
     style.border_color = Color("9e895b")
@@ -1132,9 +1132,21 @@ func make_top_bar(layer: CanvasLayer) -> void:
     bar.add_theme_stylebox_override("panel", style)
     layer.add_child(bar)
     ui_panels.append(bar)
+    var layout := HBoxContainer.new()
+    layout.add_theme_constant_override("separation", 12)
+    bar.add_child(layout)
+    # Reserve Settings outside the scrolling status row so it stays reachable.
+    var status_scroll := ScrollContainer.new()
+    status_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    status_scroll.custom_minimum_size.y = 66
+    status_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    status_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    layout.add_child(status_scroll)
     var row := HBoxContainer.new()
+    row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    row.size_flags_vertical = Control.SIZE_EXPAND_FILL
     row.add_theme_constant_override("separation", 12)
-    bar.add_child(row)
+    status_scroll.add_child(row)
     var identity := VBoxContainer.new()
     identity.custom_minimum_size.x = 150
     row.add_child(identity)
@@ -1195,7 +1207,7 @@ func make_top_bar(layer: CanvasLayer) -> void:
     settings.focus_mode = Control.FOCUS_NONE
     settings.tooltip_text = "Audio, hex lines, camera, and display preferences."
     settings.pressed.connect(func(): settings_panel.show())
-    row.add_child(settings)
+    layout.add_child(settings)
 
 func make_ui() -> void:
     var layer := CanvasLayer.new()

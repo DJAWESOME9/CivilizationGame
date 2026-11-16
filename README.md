@@ -27,7 +27,7 @@ The blank gray window in 0.2.21 is caused by a missing label color argument, con
 
 ## Download and open the game
 
-The latest public release is **0.2.23 / build 25**, adding resource outposts, roads and supply routes, separate world save slots, refreshed interface styling and animations, cinematic artwork, citizen improvements and progressive technology discovery. Download the ZIP for your computer from
+The latest public release is **0.2.24 / build 26**, adding army border routing and passage requests, smoother and less crowded citizen movement, and Settings, happiness scrolling and checkbox styling fixes. Download the ZIP for your computer from
 [Civilization releases on GitHub](https://github.com/DJAWESOME9/CivilizationGame/releases/latest):
 
 - [Download for Mac](https://github.com/DJAWESOME9/CivilizationGame/releases/latest/download/Civilization-Mac.zip)
@@ -95,9 +95,9 @@ Windows gameplay and multiplayer between machines remain unverified.
 
 A startup script-loading error was found in published 0.2.3 (and earlier builds containing the horizontal technology tree). Published 0.2.4 / build 6 corrects it. If the game cannot reach Settings, recovery requires downloading the corrected ZIP and replacing the app; saves and multiplayer identity are stored separately. The corrected source opened the technology screen on macOS with a separate temporary profile, rendered it and exited cleanly without script errors. The native crash in the supplied report remains unconfirmed; Windows runtime and live updater installation remain unverified.
 
-Version **0.2.23 / build 25** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.23).
-Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.23/Civilization-Mac.zip)
-or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.23/Civilization-Windows.zip).
+Version **0.2.24 / build 26** is published on [GitHub Releases](https://github.com/DJAWESOME9/CivilizationGame/releases/tag/v0.2.24).
+Send friends the [Mac ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.24/Civilization-Mac.zip)
+or [Windows ZIP](https://github.com/DJAWESOME9/CivilizationGame/releases/download/v0.2.24/Civilization-Windows.zip).
 Extract and open the game; Godot is not required. Earlier copies need one manual
 replacement with this updater-enabled build. Live update installation remains untested.
 
@@ -192,6 +192,8 @@ H toggles hexes; R resets the camera; Tab collapses/restores all settlement pane
 Command tab contents and building-category lists scroll vertically when their
 contents exceed the panel; the tab headers stay visible.
 Each panel header has its own collapse/restore button. Panel choices persist locally.
+Settings stays pinned at the right of the top bar; the other top-bar controls
+scroll horizontally when they exceed the available width.
 The interface uses evergreen panels, brass accents, opening fades, subtle panel
 scale-ins, tab transitions and button hover easing. Settings → **Reduce interface
 animation** disables opening/tab/hover motion and saves your preference locally.
@@ -258,6 +260,8 @@ extracted. Windows/Linux can open the source with Godot; packaged exports remain
 ## Happiness, rations, and food accounting
 
 Click the **Happiness** indicator for the modifiers behind its actual score.
+Scroll with the mouse wheel, trackpad or vertical scrollbar to reach all modifiers,
+food policy and food accounting; the heading and Close button stay visible.
 Food reserves, reduced/generous rations, untreated water, crowding, missing bedding,
 winter exposure, lasting starvation hardship, and education affect the score.
 Starting tents provide shelter but not permanent beds; houses include bedding.
@@ -886,6 +890,33 @@ render fixture in `tests/outposts_scene_smoke.gd`; native checks were run from a
 temporary project with the separate Civilization Outpost Checks profile.
 
 
-## Release 0.2.23 / build 25
+## Release 0.2.24 / build 26
 
 Published outposts, roads and supply routes, Your worlds/save slots, refreshed interface and citizen visuals, cinematic cover, population-based influence, progressive research discovery and landscape coverage. All six release assets and signed feed verified. No new gameplay launch or tests performed for publication; live updater installation and cross-machine multiplayer remain unverified. A concurrent citizen-movement change is still local and excluded from this release.
+
+## Army passage around other civilizations
+
+Armies route around the population-based home influence of civilizations other
+than their own and their current attack/raid/raze target, with clearance for the
+formation. Detours increase travel time and departure provisions. Return trips
+and delivered changes of orders also respect these borders. Routes update when
+borders change; armies already inside newly protected land can move outward.
+If no route exists, the army waits and the nearest blocking landowner receives a
+popup naming the requesting civilization, army and soldier count. **Allow** grants
+passage to that expedition, including its return; **Don't allow** keeps it stopped.
+After denial, the army's owner gets **Keep waiting** and **Attack civilization**
+choices. Attack redirects that army toward the refusing civilization once its
+messenger arrives; other borders still apply. Changing targets clears prior grants.
+If several borders block the route, permissions are requested one at a time.
+
+**Decide later** or closing the popup leaves the decision unanswered. Open
+**Armies & commanders → Armies → Review passage requests** to reopen it. Requests
+and expedition permissions persist in the host's world save, so disconnected
+landowners can decide after reconnecting. Host validation limits each decision
+to its recipient and current expedition. The shared clock keeps running; waiting
+armies continue consuming supplies. AI allows passage unless its opinion of the
+requester is hostile (−20 or below); after a denial Hard AI chooses attack while
+Easy/Medium AI wait. These AI choices are provisional tuning.
+
+This uses home influence rather than a territorial claim system. Local source
+change; no tests, game launch or multiplayer verification performed; not published.

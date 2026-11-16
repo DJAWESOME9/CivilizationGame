@@ -236,9 +236,44 @@ func equip(p: Dictionary) -> void:
             world.beam(p.tool, Vector3.ZERO, Vector3(0, 0.1, 1.7), 0.018, world.mats.wood)
             world.beam(p.tool, Vector3(0, 0.1, 1.7), Vector3(0, -0.5, 1.7), 0.003, world.mats.cloth)
 
+# Stable per-resident variation avoids repeating rows and synchronized cohorts.
+func resident_fraction(index: int, salt: int) -> float:
+    return float(posmod((index + 1) * 7919 + salt * 104729, 65521)) / 65521.0
+
+func clear_civilian_point(point: Vector2, index: int) -> Vector2:
+    for attempt in range(12):
+        var blocked := false
+        for obstacle in obstacles:
+            var offset: Vector2 = point - obstacle.point
+            var clearance: float = obstacle.radius + 0.8
+            if offset.length() < clearance:
+                var angle := resident_fraction(index, attempt + 17) * TAU
+                var direction := offset.normalized() if offset.length() > 0.01 else Vector2(cos(angle), sin(angle))
+                point = obstacle.point + direction * clearance
+                blocked = true
+        if not blocked: break
+    return point
+
+func civilian_home(index: int) -> Vector2:
+    var shelters: Array[Vector2] = []
+    for b in world.sim.buildings:
+        if b.kind == "House" and b.progress >= 1:
+            shelters.append(Vector2(3.0 * b.q, sqrt(3.0) * 2 * (b.r + b.q * 0.5)))
+    for id in ["tent_east", "tent_west"]:
+        if world.sim.camp_object_present(id):
+            var item: Dictionary = world.sim.STARTING_OBJECTS[id]
+            shelters.append(Vector2(item.point[0], item.point[1]))
+    var center := Vector2(-4, 1.5) if shelters.is_empty() else shelters[index % shelters.size()]
+    var angle := float(index) * 2.399963
+    var radius := 3.0 + sqrt(float(index / maxi(1, shelters.size()))) * 0.95
+    return clear_civilian_point(center + Vector2(cos(angle), sin(angle)) * radius, index)
+
 func target_for(p: Dictionary) -> Vector2:
     var index: int = p.index
     var spread := Vector2((index % 3 - 1) * 0.55, (index % 4 - 1.5) * 0.6)
+    if p.job not in ["Militia", "Spearmen", "Archers", "Scouting"]:
+        var angle := float(index) * 2.399963
+        spread = Vector2(cos(angle), sin(angle)) * (0.8 + sqrt(float(index)) * 0.42)
     match p.job:
         "Militia", "Spearmen", "Archers":
             for b in world.sim.buildings:
@@ -290,7 +325,17 @@ func _process(delta: float) -> void:
     if world.running or (is_instance_valid(world.session) and world.session.active): clock += delta
     update_people(delta)
 
+# Keep visual corrections separate from authoritative simulation positions.
+func place_person(p: Dictionary, point: Vector2, delta: float, height: float = 0.04) -> void:
+    var destination: Vector3 = world.pos(point.x, point.y, height)
+    if not p.get("position_initialized", false):
+        p.node.position = destination
+        p.position_initialized = true
+    else:
+        p.node.position = p.node.position.lerp(destination, 1.0 - exp(-delta * 14.0))
+
 func update_people(_delta: float) -> void:
+    var remote_units: Array = world.sim.Outposts.units(world.sim)
     for p in people:
         if p.index >= world.sim.people.size():
             p.node.hide()
@@ -309,15 +354,20 @@ func update_people(_delta: float) -> void:
         if not scout_party.is_empty() and scout_party.get("boat", false) and world.sim.point_on_river(world.sim.mission_position(scout_party)): deployed = true
         p.node.visible = not deployed
         if deployed: continue
-        if person_id in world.sim.Outposts.units(world.sim):
+        if person_id in remote_units:
             var remote_point: Vector2 = world.sim.Outposts.person_position(world.sim, person_id)
-            p.node.position = world.pos(remote_point.x, remote_point.y)
+            var previous: Vector3 = p.node.position
+            place_person(p, remote_point, _delta, 0.0)
+            var travel: Vector3 = p.node.position - previous
+            if Vector2(travel.x, travel.z).length() > 0.001:
+                p.node.rotation.y = lerp_angle(p.node.rotation.y, atan2(travel.x, travel.z), 1.0 - exp(-_delta * 9.0))
+            animate_civilian(p, travel.length() > 0.001, false, _delta)
             p.tool.visible = false
             p.shield.visible = false
             p.cargo.visible = true
             continue
-        var phase := fmod(clock / 24.0 + p.index * 0.137, 1.0)
-        var home := Vector2(-8.0 + (p.index % 6) * 0.7, 1.4 + int(p.index / 6) * 0.75)
+        var phase := fmod(clock / (23.0 + resident_fraction(p.index, 3) * 11.0) + resident_fraction(p.index, 7), 1.0)
+        var home := civilian_home(p.index)
         var target := target_for(p)
         # Visual rest illustrates the rest already included in daily work rates.
         # Scouts and soldiers retain their duties through the night.
@@ -351,6 +401,14 @@ func update_people(_delta: float) -> void:
             working = false
             # Preserve the arrival heading while surveying or waiting to return.
             facing = direction if not direction.is_zero_approx() else Vector2(sin(p.node.rotation.y), cos(p.node.rotation.y))
+        elif not active:
+            # Idle residents take short separate strolls, then pause outside shelters.
+            var angle := resident_fraction(p.index, 11) * TAU
+            var destination := clear_civilian_point(home + Vector2(cos(angle), sin(angle)) * 2.5, p.index)
+            var progress := clampf(phase / 0.25, 0.0, 1.0) if phase < 0.6 else 1.0 - clampf((phase - 0.6) / 0.25, 0.0, 1.0)
+            point = routed_point(home, destination, progress, -1.0 if p.index % 2 == 0 else 1.0)
+            walking = phase < 0.25 or (phase >= 0.6 and phase < 0.85)
+            facing = (destination - home) * (1.0 if phase < 0.6 else -1.0)
         elif active:
             if phase < 0.3:
                 var route_progress := phase / 0.3
@@ -358,14 +416,16 @@ func update_people(_delta: float) -> void:
                 var ahead := routed_point(home, target, minf(route_progress + 0.02, 1.0), -1.0 if p.index % 2 == 0 else 1.0)
                 facing = ahead - point
             elif phase < 0.72:
-                point = target
+                point = routed_point(home, target, 1.0, -1.0 if p.index % 2 == 0 else 1.0)
                 facing = Vector2(1, 0) if p.job == "Fishing" else Vector2(0, -1)
             elif phase < 0.94:
                 var route_progress := (phase - 0.72) / 0.22
-                point = routed_point(target, home, route_progress, -1.0 if p.index % 2 == 0 else 1.0)
-                var ahead := routed_point(target, home, minf(route_progress + 0.02, 1.0), -1.0 if p.index % 2 == 0 else 1.0)
+                point = routed_point(home, target, 1.0 - route_progress, -1.0 if p.index % 2 == 0 else 1.0)
+                var ahead := routed_point(home, target, maxf(1.0 - route_progress - 0.02, 0.0), -1.0 if p.index % 2 == 0 else 1.0)
                 facing = ahead - point
-        p.node.position = world.pos(point.x, point.y, 0.04)
+            else:
+                point = routed_point(home, target, 0.0, -1.0 if p.index % 2 == 0 else 1.0)
+        place_person(p, point, _delta)
         if not facing.is_zero_approx():
             p.node.rotation.y = lerp_angle(p.node.rotation.y, atan2(facing.x, facing.y), 1.0 - exp(-_delta * 9.0))
         if p.job not in ["Militia", "Spearmen", "Archers"] or resting_at_night:
