@@ -300,6 +300,7 @@ func apply_command(simulation, action: String, args: Array) -> String:
     if action in ["raid", "attack", "raze", "recall", "messenger"]: return "Join a shared world to launch an expedition."
     if action in ["found_outpost", "outpost_road", "outpost_route", "recall_outpost"]:
         return simulation.Outposts.order(simulation, action, args)
+    if action == "outpost_workers": return simulation.Worksites.order(simulation, args)
     match action:
         "assign":
             if args.size() != 2 or args[0] not in simulation.JOBS or not args[1] is int: return "Invalid workforce order."
@@ -625,21 +626,19 @@ func player_command(token: String, action: String, args: Array) -> String:
         votes.clear()
         persist()
         return response
-    if action == "found_outpost":
-        if args.size() != 1 or not args[0] is int or args[0] < 0 or args[0] >= Simulation.Outposts.SITES.size(): return "Choose a resource site."
+    if action == "build" and args.size() in [3, 4] and args[0] == "Outpost" and args[1] is int and args[2] is int:
         var owner_sim = civilizations[token].sim
         var origin := Vector2(owner_sim.world_origin[0], owner_sim.world_origin[1])
-        var destination: Vector2 = Simulation.Outposts.SITES[args[0]].point + origin
+        var destination: Vector2 = owner_sim.Worksites.point({"q": args[1], "r": args[2]}) + origin
         for other_token in civilizations:
             if other_token == token: continue
             var other_sim = civilizations[other_token].sim
             var other_origin := Vector2(other_sim.world_origin[0], other_sim.world_origin[1])
-            if destination.distance_to(other_origin + Vector2(-4, 0)) < 12:
-                return "This site is too close to another civilization's settlement."
-            for other_post in other_sim.outposts:
-                var other_point: Vector2 = Simulation.Outposts.SITES[int(other_post.site)].point + other_origin
-                if destination.distance_to(other_point) < 8:
-                    return "Another civilization already has an outpost near this site."
+            if destination.distance_to(other_origin + Vector2(-4, 0)) < other_sim.home_influence_radius(): return "Choose land outside another civilization's home influence."
+            for building in other_sim.buildings:
+                if destination.distance_to(other_sim.Worksites.point(building) + other_origin) < 4: return "Another civilization already has a building here."
+    if action == "found_outpost":
+        return "Place an Outpost from Build → Resources instead."
     if action == "attack_scouts":
         if args.size() != 4 or not args[0] is int or not (args[1] is float or args[1] is int) or not args[2] is Array or not args[3] is int or int(args[3]) < 0: return "Choose visiting scouts and a ready army."
         return kill_visiting_scouts(token, args[0], float(args[1]), args[2], args[3])

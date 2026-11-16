@@ -1,5 +1,10 @@
 extends RefCounted
 
+const Worksites = preload("res://scripts/worksites.gd")
+var resource_extracted: Dictionary = {}
+var resource_node_cache: Dictionary = {}
+var resource_target_cache: Dictionary = {}
+
 const Outposts = preload("res://scripts/outposts.gd")
 var outposts: Array = []
 var outpost_sites: Dictionary = {}
@@ -32,6 +37,7 @@ var camp_dismantling: Dictionary = {}
 
 const JOBS = ["Gathering", "Fishing", "Logging", "Quarrying", "Construction", "Farming"]
 const BUILDINGS = {
+    "Outpost": {"wood": 20.0, "stone": 5.0, "work": 18.0},
     "Carpenter Workshop": {"wood": 30.0, "stone": 12.0, "work": 45.0},
     "Bathhouse": {"wood": 24.0, "stone": 32.0, "work": 55.0},
     "Pottery Workshop": {"wood": 20.0, "stone": 16.0, "work": 35.0},
@@ -45,8 +51,8 @@ const BUILDINGS = {
     "School": {"wood": 30.0, "stone": 12.0, "work": 45.0},
     "Training Grounds": {"wood": 16.0, "stone": 4.0, "work": 20.0},
     "Barracks": {"wood": 24.0, "stone": 10.0, "work": 36.0},
-    "Palisade": {"wood": 30.0, "stone": 4.0, "work": 30.0},
-    "Wall": {"wood": 8.0, "stone": 24.0, "work": 40.0}
+    "Palisade": {"wood": 16.0, "stone": 4.0, "work": 10.0},
+    "Wall": {"wood": 8.0, "stone": 18.0, "work": 15.0}
 }
 # Maximum effective construction labor assigned to one site. Any remaining
 # builders continue to the next unfinished site in placement order.
@@ -69,7 +75,7 @@ const TECHNOLOGIES = {
     "Planting": 60.0, "Preservation": 120.0, "Forestry": 80.0, "Crop Rotation": 160.0,
     "Stoneworking": 80.0, "Carpentry": 120.0, "Masonry": 160.0, "Sanitation": 160.0, "Waterworks": 200.0
 }
-const BUILDING_TECH = {"Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Military Organization", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization", "Pottery Workshop": "Pottery", "Boatyard": "Boatbuilding", "Archive": "Writing", "Carpenter Workshop": "Joinery", "Bathhouse": "Waterworks"}
+const BUILDING_TECH = {"Outpost": "Storage","Field": "Planting", "Well": "Sanitation", "School": "Education", "Storehouse": "Storage", "Training Grounds": "Toolmaking", "Barracks": "Military Organization", "Palisade": "Carpentry", "Wall": "Masonry", "Town Hall": "Community Organization", "Pottery Workshop": "Pottery", "Boatyard": "Boatbuilding", "Archive": "Writing", "Carpenter Workshop": "Joinery", "Bathhouse": "Waterworks"}
 const JOB_TECH = {"Gathering": "", "Fishing": "Fishing", "Logging": "Woodcutting", "Quarrying": "Stoneworking", "Construction": "Shelter Building", "Farming": "Planting"}
 const PREREQUISITES = {
     "Arrow Slits": ["Masonry", "Archery"],
@@ -183,15 +189,16 @@ var report_revision := 0
 var food_ledger: Dictionary = {"production": 0.0, "consumption": 0.0, "spoilage": 0.0, "overflow": 0.0}
 var material_production: Dictionary = {"wood": 0.0, "stone": 0.0}
 const LANDMARKS = [
-    {"name": "Northern stone ridge", "point": [-29.0, -22.0], "description": "Exposed stone deposits; A remote quarry outpost can extract stone here."},
-    {"name": "Western woodland", "point": [-27.0, 19.0], "description": "Dense timber stands; A woodland outpost can harvest timber here."},
-    {"name": "River meadow", "point": [1.0, 26.0], "description": "Fertile riverside ground; A farming outpost can grow food here."}
+    {"name": "Northern stone ridge", "point": [-29.0, -22.0], "description": "Exposed stone deposits; place an outpost nearby to shorten quarry workers’ walks."},
+    {"name": "Western woodland", "point": [-27.0, 19.0], "description": "Dense timber stands; place an outpost nearby to shorten loggers’ walks."},
+    {"name": "River meadow", "point": [1.0, 26.0], "description": "Fertile riverside ground suitable for exploration."}
 ]
 
 func cell_key(point: Vector2) -> String:
     return "%d:%d" % [floori((point.x + 96) / 3), floori((point.y + 96) / 3)]
 
-func discovered_resource_capacity(resource: String) -> float:
+func resource_nodes(resource: String) -> Array:
+    if resource_node_cache.has(resource): return resource_node_cache[resource]
     # Match resource_deposits.gd's deterministic near-to-far reserve partition.
     # This prevents workers from consuming the reserve represented by unseen objects.
     var nodes: Array = []
@@ -226,7 +233,7 @@ func discovered_resource_capacity(resource: String) -> float:
             var x := 10 + sin(z * 0.095) * 3 + (3.2 if i % 2 == 0 else -3.2)
             nodes.append({"point": Vector2(x, z), "weight": 0.35 * 0.22 * 0.3})
     else:
-        return 0.0
+        return []
     nodes.sort_custom(func(a, b):
         var pa: Vector2 = a.point
         var pb: Vector2 = b.point
@@ -238,20 +245,40 @@ func discovered_resource_capacity(resource: String) -> float:
     var total_weight := 0.0
     for node in nodes: total_weight += float(node.weight)
     var reserve_total := 1200.0 if resource == "wood" else 1500.0
-    var capacity := 0.0
-    for node in nodes:
-        var point: Vector2 = node.point
-        if explored.has(cell_key(point)):
-            capacity += reserve_total * float(node.weight) / maxf(total_weight, 0.001)
-    return capacity
+    var offset := 0.0
+    for i in range(nodes.size()):
+        var node: Dictionary = nodes[i]
+        node["capacity"] = reserve_total * float(node.weight) / maxf(total_weight, 0.001)
+        node["offset"] = offset
+        node["key"] = resource + ":" + str(i)
+        offset += float(node.capacity)
+    resource_node_cache[resource] = nodes
+    return nodes
 
-func discovered_resource_remaining(resource: String, reserve: float) -> float:
-    # Depletion follows the same near-to-far ordering as the rendered deposits.
-    # Sum only the remaining portions belonging to cells the player has discovered.
-    var discovered_capacity := discovered_resource_capacity(resource)
+func resource_node_remaining(resource: String, node: Dictionary) -> float:
     var reserve_total := 1200.0 if resource == "wood" else 1500.0
-    var harvested := maxf(0.0, reserve_total - reserve)
-    return maxf(0.0, discovered_capacity - harvested)
+    var reserve: float = forest if resource == "wood" else quarry
+    var extra: float = resource_extracted.get(resource + ":total", 0.0)
+    var legacy := maxf(0.0, reserve_total - reserve - extra)
+    return maxf(0.0, float(node.capacity) - maxf(0.0, legacy - float(node.offset)) - float(resource_extracted.get(node.key, 0.0)))
+
+func discovered_resource_capacity(resource: String) -> float:
+    var amount := 0.0
+    for node in resource_nodes(resource):
+        if explored.has(cell_key(node.point)): amount += float(node.capacity)
+    return amount
+
+func discovered_resource_remaining(resource: String, _reserve: float) -> float:
+    var amount := 0.0
+    for node in resource_nodes(resource):
+        if explored.has(cell_key(node.point)): amount += resource_node_remaining(resource, node)
+    return amount
+
+func route_crosses_river(origin: Vector2, destination: Vector2) -> bool:
+    var steps := maxi(1, ceili(origin.distance_to(destination) * 2.0))
+    for i in range(steps + 1):
+        if point_on_river(origin.lerp(destination, float(i) / steps)): return true
+    return false
 
 func reveal_land(point: Vector2, radius: float) -> void:
     var changed := false
@@ -858,7 +885,11 @@ func order_dismantle(id: String) -> String:
 func order_build(kind: String, q: int, r: int, rotation_step: int = 0) -> String:
     if not BUILDINGS.has(kind): return "Unknown building."
     var center := Vector2(3.0 * q, sqrt(3.0) * 2.0 * (r + q * 0.5))
-    if center.distance_to(Vector2(-4, 0)) > build_radius() or center.x > (8 if completed("Town Hall") > 0 else 4): return "Choose land inside your buildable clearing."
+    if kind == "Outpost":
+        if absf(center.x) > 88 or absf(center.y) > 88: return "Choose land within the playable map."
+        if not explored.has(cell_key(center)): return "Scout this land first."
+        if route_crosses_river(Vector2(-4, 0), center): return "Builders need a land route; bridges are not available."
+    elif center.distance_to(Vector2(-4, 0)) > build_radius() or center.x > (8 if completed("Town Hall") > 0 else 4): return "Choose land inside your buildable clearing."
     for id in STARTING_OBJECTS:
         var item: Dictionary = STARTING_OBJECTS[id]
         if camp_object_present(id) and center.distance_to(Vector2(item.point[0], item.point[1])) < float(item.radius) + 2.0:
@@ -968,18 +999,17 @@ func tick(dt: float) -> void:
     prepare_roster(work)
     # Rates include travel and rest; nobody contributes a full day of labor.
     var season := int(day / 90.0) % 4
-    var gathered := minf(wildlife, labor("Gathering") * dt * (0.11 * [1.05, 1.15, 1.0, 0.5][season]) * (1.2 if "Basketry" in technologies else 1.0) * (1.25 if "Hunting" in technologies else 1.0))
+    var gathered := minf(wildlife, Worksites.gathering_labor(self) * dt * (0.11 * [1.05, 1.15, 1.0, 0.5][season]) * (1.2 if "Basketry" in technologies else 1.0) * (1.25 if "Hunting" in technologies else 1.0))
     wildlife = minf(300, wildlife - gathered + [0.30, 0.24, 0.18, 0.08][season] * dt * (1.5 if civic_active("Conservation") else 1.0))
     var food_produced: float = gathered + labor("Fishing") * dt * (0.14 * [1.0, 1.15, 0.9, 0.55][season])
     resources.food += food_produced
-    var wood_unharvested := discovered_resource_remaining("wood", forest)
-    var timber := minf(wood_unharvested, labor("Logging") * dt * 0.12 * (0.8 if season == 3 else 1.0))
-    forest -= timber
-    if "Forestry" in technologies: forest = minf(1200, forest + labor("Logging") * dt * 0.04 * (1.5 if civic_active("Conservation") else 1.0) * (0.0 if season == 3 else 1.25 if season == 0 else 1.0))
+    var timber := Worksites.harvest(self, "Logging", "wood", 0.12 * (0.8 if season == 3 else 1.0), dt)
+    if "Forestry" in technologies:
+        var regrown := minf(1200.0 - forest, labor("Logging") * dt * 0.04 * (1.5 if civic_active("Conservation") else 1.0) * (0.0 if season == 3 else 1.25 if season == 0 else 1.0))
+        Worksites.restore(self, "wood", regrown)
+        forest += regrown
     resources.wood += timber
-    var stone_unharvested := discovered_resource_remaining("stone", quarry)
-    var stone := minf(stone_unharvested, labor("Quarrying") * dt * 0.09 * (0.75 if season == 3 else 1.0) * (1.25 if "Stoneworking" in technologies else 1.0))
-    quarry -= stone
+    var stone := Worksites.harvest(self, "Quarrying", "stone", 0.09 * (0.75 if season == 3 else 1.0) * (1.25 if "Stoneworking" in technologies else 1.0), dt)
     resources.stone += stone
     var fields := completed("Field")
     for b in buildings:
@@ -1009,7 +1039,13 @@ func tick(dt: float) -> void:
     for b in build_queue:
         if b.progress < 1 and builder_labor > 0:
             var assigned_labor: float = minf(builder_labor, float(BUILDING_WORKER_CAPS.get(b.kind, 4.0)))
-            var budget := assigned_labor * dt * construction_rate
+            var working_days := dt
+            if b.kind == "Outpost":
+                var travel_needed := Worksites.HOME.distance_to(Worksites.point(b)) / (Worksites.WALK_SPEED * travel_factor())
+                var before: float = b.get("builder_travel", 0.0)
+                b["builder_travel"] = minf(travel_needed, before + dt)
+                working_days = maxf(0.0, dt - maxf(0.0, travel_needed - before))
+            var budget := assigned_labor * working_days * construction_rate
             var needed: float = (1 - b.progress) * BUILDINGS[b.kind].work
             # Pay only for workshop-assisted work actually used at this site.
             # Limit the boost to available timber, then continue at normal speed.
@@ -1047,11 +1083,13 @@ func tick(dt: float) -> void:
         var return_wood := minf(excess, timber)
         resources.wood -= return_wood
         forest += return_wood
+        Worksites.restore(self, "wood", return_wood)
         timber -= return_wood
         excess -= return_wood
         var return_stone := minf(excess, stone)
         resources.stone -= return_stone
         quarry += return_stone
+        Worksites.restore(self, "stone", return_stone)
         stone -= return_stone
         excess -= return_stone
         food_overflow = minf(float(resources.food), excess)
@@ -1081,7 +1119,7 @@ func tick(dt: float) -> void:
         announce("Settlement condition: %s." % " · ".join(conditions))
 
 func snapshot() -> Dictionary:
-    return {"outpost_sites": outpost_sites, "outposts": outposts, "world_name": world_name, "happiness": happiness, "government": government, "camp_dismantling": camp_dismantling, "version": 1, "research_points_version": research_points_version, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "owned_commanders": owned_commanders, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
+    return {"resource_extracted": resource_extracted, "outpost_sites": outpost_sites, "outposts": outposts, "world_name": world_name, "happiness": happiness, "government": government, "camp_dismantling": camp_dismantling, "version": 1, "research_points_version": research_points_version, "map_format": map_format, "has_seen_intro": has_seen_intro, "world_origin": world_origin, "shared_region": shared_region, "known_civilizations": known_civilizations, "known_armies": known_armies, "army_sights": army_sights, "armies": armies, "owned_commanders": owned_commanders, "next_army_id": next_army_id, "defense_order": defense_order, "emergency_defenders": emergency_defenders, "battle_reports": battle_reports, "ration_level": ration_level, "explored": explored, "scout_mission": scout_mission, "scout_missions": scout_missions, "discoveries": discoveries, "people": people, "next_person_id": next_person_id, "workforce_targets": workforce_targets, "generation_targets": generation_targets, "automatic_workforce": automatic_workforce, "allow_migration": allow_migration, "allow_births": allow_births, "migration_clock": migration_clock, "birth_progress": birth_progress, "day": day, "population": population, "resources": resources, "material_production": material_production, "assignments": assignments, "buildings": buildings, "technologies": technologies, "research": research, "queued_research": queued_research, "research_progress": research_progress, "research_saved": research_saved, "forest": forest, "quarry": quarry, "wildlife": wildlife, "starvation": starvation, "events": events, "emergency_food": emergency_food, "days_per_real_day": days_per_real_day, "saved_at": Time.get_unix_time_from_system()}
 
 func save_game() -> void:
     if save_path.is_empty(): return
@@ -1094,6 +1132,8 @@ func restore_snapshot(data: Dictionary) -> void:
     var old_explored := JSON.stringify(explored)
     for key in snapshot():
         if key not in ["version", "saved_at"] and data.has(key): set(key, data[key])
+    resource_extracted = data.get("resource_extracted", {}).duplicate(true)
+    resource_target_cache.clear()
     outposts = data.get("outposts", []).duplicate(true)
     outpost_sites = data.get("outpost_sites", {}).duplicate(true)
     camp_dismantling = data.get("camp_dismantling", {}).duplicate(true)

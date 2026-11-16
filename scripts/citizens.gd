@@ -5,6 +5,7 @@ const FULL_SIZE_AGE := 16.0
 
 # One visible figure per settler. Animation illustrates aggregate simulation;
 # these travel cycles do not create extra resource deliveries.
+var worksite_assignments: Dictionary = {}
 var world: Node3D
 var people: Array = []
 var clock := 0.0
@@ -162,6 +163,7 @@ func sync_people() -> void:
     for army in world.sim.armies:
         for id in army.soldiers: roles[int(id)] = preload("res://scripts/warfare.gd").soldier_unit(army, int(id))
     for id in world.sim.emergency_defenders: roles[int(id)] = "Militia"
+    worksite_assignments = world.sim.Worksites.allocations(world.sim)
     sync_construction_targets()
     for i in range(people.size()):
         var p: Dictionary = people[i]
@@ -274,6 +276,15 @@ func target_for(p: Dictionary) -> Vector2:
     if p.job not in ["Militia", "Spearmen", "Archers", "Scouting"]:
         var angle := float(index) * 2.399963
         spread = Vector2(cos(angle), sin(angle)) * (0.8 + sqrt(float(index)) * 0.42)
+    var resident_id: int = world.sim.people[index].id
+    var assigned: Dictionary = worksite_assignments
+    var workplace: Dictionary = assigned.get(resident_id, {})
+    if p.job in ["Logging", "Quarrying"]:
+        var resource := "wood" if p.job == "Logging" else "stone"
+        var origin: Vector2 = world.sim.Worksites.HOME if workplace.is_empty() else world.sim.Worksites.point(workplace)
+        var deposit: Dictionary = world.sim.Worksites.target(world.sim, resource, origin)
+        return origin + spread if deposit.is_empty() else deposit.point + spread * 0.2
+    if p.job == "Gathering" and not workplace.is_empty(): return world.sim.Worksites.point(workplace) + Vector2(-4, 3) + spread
     match p.job:
         "Militia", "Spearmen", "Archers":
             for b in world.sim.buildings:
@@ -366,8 +377,10 @@ func update_people(_delta: float) -> void:
             p.shield.visible = false
             p.cargo.visible = true
             continue
-        var phase := fmod(clock / (23.0 + resident_fraction(p.index, 3) * 11.0) + resident_fraction(p.index, 7), 1.0)
+        var phase := fmod(clock / (12.0 + resident_fraction(p.index, 3) * 5.0) + resident_fraction(p.index, 7), 1.0)
         var home := civilian_home(p.index)
+        var workplaces: Dictionary = worksite_assignments
+        if workplaces.has(person_id): home = world.sim.Worksites.point(workplaces[person_id]) + Vector2(0, 1.5)
         var target := target_for(p)
         # Visual rest illustrates the rest already included in daily work rates.
         # Scouts and soldiers retain their duties through the night.

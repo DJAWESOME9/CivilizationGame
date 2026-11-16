@@ -12,6 +12,15 @@ static func normalize(sim) -> void:
     # JSON restores array numbers as floats; resident membership requires integer IDs.
     for post in sim.outposts:
         post.units = post.units.map(func(id): return int(id))
+        # Superseded crews return without deleting their people or cargo.
+        if not post.get("manual_system_retired", false):
+            post["manual_system_retired"] = true
+            if post.stage == "Founding party":
+                post.travel = 1.0 - clampf(float(post.travel), 0, 1)
+                post.stage = "Returning"
+            elif post.stage not in ["Recalling", "Returning"]:
+                post.stage = "Recalling"
+            post.enabled = false
 
 static func find(sim, site: int) -> Dictionary:
     for post in sim.outposts:
@@ -62,26 +71,7 @@ static func order(sim, action: String, args: Array) -> String:
     if args.size() != 1 or not args[0] is int or args[0] < 0 or args[0] >= SITES.size(): return "Choose a resource site."
     var site: int = args[0]
     if action == "found_outpost":
-        var blocked := founding_block(sim, site)
-        if not blocked.is_empty(): return blocked
-        var previous_site: Dictionary = sim.outpost_sites.get(str(site), {})
-        var crew: Array = available(sim).slice(0, 4)
-        sim.prepare_roster(sim.assignments)
-        var previous: Dictionary = {}
-        for job in sim.JOBS:
-            for person in sim.job_roster[job]:
-                if int(person.id) in crew:
-                    previous[str(int(person.id))] = job
-                    sim.assignments[job] = maxi(0, int(sim.assignments[job]) - 1)
-        for person in sim.people:
-            if int(person.id) in crew: person.erase("scout_return_job")
-        sim.resources.wood -= 20
-        sim.resources.stone -= 5
-        sim.resources.food -= 16
-        sim.outposts.append({"site": site, "units": crew, "previous_jobs": previous, "stage": "Founding party", "travel": 0.0, "work": 0.0, "food": 16.0, "stock": 0.0, "reserve": previous_site.get("reserve", SITES[site].reserve), "road": previous_site.get("road", 0.0), "road_ordered": previous_site.get("road_ordered", false), "enabled": true, "leg": "Home", "route_progress": 0.0, "cargo": 0.0, "shipment_food": 0.0, "hunger": 0.0, "delivered": 0.0})
-        sim.clamp_assignments()
-        sim.announce("Four settlers departed to establish %s." % SITES[site].name)
-        return "Founding party dispatched. Manage its supply route here."
+        return "Place an Outpost from Build → Resources instead."
     var post := find(sim, site)
     if post.is_empty(): return "Found an outpost here first."
     if post.stage in ["Recalling", "Returning"]: return "This outpost is being recalled."
@@ -113,7 +103,7 @@ static func eligible(sim, id: int) -> bool:
     return false
 
 static func duration(sim, post: Dictionary) -> float:
-    var speed := 3.0 if float(post.road) >= 1.0 else 1.5
+    var speed := 12.0 if float(post.road) >= 1.0 else 8.0
     return HOME.distance_to(SITES[int(post.site)].point) / (speed * sim.travel_factor())
 
 static func room(sim) -> float:

@@ -1,10 +1,5 @@
-Connected defenses — 0.2.25 / build 27
+Civilization 0.2.26 / build 28
 
-- Palisades and stone walls are straight sections that automatically connect to completed neighboring defenses, including mixed wood/stone lines.
-- Rotate defenses with arrow keys while placing them; the map preview shows orientation and connections. WASD still pans.
-- Defense orientation persists in saves and multiplayer orders; tactical barriers follow the connected geometry.
-- The top scrollbar fades after three seconds of inactivity and reappears when used.
+Player-placed outposts on surveyed land, constructed by ordinary builders. Assign Gathering, Logging and Quarrying workers from your total workforce at completed outposts. Workers use reachable deposits with travel-distance efficiency and persistent depletion. Legacy crews return with people and cargo. Faster civilian movement and reduced fortification construction work included.
 
-Existing saves remain available. Multiplayer requires matching builds. Compatible content updates apply after reopening.
-
-Both platform packages built; signed feed and artifact integrity checked. No tests, game launch, live updater installation or cross-machine multiplayer verification performed. Runtime behavior remains unverified.
+Mac and Windows packages and signed updater content. No tests, gameplay launch, live updater installation or multiplayer runtime verification performed for this release.

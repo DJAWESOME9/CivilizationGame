@@ -654,8 +654,8 @@ func grid_point(point: Vector2) -> Vector3:
 func hex_edges() -> Array:
     var edges: Array = []
     var seen: Dictionary = {}
-    for q in range(-6, 7):
-        for r in range(-6, 7):
+    for q in range(-30, 31):
+        for r in range(-45, 46):
             var center := Vector2(3.0 * q, sqrt(3.0) * 2.0 * (r + q * 0.5))
             for i in range(6):
                 var a := center + Vector2(cos(i * TAU / 6), sin(i * TAU / 6)) * 2.0
@@ -750,6 +750,9 @@ func mesh_hit_distance(node: Node3D, origin: Vector3, direction: Vector3) -> flo
     return nearest
 
 func pick_object(screen: Vector2) -> Dictionary:
+    if is_instance_valid(outposts_view):
+        var outpost_hit: Dictionary = outposts_view.pick_caption(screen)
+        if not outpost_hit.is_empty(): return outpost_hit
     var caption_hit: Dictionary = world_entities.pick_caption(screen)
     if not caption_hit.is_empty(): return caption_hit
     var origin := camera.project_ray_origin(screen)
@@ -1250,7 +1253,7 @@ func make_ui() -> void:
     build_page.add_child(build_tabs)
     var groups := {
         "Housing": {"types": ["House"], "hint": "Permanent homes provide shelter and bedding."},
-        "Resources": {"types": ["Storehouse", "Field", "Pottery Workshop", "Boatyard", "Carpenter Workshop"], "hint": "Store materials, grow food, supply boats, or improve construction."},
+        "Resources": {"types": ["Outpost", "Storehouse", "Field", "Pottery Workshop", "Boatyard", "Carpenter Workshop"], "hint": "Store materials, grow food, supply boats, or improve construction."},
         "Services": {"types": ["Well", "School", "Town Hall", "Archive", "Bathhouse"], "hint": "Improve water quality, happiness, training, and education."},
         "Military": {"types": ["Training Grounds", "Barracks", "Palisade", "Wall"], "hint": "Training grounds train soldiers; barracks house 12 each; palisades and stronger Masonry walls physically block troops; Arrow Slits enables protected archery."}
     }
@@ -1271,7 +1274,7 @@ func make_ui() -> void:
                     return
                 build_choice = kind
                 hex_grid.visible = true
-                feedback.text = "Place %s on a clear hex in the starting zone." % kind)
+                feedback.text = "Place Outpost on surveyed land, inside or outside home influence." if kind == "Outpost" else "Place %s on a clear hex in the starting zone." % kind)
         var hint := label(groups[category].hint, 12, Color("9fae99"))
         hint.custom_minimum_size.x = 300
         hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1529,7 +1532,7 @@ func refresh_game() -> void:
         if not sim.job_unlocked("Construction"):
             build_guidance_label.text = "No buildings are available yet. Research Toolmaking, then Shelter Building, to unlock construction and your first House. Click Research above to begin."
         else:
-            build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex in the starting zone. Research unlocks more buildings. Disabled buildings show material or facility requirements when you hover."
+            build_guidance_label.text = "Choose a building category, select an available building, then click a clear hex. Outposts can be placed on surveyed land outside home influence; other buildings use the starting zone. Research unlocks more buildings. Disabled buildings show material or facility requirements when you hover."
     research_button.text = "RESEARCH · %.2f points / day\n%s · %.0f%%" % [sim.research_points_per_day(), sim.research if not sim.research.is_empty() else "Choose a technology", 100 * sim.research_progress / sim.TECHNOLOGIES.get(sim.research, 1)]
     if is_instance_valid(exploration_label):
         exploration_label.text = sim.land_report(selected_land) if has_selected_land else "Choose destination on map, then click the land you want surveyed."
@@ -1561,8 +1564,8 @@ func building_hex(screen: Vector2) -> Vector2i:
         point = origin + direction * distance
     var nearest := Vector2i.ZERO
     var best := INF
-    for q in range(-6, 7):
-        for r in range(-6, 7):
+    for q in range(-30, 31):
+        for r in range(-45, 46):
             var center := Vector2(3.0 * q, sqrt(3.0) * 2 * (r + q * 0.5))
             var length := center.distance_squared_to(Vector2(point.x, point.z))
             if length < best:
@@ -1608,6 +1611,12 @@ func rebuild_buildings() -> void:
                     for zz in [-1.2, 1.2]:
                         beam(site, Vector3(xx, 0, zz), Vector3(xx, 0.8, zz), 0.05, mats.wood)
                 box(site, Vector3(0, 0.1, 0), Vector3(2.4, 0.2, 2.4), mats.stone)
+            elif b.kind == "Outpost":
+                box(site, Vector3(0, 0.15, 0), Vector3(2.8, 0.3, 2.0), mats.wood)
+                for xx in [-1.2, 1.2]:
+                    for zz in [-0.8, 0.8]:
+                        box(site, Vector3(xx, 0.95, zz), Vector3(0.12, 1.9, 0.12), mats.wood)
+                box(site, Vector3(0, 1.9, 0), Vector3(3.2, 0.2, 2.4), mats.thatch)
             elif b.kind in ["Carpenter Workshop", "Bathhouse"]:
                 craft_building_model(site, b.kind)
             elif b.kind == "Boatyard":

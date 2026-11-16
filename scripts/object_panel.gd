@@ -16,6 +16,10 @@ var field_actions: HBoxContainer
 var scout_route: Control
 var town_hall: Control
 var civic_action: Button
+var worker_actions: VBoxContainer
+var worker_labels: Dictionary = {}
+var outpost_actions: VBoxContainer
+var outpost_buttons: Dictionary = {}
 var panel: PanelContainer
 
 func setup(scene: Node3D) -> void:
@@ -107,6 +111,35 @@ func setup(scene: Node3D) -> void:
     scout_help = world.label("", 13, Color("d9c59c"))
     scout_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(scout_help)
+    worker_actions = VBoxContainer.new()
+    column.add_child(worker_actions)
+    for job in ["Gathering", "Logging", "Quarrying"]:
+        var work_job: String = job
+        var row := HBoxContainer.new()
+        worker_actions.add_child(row)
+        var caption: Label = world.label("", 14, Color("eee2c6"))
+        caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_child(caption)
+        worker_labels[job] = caption
+        for step in [-1, 1]:
+            var amount: int = step
+            world.game_button(row, "−" if step < 0 else "+", func():
+                for b in world.sim.buildings:
+                    if b.kind == "Outpost" and b.q == selected.q and b.r == selected.r:
+                        var count := maxi(0, int(b.get("workers", {}).get(work_job, 0)) + amount)
+                        field_response.text = world.order("outpost_workers", [int(b.q), int(b.r), work_job, count])
+                        world.sim.save_game()
+                        world.refresh_game()
+                        refresh()
+                        break)
+    outpost_actions = VBoxContainer.new()
+    column.add_child(outpost_actions)
+    for action in ["found", "road", "route", "recall"]:
+        var action_key: String = action
+        outpost_buttons[action] = world.game_button(outpost_actions, "", func():
+            var source: Button = world.outposts_view.rows[int(selected.site)][action_key]
+            source.pressed.emit()
+            refresh())
     visibility_changed.connect(func():
         if visible:
             world.dragging = false
@@ -131,6 +164,8 @@ func refresh() -> void:
     # visible action (or its container) off and on cancels an ongoing click.
     if kind not in ["Scouting party", "Field", "Oak tree", "Stone deposit", "River stone"] and not selected.has("q") and not selected.has("camp_id"):
         progress.hide()
+    worker_actions.visible = kind == "Outpost" and selected.has("q")
+    outpost_actions.visible = kind == "Outpost" and not selected.has("q")
     scout_route.visible = kind == "Scouting party"
     if kind != "Army" or not selected.get("own", false):
         armies_action.visible = kind == "Civilization" or kind == "Training Grounds"
@@ -146,7 +181,7 @@ func refresh() -> void:
         var contact: Dictionary = sim.known_civilizations.get(str(int(selected.slot)), {})
         if contact.is_empty(): hide(); return
         selected.point = Vector2(contact.point[0], contact.point[1])
-    var landscape: bool = kind in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds", "Civilization"] and selected.has("point")
+    var landscape: bool = kind in ["Land", "Oak tree", "Stone deposit", "River stone", "Reeds", "Civilization", "Outpost"] and selected.has("point")
     scout_action.visible = landscape
     scout_help.visible = landscape
     if landscape:
@@ -155,6 +190,20 @@ func refresh() -> void:
         scout_action.disabled = not blocked.is_empty()
         scout_action.text = "Send 3 settlers · %d food" % sim.scout_food_cost(selected.point)
         scout_help.text = blocked if not blocked.is_empty() else "Scouts will travel to this location, survey it, and return. Food is packed for the expected trip duration."
+    if kind == "Outpost" and not selected.has("q"):
+        world.outposts_view.refresh()
+        var row: Dictionary = world.outposts_view.rows[int(selected.site)]
+        heading.text = row.title.text
+        status.text = "Remote resource extraction · founded only by your order"
+        details.text = "Three settlers produce resources; one carrier brings supplies and returns output to town. Roads improve deliveries.\n\n" + row.info.text
+        for action in outpost_buttons:
+            var source: Button = row[action]
+            var button: Button = outpost_buttons[action]
+            button.text = source.text
+            button.visible = source.visible
+            button.disabled = source.disabled
+            button.tooltip_text = source.tooltip_text
+        return
     if kind == "Land":
         status.text = "Scouting destination"
         details.text = sim.land_report(selected.point)
@@ -188,10 +237,31 @@ func refresh() -> void:
         armies_action.text = "Open training"
         status.text = "%s · Hex %d, %d" % ["Complete" if building.progress >= 1 else "Under construction", building.q, building.r]
         if building.progress < 1:
+            worker_actions.hide()
             progress.show()
             progress.value = building.progress * 100
             var cost: Dictionary = sim.BUILDINGS[kind]
             details.text = "Construction · %.0f%% complete\nWork remaining · %.1f\nConstruction workers · %d across all projects\n\nMaterials paid · %.0f wood · %.0f stone\nBuilders work through projects in the order they were commissioned. Benefits begin when construction is complete.\n\n%s" % [building.progress * 100, (1 - building.progress) * cost.work, sim.effective_assignments().Construction, cost.wood, cost.stone, benefit(kind)]
+        elif kind == "Outpost":
+            progress.hide()
+            worker_actions.show()
+            sim.prepare_roster(sim.effective_assignments())
+            var allocated: Dictionary = sim.Worksites.allocations(sim)
+            var summary := "Subassign existing workers here. These remain part of the total workforce; workers left over work from town. If totals fall, earlier outposts receive workers first.\nWood/stone output falls with the round-trip walk to the nearest reachable, surveyed deposit. No separate settlers or carrier are required.\n"
+            for job in worker_labels:
+                var actual := 0
+                for person in sim.job_roster.get(job, []):
+                    if allocated.get(int(person.id), {}) == building: actual += 1
+                worker_labels[job].text = "%s · %d active / %d requested · %d total" % [job, actual, int(building.get("workers", {}).get(job, 0)), int(sim.effective_assignments()[job])]
+                if job in ["Logging", "Quarrying"]:
+                    var resource := "wood" if job == "Logging" else "stone"
+                    var node: Dictionary = sim.Worksites.target(sim, resource, sim.Worksites.point(building))
+                    summary += "\n%s: " % job
+                    if node.is_empty(): summary += "no reachable surveyed deposit"
+                    else:
+                        var distance: float = sim.Worksites.point(building).distance_to(node.point)
+                        summary += "%.1f units to deposit · %.0f%% gathering efficiency" % [distance, sim.Worksites.efficiency(distance) * 100]
+            details.text = summary
         elif kind == "Field":
             progress.show()
             progress.value = clampf(building.get("growth", 0.0) * 100, 0, 100)

@@ -28,10 +28,13 @@ func rebuild(world: Node3D) -> void:
         for node in nodes:
             total_weight += node.scale.x * node.scale.y * node.scale.z
         var offset := 0.0
+        var node_index := 0
         for node in nodes:
             var weight: float = node.scale.x * node.scale.y * node.scale.z
             var capacity: float = float(RESERVES[resource]) * weight / maxf(total_weight, 0.001)
             var info: Dictionary = node.get_meta("inspection")
+            info["resource_key"] = resource + ":" + str(node_index)
+            node_index += 1
             info["resource"] = resource
             info["resource_capacity"] = capacity
             info["resource_offset"] = offset
@@ -46,9 +49,7 @@ func rebuild(world: Node3D) -> void:
 func remaining(sim, info: Dictionary) -> float:
     var resource: String = info.get("resource", "")
     if resource.is_empty(): return 0.0
-    var reserve: float = sim.forest if resource == "wood" else sim.quarry
-    var depleted := maxf(0.0, float(RESERVES[resource]) - reserve)
-    return clampf(float(info.resource_capacity) - maxf(0.0, depleted - float(info.resource_offset)), 0.0, float(info.resource_capacity))
+    return sim.resource_node_remaining(resource, {"capacity": info.resource_capacity, "offset": info.resource_offset, "key": info.get("resource_key", "")})
 
 func refresh(world: Node3D) -> void:
     work_points.clear()

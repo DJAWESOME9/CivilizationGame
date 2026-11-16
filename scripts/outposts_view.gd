@@ -6,12 +6,13 @@ var rows: Array = []
 var geometry := Node3D.new()
 var signature := ""
 var timer := 0.0
+var captions: Array = []
 
 func setup(scene: Node3D, page: VBoxContainer) -> void:
     world = scene
     add_child(geometry)
-    page.add_child(world.label("Outposts & supply routes", 18, Color("eee1bf")))
-    var help: Label = world.label("Scout a site and its land route. Founding: 3 settlers + 1 carrier, 20 wood, 5 stone, 16 food. Road crews stop extraction while building.", 13, Color("c8d1bc"))
+    page.add_child(world.label("Outposts: Build → Resources", 18, Color("eee1bf")))
+    var help: Label = world.label("Place outposts on surveyed land from Build → Resources, including outside home influence. Builders construct them; click a completed outpost to subassign workers from your total workforce.", 13, Color("c8d1bc"))
     help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     page.add_child(help)
     for i in range(Logistics.SITES.size()):
@@ -62,7 +63,10 @@ func refresh() -> void:
         var post := Logistics.find(sim, i)
         row.title.text = site.name if discovered else "Unsurveyed %s site" % site.resource
         var blocked := Logistics.founding_block(sim, i)
-        row.found.visible = post.is_empty()
+        row.title.visible = not post.is_empty()
+        row.info.visible = not post.is_empty()
+        row.locate.visible = not post.is_empty()
+        row.found.visible = false
         row.found.disabled = not blocked.is_empty()
         row.found.tooltip_text = blocked
         row.road.visible = not post.is_empty()
@@ -72,7 +76,7 @@ func refresh() -> void:
             row.info.text = "Potential %s outpost. %s" % [site.resource, blocked]
         else:
             var cost := Logistics.road_cost(i)
-            row.info.text = "%s · %d settlers + carrier\nFood %.1f · stored %s %.1f / 48\nRoute: %s · cargo %.1f · food shipment %.1f\nDelivered %.1f · reserve %s · road %.0f%%" % [post.stage, maxi(0, post.units.size() - 1), post.food, site.resource, post.stock, ("Paused / " if not post.enabled else "") + str(post.leg), post.cargo, post.shipment_food, post.delivered, ("renewable" if site.resource == "food" else "%.0f" % post.reserve), float(post.road) * 100]
+            row.info.text = "Legacy crew returning; place new outposts from Build → Resources.\n%s · %d settlers + carrier\nFood %.1f · stored %s %.1f / 48\nRoute: %s · cargo %.1f · food shipment %.1f\nDelivered %.1f · reserve %s · road %.0f%%" % [post.stage, maxi(0, post.units.size() - 1), post.food, site.resource, post.stock, ("Paused / " if not post.enabled else "") + str(post.leg), post.cargo, post.shipment_food, post.delivered, ("renewable" if site.resource == "food" else "%.0f" % post.reserve), float(post.road) * 100]
             if post.leg in ["Inbound", "Outbound"]: row.info.text += "\nArrival in %.1f days" % ((1.0 - float(post.route_progress)) * Logistics.duration(sim, post))
             if post.food < 2: row.info.text += "\nLow provisions: production stops without food; crew recalls after 3 hungry days."
             if post.cargo > 0.001 and post.leg == "Home": row.info.text += "\nUnload waiting for town storage space."
@@ -88,7 +92,14 @@ func refresh() -> void:
         signature = next_signature
         rebuild()
 
+func pick_caption(screen: Vector2) -> Dictionary:
+    for entry in captions:
+        if world.world_entities.caption_rect(entry.label).has_point(screen):
+            return {"kind": "Outpost", "site": entry.site, "point": Logistics.SITES[entry.site].point}
+    return {}
+
 func rebuild() -> void:
+    captions.clear()
     for child in geometry.get_children():
         geometry.remove_child(child)
         child.queue_free()
@@ -97,23 +108,26 @@ func rebuild() -> void:
     road_material.roughness = 1.0
     for i in range(Logistics.SITES.size()):
         var site: Dictionary = Logistics.SITES[i]
-        if not world.sim.explored.has(world.sim.cell_key(site.point)): continue
         var post := Logistics.find(world.sim, i)
+        if post.is_empty(): continue
         var root := Node3D.new()
         geometry.add_child(root)
         root.position = world.pos(site.point.x, site.point.y, 0.08)
         var caption := Label3D.new()
-        caption.text = site.name + ("\n" + str(post.stage) if not post.is_empty() else "\nResource site")
+        caption.text = site.name + ("\n" + str(post.stage) if not post.is_empty() else "\nUnfounded resource site · click to inspect")
         caption.no_depth_test = true
         caption.font_size = 36
         caption.pixel_size = 0.018
         caption.position.y = 3.0
         caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
         root.add_child(caption)
+        captions.append({"label": caption, "site": i})
+        world.inspectable(root, {"kind": "Outpost", "site": i, "location": site.point})
         if post.is_empty():
             post = world.sim.outpost_sites.get(str(i), {})
             if not post.is_empty(): draw_road(i, float(post.road), road_material)
             continue
+        if post.stage in ["Founding party", "Returning"]: continue
         world.box(root, Vector3(0, 0.15, 0), Vector3(2.8, 0.3, 2.0), world.mats.wood)
         for x in [-1.2, 1.2]:
             for z in [-0.8, 0.8]:

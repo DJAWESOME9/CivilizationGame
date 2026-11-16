@@ -491,9 +491,9 @@ exercised; this is an initial multiplayer implementation, not a verified online 
 ## Warfare foundation
 
 **Buildings → Military** contains Training Grounds, Barracks, Palisade and Wall.
-Palisade sections cost **16 wood / 4 stone** and **30 construction work**.
+Palisade sections cost **16 wood / 4 stone** and **10 construction work**.
 Research **Masonry** to unlock stone wall sections. Each costs **8 wood / 18 stone**
-and **40 construction work**, and occupies a clear building hex. Completed walls
+and **15 construction work**, and occupies a clear building hex. Completed walls
 and palisades now physically block battlefield movement and ordinary arrows.
 Wall sections have 420 health; timber palisades have 180. Troops can breach them
 or move around their footprints. Placement matters: one section does not surround
@@ -840,57 +840,37 @@ Hostile AI civilizations can use their home armies against your visiting scouts.
 Scout attacks currently resolve immediately; they do not use the tactical battle scene.
 
 
-## Resource outposts, roads and supply routes (local source)
+## Player-placed resource outposts (local source)
 
-Open **Command → Explore → Outposts & supply routes**. Locate a potential site,
-then send ordinary scouts to survey both the site and the land corridor from town.
-The initial sites are Northern stone ridge (stone), Western woodland (wood), and
-River meadow (food). Founding requires Shelter Building, Storage, the matching
-production job technology, four available adults, 20 wood, 5 stone and 16 food.
+Choose **Build → Resources → Outpost**, then click surveyed land anywhere on the
+playable map, including outside your home influence. An outpost costs 20 wood,
+5 stone and 18 construction work, and requires Shelter Building and Storage.
+Builders need a land route from town (bridges are unavailable), travel to the site,
+and complete it through the normal construction queue. Rival home territory and
+occupied building locations remain protected in multiplayer.
 
-Three settlers establish and work the camp; the fourth is its dedicated carrier.
-They leave the home workforce and cannot simultaneously scout, train or enlist.
-The party travels to the site and spends six supplied days building the camp.
-Each outpost holds up to 48 output and has separate food provisions. Stone and
-wood use finite remote reserves; meadow production stops in winter. Stored food
-spoils. These remote reserves are additional to the existing town deposits.
+Click a completed outpost and use **− / +** beside Gathering, Logging or Quarrying.
+These workers are subassignments of your existing total job assignments: assigning
+three of ten loggers to an outpost leaves seven working from town. Raise the total
+workforce first if needed. If totals shrink, earlier outposts receive workers first;
+requested quotas remain visible alongside actual active workers.
 
-Carriers automatically bring food from town and return with output. A trail carries
-8 output per trip at 1.5 map units per day, adjusted for seasonal travel. **Build
-road** reserves the displayed distance-based materials and diverts the three
-settlers into road work. A completed road doubles carrying capacity to 16 and
-speed to 3 map units per day. Roads appear progressively on the map.
+Loggers and quarry workers select the nearest reachable surveyed deposit from town
+or their assigned outpost. Their output is reduced by the round-trip walking distance:
+efficiency = 1 / (1 + 2 × distance / 8). Nearby outposts shorten that walk. Actual
+deposits deplete individually and stay depleted after saving/loading; an outpost adds
+no free reserve. Gathering uses the same walking penalty with a local five-unit forage
+trip from an outpost. Workers visually use their assigned workplace and faster walking
+cycles. Food/material output joins the existing settlement resource accounting.
 
-Route panels show provisions, output, remaining reserve, cargo, arrival time and
-cumulative deliveries. **Pause supply route** stops new trips; the current trip
-finishes. Full town storage holds the carrier's remaining cargo until there is room.
-Production pauses when the local store is full or provisions run out. After three
-hungry days, or when the crew loses a working-age member, the outpost recalls.
-**Recall crew** gathers the carrier and brings the surviving settlers home, restoring
-previous civilian duties where workforce rules allow. Remaining camp output is
-abandoned beyond the party's 16-unit return load; homecoming overflow is lost.
-Road progress and depleted reserves persist, so re-founding cannot reset deposits.
+Potential outposts no longer appear automatically; fixed-site founding is disabled.
+Old saved outpost crews recall with their existing cargo and return at 8 map units/day
+(12 with a completed road), instead of 1.5/3. Existing people and saves are retained.
+The old dedicated carrier and remote provisions system applies only to those returning
+legacy crews; new outposts use the ordinary workforce and food budget.
 
-Outposts, roads, cargo and travel progress are saved with each world and included
-in host-authoritative multiplayer snapshots. Multiplayer founding rejects sites
-next to another civilization's town or active outpost. This first version has three
-fixed sites per civilization, one carrier per route and direct land corridors; it
-does not add bridges, free-form road placement, escorts/interception, rival-outpost
-rendering, or deliveries between ordinary town buildings. Construction materials
-are reserved upfront, and the party's food is budgeted together while its carrier
-travels. Shortages trigger recall rather than a separate remote starvation system.
-
-User-authorized verification: 55 focused Godot checks passed, including JSON and
-disk save/load, deliveries, roads, recalls, overflow, retirement, winter farming,
-and host command rejection. Native macOS bootstrap and outpost scene rendered
-without script errors after correcting four citizen/world-picker type errors.
-Native shutdown reports four ObjectDB leaks and one resource still in use; the
-headless run reports the known macOS certificate lookup diagnostic. Cross-machine
-multiplayer, long-term balance and live updater installation remain unverified.
-Not packaged or published. Checks are in `tests/outposts_smoke.gd` and the native
-render fixture in `tests/outposts_scene_smoke.gd`; native checks were run from a
-temporary project with the separate Civilization Outpost Checks profile.
-
+Source inspected only. No tests, parser runs, game launch, rendering, save/load or
+multiplayer runtime verification performed for this redesign. Not packaged/published.
 
 ## Release 0.2.24 / build 26
 
